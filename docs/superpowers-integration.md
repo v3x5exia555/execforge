@@ -23,6 +23,8 @@ ExecForge product decision
 → Superpowers TDD
 → Superpowers verification
 → gstack Staff Engineer review
+→ ExecForge QA Lifecycle
+→ final Staff Engineer delta review when needed
 → ExecForge final engineering verdict
 → Superpowers finish branch
 ```

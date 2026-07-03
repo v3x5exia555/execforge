@@ -30,3 +30,12 @@ Stop and respond `REOPEN PRODUCT DECISION`. Product scope must be changed upstre
 python -m pip install -r requirements-docs.txt
 mkdocs build --strict
 ```
+
+
+## QA plan is blocked
+
+Confirm the target environment, test identities, data cleanup, rate limits, and permission for active security or load testing.
+
+## One layer passes but the transaction fails
+
+Use the cross-layer coverage matrix. A requirement needs portal, API, and backend/data evidence where each layer is applicable.

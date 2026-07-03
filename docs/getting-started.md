@@ -56,3 +56,18 @@ python scripts/execforge.py init-run --name my-feature
 ```bash
 python scripts/execforge.py status
 ```
+
+
+## Portal/API/backend QA
+
+After implementation and the first Staff Engineer review:
+
+```text
+/qa-lifecycle --mode=auto
+```
+
+Review the risk-based plan and respond:
+
+```text
+APPROVE QA PLAN
+```

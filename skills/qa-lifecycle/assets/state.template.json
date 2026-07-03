@@ -1,0 +1,16 @@
+{
+  "version": "1",
+  "initiative": "",
+  "state": "QA_INPUT_REQUIRED",
+  "plan_status": "NOT_CREATED",
+  "plan_approval_status": "PENDING",
+  "plan_approved_by": null,
+  "plan_approved_at": null,
+  "target_environment": null,
+  "build_or_commit": null,
+  "final_verdict": null,
+  "open_q0": [],
+  "open_q1": [],
+  "accepted_risks": [],
+  "untested_areas": []
+}

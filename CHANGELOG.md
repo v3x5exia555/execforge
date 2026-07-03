@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.0 — Portal/API/backend QA lifecycle
+
+- Added `qa-lifecycle` with Portal, API, and Backend/Data QA actors.
+- Added QA plan and environment approval stop check.
+- Added cross-layer requirement coverage and defect routing.
+- Added Playwright, Schemathesis, Testcontainers, Pact, k6, axe-core, and ZAP routing guidance.
+- Integrated QA into the engineering ship lifecycle.
+- Added QA schemas, templates, examples, documentation, CLI initialization, and tests.
+
 ## 0.3.0 — Platform rebuild
 
 - Added `using-execforge` bootstrap/router skill.

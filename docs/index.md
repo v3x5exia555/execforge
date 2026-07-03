@@ -18,6 +18,7 @@ Should it exist?
 - **using-execforge** routes work before action.
 - **execforge** runs CEO/COO product pressure testing.
 - **eng-lifecycle** controls upstream approval, plan review, implementation conformance, and final Staff Engineer review.
+- **qa-lifecycle** verifies the same business requirement across portal, API, and backend/data.
 - **Superpowers** optionally supplies implementation discipline such as worktrees, atomic plans, TDD, subagent execution, debugging, and verification.
 - **gstack** optionally supplies plan-stage engineering and final Staff Engineer reviews.
 

@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ExecForge QA Lifecycle State",
+  "type": "object",
+  "required": [
+    "version",
+    "initiative",
+    "state"
+  ],
+  "properties": {
+    "version": {
+      "type": "string"
+    },
+    "initiative": {
+      "type": "string"
+    },
+    "state": {
+      "enum": [
+        "NO_QA_CONTEXT",
+        "QA_INPUT_REQUIRED",
+        "QA_PLAN_REQUIRED",
+        "QA_PLAN_APPROVAL_REQUIRED",
+        "QA_READY",
+        "QA_IN_PROGRESS",
+        "QA_RETEST_REQUIRED",
+        "QA_PASSED",
+        "QA_RELEASE_READY",
+        "RETURN_TO_IMPLEMENTATION",
+        "RETURN_TO_ENGINEERING_PLAN",
+        "RETURN_TO_PRODUCT",
+        "BLOCKED",
+        "UNVERIFIABLE"
+      ]
+    },
+    "plan_status": {
+      "enum": [
+        "NOT_CREATED",
+        "DRAFT",
+        "APPROVED",
+        "REJECTED"
+      ]
+    },
+    "plan_approval_status": {
+      "enum": [
+        "PENDING",
+        "APPROVED",
+        "REJECTED",
+        "CHANGES_REQUESTED"
+      ]
+    },
+    "final_verdict": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        null,
+        "QA PASS",
+        "QA PASS WITH ACCEPTED RISKS",
+        "RETURN TO IMPLEMENTATION",
+        "RETURN TO ENGINEERING PLAN",
+        "RETURN TO PRODUCT",
+        "BLOCK RELEASE",
+        "UNVERIFIABLE"
+      ]
+    },
+    "open_q0": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "open_q1": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "accepted_risks": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "untested_areas": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "additionalProperties": true
+}

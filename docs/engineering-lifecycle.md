@@ -21,3 +21,8 @@ The Staff Engineer review inspects the actual Git diff and executable evidence. 
 - RETURN TO IMPLEMENTATION
 - RETURN TO PLAN
 - BLOCK
+
+
+## QA gate
+
+For portal/API/backend changes, a Staff Engineer review is followed by `/qa-lifecycle`. If QA fixes production code, run a final delta review and affected QA retest before `SHIP`.

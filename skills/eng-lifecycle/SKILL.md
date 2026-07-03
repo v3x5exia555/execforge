@@ -5,7 +5,7 @@ license: MIT
 compatibility: Requires a Git repository for diff review. Integrates with separately installed gstack and Superpowers skills when available.
 metadata:
   author: ExecForge contributors
-  version: "0.3.0"
+  version: "0.4.0"
 ---
 
 # Engineering Lifecycle
@@ -27,10 +27,14 @@ Implementation
           ↓
 Staff Engineer Review
           ↓
+Portal/API/Backend QA
+          ↓
+Final Delta Review and QA Retest
+          ↓
 Final Engineering Decision
 ```
 
-The plan review and Staff Engineer review must not run in parallel.
+The plan review and Staff Engineer review must not run in parallel. For web portal, API, or backend/data changes, the QA lifecycle must execute before the final ship verdict unless the QA requirement is explicitly not applicable.
 
 ## Modes
 
@@ -101,6 +105,18 @@ Per-task Superpowers review does not replace the final whole-branch Staff Engine
 
 Read [the integration map](references/superpowers-map.md).
 
+## QA lifecycle bridge
+
+For portal, API, backend service, database, queue, or end-to-end transaction changes:
+
+1. Complete the first Staff Engineer review.
+2. Invoke `qa-lifecycle --mode=auto` with approved upstream requirements, engineering plan, implementation diff, and test environment.
+3. Route QA defects to implementation, engineering planning, or product according to the QA verdict.
+4. When QA-driven fixes change production code, run a final Staff Engineer delta review.
+5. Re-run affected QA before issuing `SHIP`.
+
+Do not treat unit tests or a code review as a substitute for cross-layer portal/API/backend evidence.
+
 ## Staff Engineer review
 
 Run only when:
@@ -162,6 +178,8 @@ Before returning:
 - A real diff existed before Staff review.
 - Every requirement and task has a conformance status.
 - Tests claimed as passing were actually run.
+- Applicable portal/API/backend QA completed with `QA PASS` or explicitly accepted non-blocking risks.
+- QA-driven production-code changes received a final delta review and retest.
 - Contradictions and deviations are recorded.
 - No P0/P1 is hidden behind conditional shipping.
 - The final verdict is traceable to evidence.

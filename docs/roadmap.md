@@ -7,6 +7,7 @@
 - Add harness-specific session-start adapters after end-to-end testing.
 - Add JSON artifact emission helpers.
 - Add release packaging.
+- Add optional executable adapters for Playwright, Schemathesis, k6, ZAP, Pact, and Testcontainers.
 
 ## Later
 

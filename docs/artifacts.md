@@ -37,3 +37,22 @@ Validate structure with:
 ```bash
 python scripts/execforge.py validate
 ```
+
+
+## QA artifacts
+
+Recommended `.qa-lifecycle/` content:
+
+- state.json
+- qa-context.md
+- qa-plan.md
+- environment-approval.md
+- coverage-matrix.md
+- execution-evidence.md
+- defects.md
+- retest.md
+- decision.md
+
+Schema:
+
+- `schemas/qa-lifecycle-state.schema.json`

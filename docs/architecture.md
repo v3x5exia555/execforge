@@ -48,3 +48,14 @@ Product evidence
 - Implementers execute approved tasks.
 - Staff reviewer attacks actual code and configuration.
 - Orchestrators own reconciliation and verdicts.
+
+
+## QA layer
+
+```text
+Portal QA ───────┐
+API QA ──────────┼→ QA Main Orchestrator → QA Verdict
+Backend/Data QA ─┘
+```
+
+QA evidence flows back to implementation, engineering planning, or product depending on the root cause. Production-code fixes require a final delta review and affected QA retest.

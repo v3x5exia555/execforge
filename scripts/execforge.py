@@ -17,7 +17,7 @@ from datetime import datetime, timezone
 
 ROOT = Path(__file__).resolve().parents[1]
 SKILLS = ROOT / "skills"
-REQUIRED_SKILLS = {"using-execforge", "execforge", "eng-lifecycle"}
+REQUIRED_SKILLS = {"using-execforge", "execforge", "eng-lifecycle", "qa-lifecycle"}
 
 
 def parse_frontmatter(path: Path) -> dict[str, str]:
@@ -95,6 +95,7 @@ def validate_repo(root: Path = ROOT) -> list[str]:
         ".claude-plugin/plugin.json", ".codex-plugin/plugin.json",
         "schemas/execforge-decision.schema.json",
         "schemas/eng-lifecycle-state.schema.json",
+        "schemas/qa-lifecycle-state.schema.json",
     ]:
         if not (root / rel).exists():
             errors.append(f"Missing required file: {rel}")
@@ -175,26 +176,57 @@ def init_run(name: str, cwd: Path) -> Path:
     (lifecycle / "state.json").write_text(json.dumps(state, indent=2) + "\n", encoding="utf-8")
     upstream_source = SKILLS / "eng-lifecycle" / "assets" / "upstream-requirements.template.md"
     shutil.copy2(upstream_source, lifecycle / "upstream-requirements.md")
+
+    qa = cwd / ".qa-lifecycle"
+    qa.mkdir(exist_ok=True)
+    qa_state_source = SKILLS / "qa-lifecycle" / "assets" / "state.template.json"
+    qa_state = json.loads(qa_state_source.read_text(encoding="utf-8"))
+    qa_state["initiative"] = name
+    (qa / "state.json").write_text(json.dumps(qa_state, indent=2) + "\n", encoding="utf-8")
+    shutil.copy2(SKILLS / "qa-lifecycle" / "assets" / "qa-plan.template.md", qa / "qa-plan.md")
+    shutil.copy2(SKILLS / "qa-lifecycle" / "assets" / "coverage-matrix.template.md", qa / "coverage-matrix.md")
+
     print(f"created run: {run}")
     print(f"created lifecycle state: {lifecycle / 'state.json'}")
+    print(f"created QA lifecycle state: {qa / 'state.json'}")
     return run
 
 
 def show_status(cwd: Path) -> int:
+    found = False
+
     state_file = cwd / ".eng-lifecycle" / "state.json"
-    if not state_file.exists():
-        print("No .eng-lifecycle/state.json found.")
+    if state_file.exists():
+        found = True
+        state = json.loads(state_file.read_text(encoding="utf-8"))
+        print("[engineering]")
+        for key in [
+            "initiative", "state", "upstream_approval_status", "plan_status",
+            "base_branch", "base_commit", "final_decision"
+        ]:
+            print(f"{key}: {state.get(key)}")
+        blockers = state.get("open_blockers", [])
+        print(f"open_blockers: {len(blockers)}")
+        for blocker in blockers:
+            print(f"  - {blocker}")
+
+    qa_file = cwd / ".qa-lifecycle" / "state.json"
+    if qa_file.exists():
+        found = True
+        state = json.loads(qa_file.read_text(encoding="utf-8"))
+        print("[qa]")
+        for key in [
+            "initiative", "state", "plan_status", "plan_approval_status",
+            "target_environment", "build_or_commit", "final_verdict"
+        ]:
+            print(f"{key}: {state.get(key)}")
+        print(f"open_q0: {len(state.get('open_q0', []))}")
+        print(f"open_q1: {len(state.get('open_q1', []))}")
+        print(f"untested_areas: {len(state.get('untested_areas', []))}")
+
+    if not found:
+        print("No engineering or QA lifecycle state found.")
         return 1
-    state = json.loads(state_file.read_text(encoding="utf-8"))
-    for key in [
-        "initiative", "state", "upstream_approval_status", "plan_status",
-        "base_branch", "base_commit", "final_decision"
-    ]:
-        print(f"{key}: {state.get(key)}")
-    blockers = state.get("open_blockers", [])
-    print(f"open_blockers: {len(blockers)}")
-    for blocker in blockers:
-        print(f"  - {blocker}")
     return 0
 
 

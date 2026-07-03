@@ -5,7 +5,7 @@ license: MIT
 compatibility: Supports real subagents when available and isolated simulated review passes otherwise.
 metadata:
   author: ExecForge contributors
-  version: "0.3.0"
+  version: "0.4.0"
 ---
 
 # ExecForge Product Decision

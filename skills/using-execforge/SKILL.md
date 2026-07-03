@@ -1,11 +1,11 @@
 ---
 name: using-execforge
-description: Use when starting work that may involve product scope, feature planning, architecture, implementation, code review, release readiness, CEO/COO review, gstack review, or Superpowers workflows.
+description: Use when starting work that may involve product scope, feature planning, architecture, implementation, code review, portal/API/backend QA, release readiness, CEO/COO review, gstack review, or Superpowers workflows.
 license: MIT
 compatibility: Works with Agent Skills-compatible coding agents. Optional integrations require separately installed gstack and Superpowers skills.
 metadata:
   author: ExecForge contributors
-  version: "0.3.0"
+  version: "0.4.0"
 ---
 
 # Using ExecForge
@@ -22,6 +22,10 @@ Before acting, select the smallest applicable workflow. Do not inspect code, ask
 | Approved product/PRD needs engineering planning | Use `eng-lifecycle --mode=plan` |
 | Implementation plan is approved and code work starts | Use the installed Superpowers execution skills |
 | Existing branch needs final audit | Use `eng-lifecycle --mode=review` |
+| Web portal/API/backend behavior needs test planning or execution | Use `qa-lifecycle` |
+| QA finds a code defect | Return to implementation, then retest |
+| QA finds an architecture/integration defect | Return to `eng-lifecycle --mode=plan` |
+| QA finds unclear or contradictory acceptance criteria | Return to `execforge` |
 | Product assumption becomes invalid during implementation | Return to `execforge` |
 | Architecture assumption becomes invalid during implementation | Return to `eng-lifecycle --mode=plan` |
 
@@ -39,6 +43,8 @@ Recommended mapping:
 6. Before completion claims: `verification-before-completion`.
 7. Final branch handling: `finishing-a-development-branch`.
 8. Final product-to-plan-to-diff audit: `eng-lifecycle --mode=review`.
+9. Portal/API/backend quality gate: `qa-lifecycle --mode=auto`.
+10. If QA fixes change production code, run a final Staff Engineer delta review and QA retest.
 
 ## Priority
 

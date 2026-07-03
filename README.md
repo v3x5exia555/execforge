@@ -1,6 +1,6 @@
 # ExecForge
 
-ExecForge is an agent-skill platform for governing a software initiative from **product decision** to **engineering ship decision**.
+ExecForge is an agent-skill platform for governing a software initiative from **product decision** through **engineering and cross-layer QA** to a final ship decision.
 
 ```text
 CEO Subagent
@@ -15,6 +15,8 @@ COO Subagent
              ↓
   Plan Review → Build → Staff Review
              ↓
+ Portal → API → Backend/Data QA
+             ↓
       Final Engineering Decision
 ```
 
@@ -24,7 +26,8 @@ COO Subagent
 |---|---|
 | `using-execforge` | Bootstrap/router that selects the correct workflow and integrates installed Superpowers skills |
 | `execforge` | CEO + COO product pressure test and final `GO / MODIFY / PILOT / DEFER / KILL` decision |
-| `eng-lifecycle` | Upstream approval, engineering plan review, implementation conformance, Staff Engineer review, and `SHIP / FIX / REPLAN / BLOCK` decision |
+| `eng-lifecycle` | Upstream approval, engineering plan review, implementation conformance, Staff Engineer review, and final ship decision |
+| `qa-lifecycle` | Risk-based portal/API/backend QA planning, execution, retest, and `QA PASS / RETURN / BLOCK` decision |
 
 The repository also includes:
 
@@ -106,7 +109,19 @@ using-git-worktrees
 → verification-before-completion
 ```
 
-ExecForge then performs the final Staff Engineer review against the real diff.
+ExecForge then performs the Staff Engineer review against the real diff, runs the portal/API/backend QA gate, and requires a final delta review when QA fixes production code.
+
+### 7. Run the QA gate
+
+```text
+/qa-lifecycle --mode=auto
+```
+
+Approve the proposed test plan and target environment with:
+
+```text
+APPROVE QA PLAN
+```
 
 ## Documentation
 
@@ -128,7 +143,8 @@ execforge/
 ├── skills/
 │   ├── using-execforge/
 │   ├── execforge/
-│   └── eng-lifecycle/
+│   ├── eng-lifecycle/
+│   └── qa-lifecycle/
 ├── docs/
 ├── examples/
 ├── schemas/
@@ -149,13 +165,17 @@ Eng Lifecycle answers:
 
 > Does the approved engineering plan and actual implementation satisfy the approved product requirements safely enough to ship?
 
+QA Lifecycle answers:
+
+> Does the critical business transaction work across portal, API, and backend/data with release-quality evidence?
+
 Superpowers answers:
 
 > How should the coding agent execute the approved implementation with disciplined planning, isolation, TDD, review, and verification?
 
 ## Status
 
-This package is a repository-ready rebuild of the initial ExecForge proof of concept. It uses Agent Skills directory conventions and progressive disclosure so the main skill files stay concise while detailed contracts live under `references/`.
+This package is a repository-ready platform for product governance, engineering review, disciplined implementation, and portal/API/backend QA. It uses Agent Skills directory conventions and progressive disclosure so the main skill files stay concise while detailed contracts live under `references/`.
 
 ## License
 

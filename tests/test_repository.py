@@ -40,6 +40,9 @@ class RepositoryTests(unittest.TestCase):
             state = json.loads((cwd / ".eng-lifecycle" / "state.json").read_text())
             self.assertEqual("Example Initiative", state["initiative"])
             self.assertEqual("UPSTREAM_INTAKE", state["state"])
+            qa_state = json.loads((cwd / ".qa-lifecycle" / "state.json").read_text())
+            self.assertEqual("Example Initiative", qa_state["initiative"])
+            self.assertEqual("QA_INPUT_REQUIRED", qa_state["state"])
 
 
 if __name__ == "__main__":
