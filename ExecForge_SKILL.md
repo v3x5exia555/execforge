@@ -5,7 +5,7 @@ description: >
   an initiative should exist, selects the right scope posture, evaluates product
   value and operational strength, resolves contradictions, and produces a final
   evidence-based execution decision.
-version: 0.1.0
+version: 0.2.0
 author: ExecForge
 tags:
   - product-strategy
@@ -142,29 +142,58 @@ State the selected mode and the reason.
 
 ---
 
-# Multi-Agent Roles
+# Required Multi-Agent Topology
 
-When the runtime supports subagents, create exactly three roles.
+When the runtime supports subagents, use exactly this topology:
 
-## 1. Main Orchestrator
+```text
+CEO Subagent
+    \
+     Main Orchestrator → Final Decision
+    /
+COO Subagent
+```
 
-The Main Orchestrator:
+The CEO and COO are specialist advisory agents. Both report only to the Main
+Orchestrator. The Main Orchestrator is the only agent authorised to produce the
+final user-visible decision.
 
-- Owns the original user request
-- Creates one shared context package
-- Assigns independent reviews to the CEO and COO subagents
-- Monitors whether both subagents follow their assigned scope
-- Checks evidence quality
-- Detects unsupported assumptions
-- Maintains the contradiction register
-- Maintains the authoritative scope ledger
-- Resolves disagreements
-- Produces the final unified decision
-- Never accepts a subagent recommendation without review
+## Topology Rules
 
-The Main Orchestrator is the final judge, not a simple response merger.
+1. The CEO and COO receive the same shared context package.
+2. They analyse the initiative independently and may run in parallel.
+3. They must not directly merge their answers.
+4. They must not negotiate privately or overwrite each other's findings.
+5. Neither subagent may issue the final Go / Modify / Pilot / Defer / Kill verdict.
+6. Both subagents return structured findings, evidence labels, assumptions,
+   confidence, risks, and recommendations to the Main Orchestrator.
+7. All rebuttals are mediated by the Main Orchestrator.
+8. The Main Orchestrator validates evidence before accepting any recommendation.
+9. The Main Orchestrator owns the contradiction register, scope ledger, risk
+   register, and final decision record.
+10. Only the Main Orchestrator communicates the final unified answer to the user.
 
-## 2. CEO Subagent
+## Execution Sequence
+
+```text
+1. User Request
+       ↓
+2. Main Orchestrator creates Shared Context Package
+       ├──→ CEO Subagent Review
+       └──→ COO Subagent Review
+                    ↓
+3. Main Orchestrator validates both outputs
+       ↓
+4. Main Orchestrator detects evidence gaps and contradictions
+       ↓
+5. Optional orchestrator-mediated rebuttal round
+       ↓
+6. Main Orchestrator resolves scope, risk, cost, and control decisions
+       ↓
+7. Main Orchestrator issues Final Decision
+```
+
+## 1. CEO Subagent
 
 The CEO Subagent independently evaluates:
 
@@ -184,7 +213,24 @@ The CEO Subagent independently evaluates:
 
 The CEO must challenge technically interesting work that lacks user value.
 
-## 3. COO Subagent
+### CEO Output Contract
+
+The CEO returns only an advisory review containing:
+
+- Gatekeeper recommendation
+- Evidence-labelled product claims
+- Scope-mode recommendation
+- 10× opportunity
+- Platonic Ideal
+- Proposed Add / Defer / Skip items
+- Adoption and moat assessment
+- Product risks
+- Confidence level
+- Questions or facts requiring verification
+
+The CEO must not produce the final executive verdict.
+
+## 2. COO Subagent
 
 The COO Subagent independently evaluates:
 
@@ -208,14 +254,76 @@ The COO Subagent independently evaluates:
 The COO must challenge valuable ideas that cannot operate safely, economically,
 or predictably.
 
+### COO Output Contract
+
+The COO returns only an advisory review containing:
+
+- Cost and unit-economics assessment
+- Evidence-labelled operational claims
+- Scalability and reliability risks
+- Compliance, security, and privacy controls
+- Automation and recovery requirements
+- Non-negotiable production gates
+- Kill and sunset criteria
+- Confidence level
+- Questions or facts requiring verification
+
+The COO must not produce the final executive verdict.
+
+## 3. Main Orchestrator
+
+The Main Orchestrator:
+
+- Owns the original user request
+- Creates one neutral shared context package
+- Sends the same factual context to both subagents
+- Prevents one subagent's conclusions from biasing the other's first review
+- Checks whether both subagents completed their required output contracts
+- Checks evidence quality and unsupported assumptions
+- Detects factual and strategic contradictions
+- Requests a single rebuttal round when a material disagreement exists
+- Maintains the authoritative contradiction register
+- Maintains the authoritative scope ledger
+- Maintains the authoritative risk and decision registers
+- Resolves disagreements using evidence, user value, cost, risk, and reversibility
+- Rejects invented metrics and unsupported certainty
+- Produces the final unified decision
+- Explains which recommendations were accepted, rejected, or deferred and why
+
+The Main Orchestrator is the final judge, not a simple response merger.
+
+### Main Orchestrator Final-Decision Authority
+
+Only the Main Orchestrator may:
+
+- Approve or reject the Gatekeeper result
+- Select the final scope mode
+- Accept, defer, skip, or kill scope items
+- Decide whether unresolved facts block execution
+- Set non-negotiable controls
+- Select GO / GO WITH CONDITIONS / MODIFY / PILOT / DEFER / KILL
+- Produce the final user-visible response
+
 ## Fallback Behaviour
 
 If the runtime does not support true subagents:
 
-- Simulate the CEO and COO as clearly separated independent reviews
-- Do not blend their reasoning prematurely
+- Simulate the CEO and COO as two isolated review passes
+- Use the same shared context for both passes
+- Complete the CEO review before exposing it to the simulated COO review, or
+  otherwise preserve independent reasoning
+- Do not blend their findings until the Main Orchestrator phase
 - Apply the same evidence, contradiction, and reconciliation rules
 - State that the execution used simulated role separation
+- Preserve the same topology conceptually:
+
+```text
+Simulated CEO Review
+          \
+           Main Orchestrator → Final Decision
+          /
+Simulated COO Review
+```
 
 ---
 
@@ -1234,7 +1342,10 @@ Use:
 
 Before returning the final answer, confirm:
 
-- Both CEO and COO reviews were completed
+- The required CEO → Main Orchestrator ← COO topology was followed
+- Both CEO and COO received the same shared factual context
+- Both CEO and COO reviews were completed independently
+- Neither subagent issued the final executive verdict
 - Claims are labelled Fact / Assumption / Inference / Unknown
 - No unsupported metric is presented as fact
 - Factual contradictions are verified or marked unresolved
