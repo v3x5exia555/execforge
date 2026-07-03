@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ExecForge Product Decision",
+  "type": "object",
+  "required": [
+    "initiative",
+    "verdict",
+    "evidence_strength",
+    "scope_mode",
+    "scope_ledger",
+    "confidence"
+  ],
+  "properties": {
+    "initiative": {
+      "type": "string",
+      "minLength": 1
+    },
+    "verdict": {
+      "enum": [
+        "GO",
+        "GO WITH CONDITIONS",
+        "MODIFY",
+        "PILOT",
+        "DEFER",
+        "KILL"
+      ]
+    },
+    "evidence_strength": {
+      "enum": [
+        "STRONG",
+        "MODERATE",
+        "WEAK",
+        "UNKNOWN"
+      ]
+    },
+    "scope_mode": {
+      "enum": [
+        "SCOPE EXPANSION",
+        "SELECTIVE EXPANSION",
+        "HOLD SCOPE",
+        "SCOPE REDUCTION"
+      ]
+    },
+    "scope_ledger": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "item",
+          "decision",
+          "reason"
+        ],
+        "properties": {
+          "item": {
+            "type": "string"
+          },
+          "decision": {
+            "enum": [
+              "ADD",
+              "DEFER",
+              "SKIP",
+              "KILL"
+            ]
+          },
+          "reason": {
+            "type": "string"
+          },
+          "owner": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    "confidence": {
+      "enum": [
+        "HIGH",
+        "MEDIUM",
+        "LOW"
+      ]
+    }
+  },
+  "additionalProperties": true
+}

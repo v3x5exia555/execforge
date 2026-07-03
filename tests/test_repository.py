@@ -1,0 +1,46 @@
+from pathlib import Path
+import importlib.util
+import json
+import tempfile
+import unittest
+
+ROOT = Path(__file__).resolve().parents[1]
+SCRIPT = ROOT / "scripts" / "execforge.py"
+spec = importlib.util.spec_from_file_location("execforge_cli", SCRIPT)
+module = importlib.util.module_from_spec(spec)
+assert spec.loader
+spec.loader.exec_module(module)
+
+
+class RepositoryTests(unittest.TestCase):
+    def test_repository_validation(self):
+        self.assertEqual([], module.validate_repo(ROOT))
+
+    def test_required_skills_are_discoverable(self):
+        names = {
+            module.parse_frontmatter(path / "SKILL.md")["name"]
+            for path in (ROOT / "skills").iterdir()
+            if path.is_dir()
+        }
+        self.assertTrue(module.REQUIRED_SKILLS.issubset(names))
+
+    def test_install_copies_all_skills(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            destination = Path(tmp) / "skills"
+            module.install(destination)
+            self.assertEqual(
+                module.REQUIRED_SKILLS,
+                {path.name for path in destination.iterdir() if path.is_dir()},
+            )
+
+    def test_init_run_creates_state(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cwd = Path(tmp)
+            module.init_run("Example Initiative", cwd)
+            state = json.loads((cwd / ".eng-lifecycle" / "state.json").read_text())
+            self.assertEqual("Example Initiative", state["initiative"])
+            self.assertEqual("UPSTREAM_INTAKE", state["state"])
+
+
+if __name__ == "__main__":
+    unittest.main()

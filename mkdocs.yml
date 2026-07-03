@@ -1,0 +1,25 @@
+site_name: ExecForge
+site_description: Product decision and engineering lifecycle orchestration for coding agents
+site_url: https://v3x5exia555.github.io/execforge/
+repo_url: https://github.com/v3x5exia555/execforge
+repo_name: v3x5exia555/execforge
+theme:
+  name: readthedocs
+nav:
+  - Home: index.md
+  - Getting Started: getting-started.md
+  - Architecture: architecture.md
+  - Product Decision: product-decision.md
+  - Engineering Lifecycle: engineering-lifecycle.md
+  - Upstream Approval: upstream-approval.md
+  - Superpowers Integration: superpowers-integration.md
+  - Artifacts and Schemas: artifacts.md
+  - Examples: examples.md
+  - Troubleshooting: troubleshooting.md
+  - Roadmap: roadmap.md
+  - Sources and Attribution: sources.md
+markdown_extensions:
+  - tables
+  - fenced_code
+  - toc:
+      permalink: true

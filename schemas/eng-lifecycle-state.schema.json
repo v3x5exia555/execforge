@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ExecForge Engineering Lifecycle State",
+  "type": "object",
+  "required": [
+    "version",
+    "initiative",
+    "state"
+  ],
+  "properties": {
+    "version": {
+      "type": "string"
+    },
+    "initiative": {
+      "type": "string"
+    },
+    "state": {
+      "enum": [
+        "NO_CONTEXT",
+        "UPSTREAM_INTAKE",
+        "UPSTREAM_APPROVAL_REQUIRED",
+        "RETURN_TO_PRODUCT_PLAN",
+        "PLAN_REQUIRED",
+        "PLAN_APPROVED",
+        "WAITING_FOR_IMPLEMENTATION",
+        "IMPLEMENTATION_IN_PROGRESS",
+        "REVIEW_READY",
+        "RETURN_TO_IMPLEMENTATION",
+        "RETURN_TO_PLAN",
+        "BLOCKED",
+        "REVIEW_PASSED",
+        "SHIP_READY"
+      ]
+    },
+    "upstream_approval_status": {
+      "enum": [
+        "PENDING",
+        "APPROVED",
+        "REJECTED",
+        "REOPENED"
+      ]
+    },
+    "base_branch": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "base_commit": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "final_decision": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        null,
+        "SHIP",
+        "SHIP WITH REQUIRED FIXES",
+        "RETURN TO IMPLEMENTATION",
+        "RETURN TO PLAN",
+        "BLOCK"
+      ]
+    },
+    "open_blockers": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "additionalProperties": true
+}

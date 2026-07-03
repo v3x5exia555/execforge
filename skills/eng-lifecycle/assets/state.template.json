@@ -1,0 +1,16 @@
+{
+  "version": "1",
+  "initiative": "",
+  "state": "UPSTREAM_INTAKE",
+  "upstream_source": "",
+  "upstream_approval_status": "PENDING",
+  "upstream_approved_by": null,
+  "upstream_approved_at": null,
+  "base_branch": null,
+  "base_commit": null,
+  "implementation_head": null,
+  "plan_status": null,
+  "final_decision": null,
+  "open_blockers": [],
+  "required_conditions": []
+}
