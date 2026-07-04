@@ -1,5 +1,5 @@
 ---
-name: qa-lifecycle
+name: q-level
 description: Use when a web portal, API, backend service, database workflow, or end-to-end business transaction needs a risk-based QA plan, cross-layer test execution, defect triage, retesting, or a QA PASS/BLOCK RELEASE decision.
 license: MIT
 compatibility: Requires repository or deployed-environment evidence. Uses Playwright, Schemathesis, native tests, Testcontainers, k6, axe-core, ZAP, or Pact only when separately available and appropriate.
@@ -8,7 +8,7 @@ metadata:
   version: "0.4.0"
 ---
 
-# QA Lifecycle — Portal → API → Backend/Data
+# Q Level — Portal → API → Backend/Data
 
 ## Core principle
 
@@ -66,8 +66,8 @@ If product or engineering requirements are unclear, return to the correct upstre
 
 Before executing browser automation, API fuzzing, load tests, security scans, destructive data tests, or privileged workflows:
 
-1. Create `.qa-lifecycle/qa-plan.md`.
-2. Create `.qa-lifecycle/coverage-matrix.md`.
+1. Create `.q-level/qa-plan.md`.
+2. Create `.q-level/coverage-matrix.md`.
 3. Record target environment, test identities, permitted actions, test data, cleanup, rate limits, and excluded tests.
 4. Set `QA_PLAN_APPROVAL_REQUIRED`.
 5. Stop and request one response:

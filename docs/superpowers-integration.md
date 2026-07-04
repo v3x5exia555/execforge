@@ -23,7 +23,7 @@ ExecForge product decision
 → Superpowers TDD
 → Superpowers verification
 → gstack Staff Engineer review
-→ ExecForge QA Lifecycle
+→ ExecForge Q Level
 → final Staff Engineer delta review when needed
 → ExecForge final engineering verdict
 → Superpowers finish branch
@@ -31,6 +31,6 @@ ExecForge product decision
 
 ## Triggering
 
-The `using-execforge` bootstrap routes the workflow. To guarantee session-start behavior, place the repository's `AGENTS.md`/`CLAUDE.md` instruction in the project or configure the host to load the bootstrap skill at session start.
+The `c-level` bootstrap routes the workflow. To guarantee session-start behavior, place the repository's `AGENTS.md`/`CLAUDE.md` instruction in the project or configure the host to load the bootstrap skill at session start.
 
 Superpowers must be installed separately from its official repository or marketplace. ExecForge never copies its skill text.

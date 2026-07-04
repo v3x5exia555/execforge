@@ -17,4 +17,4 @@ Do not commit:
 - Unredacted logs
 - Internal architecture secrets
 
-Generated `.execforge/` and `.eng-lifecycle/` artifacts should contain references, summaries, evidence IDs, and redacted excerpts only.
+Generated `.execforge/` and `.eng-level/` artifacts should contain references, summaries, evidence IDs, and redacted excerpts only.

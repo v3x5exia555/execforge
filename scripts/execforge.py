@@ -17,7 +17,7 @@ from datetime import datetime, timezone
 
 ROOT = Path(__file__).resolve().parents[1]
 SKILLS = ROOT / "skills"
-REQUIRED_SKILLS = {"using-execforge", "execforge", "eng-lifecycle", "qa-lifecycle"}
+REQUIRED_SKILLS = {"c-level", "execforge", "eng-level", "q-level"}
 
 
 def parse_frontmatter(path: Path) -> dict[str, str]:
@@ -94,8 +94,8 @@ def validate_repo(root: Path = ROOT) -> list[str]:
         "README.md", "LICENSE", "mkdocs.yml",
         ".claude-plugin/plugin.json", ".codex-plugin/plugin.json",
         "schemas/execforge-decision.schema.json",
-        "schemas/eng-lifecycle-state.schema.json",
-        "schemas/qa-lifecycle-state.schema.json",
+        "schemas/eng-level-state.schema.json",
+        "schemas/q-level-state.schema.json",
     ]:
         if not (root / rel).exists():
             errors.append(f"Missing required file: {rel}")
@@ -168,34 +168,34 @@ def init_run(name: str, cwd: Path) -> Path:
         "|---|---|---|---|---|\n",
         encoding="utf-8",
     )
-    lifecycle = cwd / ".eng-lifecycle"
+    lifecycle = cwd / ".eng-level"
     lifecycle.mkdir(exist_ok=True)
-    state_source = SKILLS / "eng-lifecycle" / "assets" / "state.template.json"
+    state_source = SKILLS / "eng-level" / "assets" / "state.template.json"
     state = json.loads(state_source.read_text(encoding="utf-8"))
     state["initiative"] = name
     (lifecycle / "state.json").write_text(json.dumps(state, indent=2) + "\n", encoding="utf-8")
-    upstream_source = SKILLS / "eng-lifecycle" / "assets" / "upstream-requirements.template.md"
+    upstream_source = SKILLS / "eng-level" / "assets" / "upstream-requirements.template.md"
     shutil.copy2(upstream_source, lifecycle / "upstream-requirements.md")
 
-    qa = cwd / ".qa-lifecycle"
+    qa = cwd / ".q-level"
     qa.mkdir(exist_ok=True)
-    qa_state_source = SKILLS / "qa-lifecycle" / "assets" / "state.template.json"
+    qa_state_source = SKILLS / "q-level" / "assets" / "state.template.json"
     qa_state = json.loads(qa_state_source.read_text(encoding="utf-8"))
     qa_state["initiative"] = name
     (qa / "state.json").write_text(json.dumps(qa_state, indent=2) + "\n", encoding="utf-8")
-    shutil.copy2(SKILLS / "qa-lifecycle" / "assets" / "qa-plan.template.md", qa / "qa-plan.md")
-    shutil.copy2(SKILLS / "qa-lifecycle" / "assets" / "coverage-matrix.template.md", qa / "coverage-matrix.md")
+    shutil.copy2(SKILLS / "q-level" / "assets" / "qa-plan.template.md", qa / "qa-plan.md")
+    shutil.copy2(SKILLS / "q-level" / "assets" / "coverage-matrix.template.md", qa / "coverage-matrix.md")
 
     print(f"created run: {run}")
     print(f"created lifecycle state: {lifecycle / 'state.json'}")
-    print(f"created QA lifecycle state: {qa / 'state.json'}")
+    print(f"created Q Level state: {qa / 'state.json'}")
     return run
 
 
 def show_status(cwd: Path) -> int:
     found = False
 
-    state_file = cwd / ".eng-lifecycle" / "state.json"
+    state_file = cwd / ".eng-level" / "state.json"
     if state_file.exists():
         found = True
         state = json.loads(state_file.read_text(encoding="utf-8"))
@@ -210,7 +210,7 @@ def show_status(cwd: Path) -> int:
         for blocker in blockers:
             print(f"  - {blocker}")
 
-    qa_file = cwd / ".qa-lifecycle" / "state.json"
+    qa_file = cwd / ".q-level" / "state.json"
     if qa_file.exists():
         found = True
         state = json.loads(qa_file.read_text(encoding="utf-8"))
@@ -225,7 +225,7 @@ def show_status(cwd: Path) -> int:
         print(f"untested_areas: {len(state.get('untested_areas', []))}")
 
     if not found:
-        print("No engineering or QA lifecycle state found.")
+        print("No engineering or Q Level state found.")
         return 1
     return 0
 

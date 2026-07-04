@@ -13,7 +13,7 @@ Recommended `.execforge/` content:
 
 ## Engineering artifacts
 
-Recommended `.eng-lifecycle/` content:
+Recommended `.eng-level/` content:
 
 - state.json
 - upstream-requirements.md
@@ -30,7 +30,7 @@ Recommended `.eng-lifecycle/` content:
 ## Schemas
 
 - `schemas/execforge-decision.schema.json`
-- `schemas/eng-lifecycle-state.schema.json`
+- `schemas/eng-level-state.schema.json`
 
 Validate structure with:
 
@@ -41,7 +41,7 @@ python scripts/execforge.py validate
 
 ## QA artifacts
 
-Recommended `.qa-lifecycle/` content:
+Recommended `.q-level/` content:
 
 - state.json
 - qa-context.md
@@ -55,4 +55,4 @@ Recommended `.qa-lifecycle/` content:
 
 Schema:
 
-- `schemas/qa-lifecycle-state.schema.json`
+- `schemas/q-level-state.schema.json`

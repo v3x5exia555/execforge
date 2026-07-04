@@ -11,7 +11,7 @@ COO Subagent
              ↓
       User Approval Gate
              ↓
-      Eng Lifecycle Orchestrator
+        Eng Level Orchestrator
              ↓
   Plan Review → Build → Staff Review
              ↓
@@ -24,10 +24,10 @@ COO Subagent
 
 | Skill | Purpose |
 |---|---|
-| `using-execforge` | Bootstrap/router that selects the correct workflow and integrates installed Superpowers skills |
+| `c-level` | Bootstrap/router that selects the correct workflow and integrates installed Superpowers skills |
 | `execforge` | CEO + COO product pressure test and final `GO / MODIFY / PILOT / DEFER / KILL` decision |
-| `eng-lifecycle` | Upstream approval, engineering plan review, implementation conformance, Staff Engineer review, and final ship decision |
-| `qa-lifecycle` | Risk-based portal/API/backend QA planning, execution, retest, and `QA PASS / RETURN / BLOCK` decision |
+| `eng-level` | Upstream approval, engineering plan review, implementation conformance, Staff Engineer review, and final ship decision |
+| `q-level` | Risk-based portal/API/backend QA planning, execution, retest, and `QA PASS / RETURN / BLOCK` decision |
 
 The repository also includes:
 
@@ -88,7 +88,7 @@ Install Superpowers separately using its official instructions. ExecForge refere
 After the product decision:
 
 ```text
-/eng-lifecycle --mode=auto
+/eng-level --mode=auto
 ```
 
 The lifecycle stops at `UPSTREAM_APPROVAL_REQUIRED`. Approve the interpreted requirements with:
@@ -114,7 +114,7 @@ ExecForge then performs the Staff Engineer review against the real diff, runs th
 ### 7. Run the QA gate
 
 ```text
-/qa-lifecycle --mode=auto
+/q-level --mode=auto
 ```
 
 Approve the proposed test plan and target environment with:
@@ -141,10 +141,10 @@ Enable **Settings → Pages → Source: GitHub Actions** to publish the wiki.
 ```text
 execforge/
 ├── skills/
-│   ├── using-execforge/
+│   ├── c-level/
 │   ├── execforge/
-│   ├── eng-lifecycle/
-│   └── qa-lifecycle/
+│   ├── eng-level/
+│   └── q-level/
 ├── docs/
 ├── examples/
 ├── schemas/
@@ -161,11 +161,11 @@ ExecForge answers:
 
 > Should we build this, and what is the smallest defensible scope?
 
-Eng Lifecycle answers:
+Eng Level answers:
 
 > Does the approved engineering plan and actual implementation satisfy the approved product requirements safely enough to ship?
 
-QA Lifecycle answers:
+Q Level answers:
 
 > Does the critical business transaction work across portal, API, and backend/data with release-quality evidence?
 

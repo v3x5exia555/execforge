@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "ExecForge QA Lifecycle State",
+  "title": "ExecForge Q Level State",
   "type": "object",
   "required": [
     "version",

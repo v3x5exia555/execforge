@@ -1,6 +1,6 @@
-# QA Lifecycle
+# Q Level
 
-`/qa-lifecycle` is optimized for a web portal that calls APIs backed by services, databases, queues, or data pipelines.
+`/q-level` is optimized for a web portal that calls APIs backed by services, databases, queues, or data pipelines.
 
 ## Topology
 

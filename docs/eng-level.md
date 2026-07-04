@@ -1,6 +1,6 @@
-# Engineering Lifecycle
+# Eng Level
 
-Use `/eng-lifecycle` after product intent is approved or when auditing an existing branch.
+Use `/eng-level` after product intent is approved or when auditing an existing branch.
 
 ## Plan phase
 
@@ -25,4 +25,4 @@ The Staff Engineer review inspects the actual Git diff and executable evidence. 
 
 ## QA gate
 
-For portal/API/backend changes, a Staff Engineer review is followed by `/qa-lifecycle`. If QA fixes production code, run a final delta review and affected QA retest before `SHIP`.
+For portal/API/backend changes, a Staff Engineer review is followed by `/q-level`. If QA fixes production code, run a final delta review and affected QA retest before `SHIP`.

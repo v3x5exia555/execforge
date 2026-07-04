@@ -19,11 +19,11 @@ ExecForge does not vendor or modify Superpowers. Install it separately and load 
 - Superpowers task review checks each implementation task.
 - gstack Staff Engineer review performs the broad final branch audit.
 - ExecForge checks product and operational alignment.
-- Eng Lifecycle reconciles all evidence and owns the final engineering verdict.
+- Eng Level reconciles all evidence and owns the final engineering verdict.
 
 
 ## QA handoff
 
-After implementation and the first whole-branch review, route portal/API/backend changes through `qa-lifecycle`.
+After implementation and the first whole-branch review, route portal/API/backend changes through `q-level`.
 
-Superpowers verification proves executed commands and task completion. QA Lifecycle proves accepted business behavior across system layers. Neither replaces the other.
+Superpowers verification proves executed commands and task completion. Q Level proves accepted business behavior across system layers. Neither replaces the other.

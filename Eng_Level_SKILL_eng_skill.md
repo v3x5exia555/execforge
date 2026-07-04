@@ -1,5 +1,5 @@
 ---
-name: eng-lifecycle
+name: eng-level
 description: >
   Engineering lifecycle orchestrator that runs the gstack plan-stage Engineering
   Manager review before implementation, preserves the approved plan and baseline,
@@ -17,14 +17,14 @@ tags:
   - gstack
 ---
 
-# /eng-lifecycle — Plan → Build → Staff Review
+# /eng-level — Plan → Build → Staff Review
 
 ## Purpose
 
 Use this skill to coordinate two distinct engineering review stages:
 
 ```text
-                    Engineering Lifecycle Orchestrator
+                         Eng Level Orchestrator
                                  │
                     ┌────────────┴────────────┐
                     │                         │
@@ -45,7 +45,7 @@ The skill does not merge the two reviewers into one generic voice.
   correct, complete, testable, and appropriately simple before coding.
 - `/review` audits the actual Git diff after coding and searches for production
   failures, incomplete work, unsafe deviations, and missing tests.
-- `/eng-lifecycle` owns sequencing, state, artifacts, evidence reconciliation,
+- `/eng-level` owns sequencing, state, artifacts, evidence reconciliation,
   re-entry, and the final engineering gate.
 
 ---
@@ -87,12 +87,12 @@ Extract and preserve:
 Write the interpreted package to:
 
 ```text
-.eng-lifecycle/upstream-requirements.md
+.eng-level/upstream-requirements.md
 ```
 
 ## Upstream Understanding Check
 
-Before invoking either engineering reviewer, the Engineering Lifecycle
+Before invoking either engineering reviewer, the Eng Level
 Orchestrator must produce a concise requirement interpretation containing:
 
 1. What is being built
@@ -134,7 +134,7 @@ until the user has approved the upstream interpretation.
 
 ### `APPROVE UPSTREAM`
 
-- Lock `.eng-lifecycle/upstream-requirements.md`
+- Lock `.eng-level/upstream-requirements.md`
 - Record approval timestamp and approver
 - Continue to `/plan-eng-review`
 
@@ -212,7 +212,7 @@ Its responsibility is:
 Maintain:
 
 ```text
-.eng-lifecycle/upstream-traceability.md
+.eng-level/upstream-traceability.md
 ```
 
 Use:
@@ -248,17 +248,17 @@ Invoke when the user asks to:
 Example:
 
 ```text
-/eng-lifecycle Review and gate this feature from engineering plan through final diff.
+/eng-level Review and gate this feature from engineering plan through final diff.
 ```
 
 Optional modes:
 
 ```text
-/eng-lifecycle --mode=plan
-/eng-lifecycle --mode=review
-/eng-lifecycle --mode=full
-/eng-lifecycle --mode=auto
-/eng-lifecycle --mode=status
+/eng-level --mode=plan
+/eng-level --mode=review
+/eng-level --mode=full
+/eng-level --mode=auto
+/eng-level --mode=status
 ```
 
 Default:
@@ -276,7 +276,7 @@ Use this topology:
 ```text
 Plan Engineering Reviewer
             \
-             Engineering Lifecycle Orchestrator → Final Engineering Decision
+                   Eng Level Orchestrator → Final Engineering Decision
             /
 Staff Engineering Reviewer
 ```
@@ -290,7 +290,7 @@ Rules:
 4. The plan reviewer must not approve code that does not yet exist.
 5. The Staff Engineer must not treat plan intent as proof of implementation.
 6. Neither nested reviewer owns the final lifecycle verdict.
-7. Only the Engineering Lifecycle Orchestrator may issue:
+7. Only the Eng Level Orchestrator may issue:
    - `SHIP`
    - `SHIP WITH REQUIRED FIXES`
    - `RETURN TO IMPLEMENTATION`
@@ -534,13 +534,13 @@ The approved plan, implementation, tests, and required controls are aligned.
 Store lifecycle artifacts in:
 
 ```text
-.eng-lifecycle/
+.eng-level/
 ```
 
 Recommended layout:
 
 ```text
-.eng-lifecycle/
+.eng-level/
 ├── state.json
 ├── context.md
 ├── upstream-requirements.md
@@ -565,7 +565,7 @@ these artifacts.
 
 # State Contract
 
-Maintain `.eng-lifecycle/state.json`.
+Maintain `.eng-level/state.json`.
 
 Example schema:
 
@@ -581,7 +581,7 @@ Example schema:
   "upstream_approved_at": null,
   "base_branch": "main",
   "base_commit": "<sha>",
-  "plan_path": ".eng-lifecycle/engineering-plan.md",
+  "plan_path": ".eng-level/engineering-plan.md",
   "plan_status": "APPROVED_WITH_CONDITIONS",
   "plan_reviewed_at": "<ISO-8601>",
   "implementation_head": null,
@@ -679,7 +679,7 @@ In `--mode=auto`, run only the next valid stage.
 
 # Step 2 — Create the Shared Engineering Context
 
-Write `.eng-lifecycle/context.md` containing:
+Write `.eng-level/context.md` containing:
 
 ## Initiative
 
@@ -781,10 +781,10 @@ Critical repository, dependency, schema, or requirement evidence is unavailable.
 
 Write:
 
-- `.eng-lifecycle/plan-review.md`
-- `.eng-lifecycle/engineering-plan.md`
-- `.eng-lifecycle/implementation-tasks.md`
-- `.eng-lifecycle/test-matrix.md`
+- `.eng-level/plan-review.md`
+- `.eng-level/engineering-plan.md`
+- `.eng-level/implementation-tasks.md`
+- `.eng-level/test-matrix.md`
 
 ## Implementation Task Format
 
@@ -853,9 +853,9 @@ Output:
 ```text
 Plan status: <status>
 Lifecycle state: WAITING_FOR_IMPLEMENTATION
-Approved plan: .eng-lifecycle/engineering-plan.md
-Implementation tasks: .eng-lifecycle/implementation-tasks.md
-Resume command: /eng-lifecycle --mode=auto
+Approved plan: .eng-level/engineering-plan.md
+Implementation tasks: .eng-level/implementation-tasks.md
+Resume command: /eng-level --mode=auto
 ```
 
 Do not promise background execution.
@@ -949,7 +949,7 @@ make them material.
 Write:
 
 ```text
-.eng-lifecycle/staff-review.md
+.eng-level/staff-review.md
 ```
 
 ---
@@ -973,7 +973,7 @@ Use:
 Write:
 
 ```text
-.eng-lifecycle/conformance.md
+.eng-level/conformance.md
 ```
 
 Format:
@@ -1025,7 +1025,7 @@ Never preserve a false plan claim merely because it was previously approved.
 Write:
 
 ```text
-.eng-lifecycle/contradictions.md
+.eng-level/contradictions.md
 ```
 
 Use:
@@ -1119,7 +1119,7 @@ After three unsuccessful cycles:
 
 # Step 13 — Final Engineering Decision
 
-Only the Engineering Lifecycle Orchestrator issues the final decision.
+Only the Eng Level Orchestrator issues the final decision.
 
 Select exactly one:
 
@@ -1191,7 +1191,7 @@ Use when:
 
 Produce:
 
-## Engineering Lifecycle Summary
+## Eng Level Summary
 
 - Initiative
 - Upstream source
@@ -1261,7 +1261,7 @@ Then explain:
 Write the same result to:
 
 ```text
-.eng-lifecycle/decision.md
+.eng-level/decision.md
 ```
 
 ---
@@ -1360,7 +1360,7 @@ CEO Subagent
     /
 COO Subagent
              ↓
-       /eng-lifecycle
+       /eng-level
              ↓
       /plan-eng-review
              ↓
@@ -1383,7 +1383,7 @@ Pass into this skill and require explicit user approval before engineering revie
 
 ExecForge decides whether the initiative should be built.
 
-`/eng-lifecycle` decides whether the engineering plan and implementation are
+`/eng-level` decides whether the engineering plan and implementation are
 safe and complete enough to ship.
 
 ---

@@ -10,8 +10,8 @@ nav:
   - Getting Started: getting-started.md
   - Architecture: architecture.md
   - Product Decision: product-decision.md
-  - Engineering Lifecycle: engineering-lifecycle.md
-  - QA Lifecycle: qa-lifecycle.md
+  - Eng Level: eng-level.md
+  - Q Level: q-level.md
   - Upstream Approval: upstream-approval.md
   - Superpowers Integration: superpowers-integration.md
   - Artifacts and Schemas: artifacts.md

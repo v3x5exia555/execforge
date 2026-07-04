@@ -1,0 +1,11 @@
+{
+  "name": "execforge",
+  "version": "0.4.0",
+  "description": "ExecForge skill bundle for product decision, engineering review, and QA orchestration.",
+  "skills": [
+    "c-level",
+    "execforge",
+    "eng-level",
+    "q-level"
+  ]
+}

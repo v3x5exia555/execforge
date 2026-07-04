@@ -1,4 +1,4 @@
-# QA Lifecycle State and Artifacts
+# Q Level State and Artifacts
 
 ## State machine
 
@@ -25,7 +25,7 @@ Return/block states:
 ## Artifact directory
 
 ```text
-.qa-lifecycle/
+.q-level/
 ├── state.json
 ├── qa-context.md
 ├── qa-plan.md

@@ -1,8 +1,8 @@
 # Changelog
 
-## 0.4.0 — Portal/API/backend QA lifecycle
+## 0.4.0 — Portal/API/backend Q Level
 
-- Added `qa-lifecycle` with Portal, API, and Backend/Data QA actors.
+- Added `q-level` with Portal, API, and Backend/Data QA actors.
 - Added QA plan and environment approval stop check.
 - Added cross-layer requirement coverage and defect routing.
 - Added Playwright, Schemathesis, Testcontainers, Pact, k6, axe-core, and ZAP routing guidance.
@@ -11,7 +11,7 @@
 
 ## 0.3.0 — Platform rebuild
 
-- Added `using-execforge` bootstrap/router skill.
+- Added `c-level` bootstrap/router skill.
 - Reorganized skills into Agent Skills-compatible directories.
 - Split large skill bodies into progressive references.
 - Added upstream user approval and traceability contracts.

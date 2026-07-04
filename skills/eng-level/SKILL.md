@@ -1,5 +1,5 @@
 ---
-name: eng-lifecycle
+name: eng-level
 description: Use when approved product requirements need engineering planning, implementation gating, plan-to-code traceability, Staff Engineer review, release readiness, or a SHIP/FIX/REPLAN/BLOCK decision.
 license: MIT
 compatibility: Requires a Git repository for diff review. Integrates with separately installed gstack and Superpowers skills when available.
@@ -8,7 +8,7 @@ metadata:
   version: "0.4.0"
 ---
 
-# Engineering Lifecycle
+# Eng Level
 
 ## Core principle
 
@@ -34,7 +34,7 @@ Final Delta Review and QA Retest
 Final Engineering Decision
 ```
 
-The plan review and Staff Engineer review must not run in parallel. For web portal, API, or backend/data changes, the QA lifecycle must execute before the final ship verdict unless the QA requirement is explicitly not applicable.
+The plan review and Staff Engineer review must not run in parallel. For web portal, API, or backend/data changes, Q Level must execute before the final ship verdict unless the QA requirement is explicitly not applicable.
 
 ## Modes
 
@@ -56,7 +56,7 @@ When an ExecForge, CEO/COO, PRD, or product plan exists:
    - Non-negotiable COO controls
    - Assumptions and unknowns
    - Kill criteria
-2. Save `.eng-lifecycle/upstream-requirements.md`.
+2. Save `.eng-level/upstream-requirements.md`.
 3. Set `UPSTREAM_APPROVAL_REQUIRED`.
 4. Stop and request one response:
    - `APPROVE UPSTREAM`
@@ -105,12 +105,12 @@ Per-task Superpowers review does not replace the final whole-branch Staff Engine
 
 Read [the integration map](references/superpowers-map.md).
 
-## QA lifecycle bridge
+## Q Level bridge
 
 For portal, API, backend service, database, queue, or end-to-end transaction changes:
 
 1. Complete the first Staff Engineer review.
-2. Invoke `qa-lifecycle --mode=auto` with approved upstream requirements, engineering plan, implementation diff, and test environment.
+2. Invoke `q-level --mode=auto` with approved upstream requirements, engineering plan, implementation diff, and test environment.
 3. Route QA defects to implementation, engineering planning, or product according to the QA verdict.
 4. When QA-driven fixes change production code, run a final Staff Engineer delta review.
 5. Re-run affected QA before issuing `SHIP`.

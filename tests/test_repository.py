@@ -37,10 +37,10 @@ class RepositoryTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             cwd = Path(tmp)
             module.init_run("Example Initiative", cwd)
-            state = json.loads((cwd / ".eng-lifecycle" / "state.json").read_text())
+            state = json.loads((cwd / ".eng-level" / "state.json").read_text())
             self.assertEqual("Example Initiative", state["initiative"])
             self.assertEqual("UPSTREAM_INTAKE", state["state"])
-            qa_state = json.loads((cwd / ".qa-lifecycle" / "state.json").read_text())
+            qa_state = json.loads((cwd / ".q-level" / "state.json").read_text())
             self.assertEqual("Example Initiative", qa_state["initiative"])
             self.assertEqual("QA_INPUT_REQUIRED", qa_state["state"])
 

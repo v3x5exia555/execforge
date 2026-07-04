@@ -36,7 +36,7 @@ Constraints:
 ## Engineering handoff
 
 ```text
-/eng-lifecycle --mode=auto
+/eng-level --mode=auto
 ```
 
 Review the interpreted upstream requirements and respond:
@@ -63,7 +63,7 @@ python scripts/execforge.py status
 After implementation and the first Staff Engineer review:
 
 ```text
-/qa-lifecycle --mode=auto
+/q-level --mode=auto
 ```
 
 Review the risk-based plan and respond:
