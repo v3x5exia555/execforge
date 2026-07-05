@@ -11,3 +11,7 @@ Priority:
 5. Domain-specific implementation skill
 
 Never claim an upstream review, implementation, test, or final gate ran unless evidence shows it actually ran.
+
+## Plan file naming
+
+When creating plan files, use format: `YYYYMMDD_HHMMSS_<title>.md` (e.g., `20260607_1016_my-plan.md`).
