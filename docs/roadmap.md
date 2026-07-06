@@ -2,8 +2,8 @@
 
 ## Near term
 
-- Add behavior-evaluation scenarios for each discipline rule.
-- Add optional skills-ref validation in CI.
+- Add prompt-harness behavior scenarios for end-to-end skill evaluation.
+- Add optional bundled-skill validation in CI.
 - Add harness-specific session-start adapters after end-to-end testing.
 - Add JSON artifact emission helpers.
 - Add release packaging.

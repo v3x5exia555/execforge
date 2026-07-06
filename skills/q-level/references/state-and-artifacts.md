@@ -29,6 +29,7 @@ Return/block states:
 ├── state.json
 ├── qa-context.md
 ├── qa-plan.md
+├── data-qa-plan.md
 ├── environment-approval.md
 ├── coverage-matrix.md
 ├── execution-evidence.md
@@ -58,9 +59,16 @@ Include:
 - QA verdict
 - Build/commit
 - Plan approval
+- Environment approval
 - Coverage summary
 - Open defects by severity
 - Untested/unverifiable areas
 - Accepted risks and owners
 - Required next action
 - Re-entry condition
+
+## Seeding guidance
+
+Initialize the standard artifacts at run start so the QA workflow does not invent formats during planning or execution.
+
+Create `data-qa-plan.md` only when the data-QA attachment is required for the change under test.

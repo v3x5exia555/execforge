@@ -19,6 +19,7 @@ Before acting, select the smallest applicable workflow. Do not inspect code, ask
 | Situation | Required workflow |
 |---|---|
 | New product, feature, platform, automation, or unclear user need | Use `execforge` |
+| Approved product scope needs UX/interface structure or production-oriented HTML/CSS guidance | Use `design-html` |
 | Approved product/PRD needs engineering planning | Use `eng-level --mode=plan` |
 | Implementation plan is approved and code work starts | Use the installed Superpowers execution skills |
 | Existing branch needs final audit | Use `eng-level --mode=review` |
@@ -36,15 +37,16 @@ When Superpowers is installed, use its current skill instructions rather than me
 Recommended mapping:
 
 1. Product ambiguity: `execforge`; use Superpowers `brainstorming` only when design discovery is still required.
-2. Approved technical design: Superpowers `using-git-worktrees`.
-3. Atomic execution plan: Superpowers `writing-plans`.
-4. Implementation: `subagent-driven-development` or `executing-plans`.
-5. Every behavior change: `test-driven-development`.
-6. Before completion claims: `verification-before-completion`.
-7. Final branch handling: `finishing-a-development-branch`.
-8. Final product-to-plan-to-diff audit: `eng-level --mode=review`.
-9. Portal/API/backend quality gate: `q-level --mode=auto`.
-10. If QA fixes change production code, run a final Staff Engineer delta review and QA retest.
+2. UI-facing scope translation: `design-html`.
+3. Approved technical design: Superpowers `using-git-worktrees`.
+4. Atomic execution plan: Superpowers `writing-plans`.
+5. Implementation: `subagent-driven-development` or `executing-plans`.
+6. Every behavior change: `test-driven-development`.
+7. Before completion claims: `verification-before-completion`.
+8. Final branch handling: `finishing-a-development-branch`.
+9. Final product-to-plan-to-diff audit: `eng-level --mode=review`.
+10. Portal/API/backend quality gate: `q-level --mode=auto`.
+11. If QA fixes change production code, run a final Staff Engineer delta review and QA retest.
 
 ## Priority
 

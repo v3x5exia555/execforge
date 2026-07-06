@@ -40,6 +40,12 @@
         "REJECTED"
       ]
     },
+    "plan_version": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "plan_approval_status": {
       "enum": [
         "PENDING",
@@ -47,6 +53,65 @@
         "REJECTED",
         "CHANGES_REQUESTED"
       ]
+    },
+    "plan_approved_by": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "plan_approved_at": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "target_environment": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "environment_approval_status": {
+      "enum": [
+        "PENDING",
+        "APPROVED",
+        "REJECTED",
+        "CHANGES_REQUESTED"
+      ]
+    },
+    "approved_destructive_techniques": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "build_or_commit": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "execution_status": {
+      "enum": [
+        "NOT_STARTED",
+        "IN_PROGRESS",
+        "RETEST_REQUIRED",
+        "COMPLETE"
+      ]
+    },
+    "evidence_status": {
+      "enum": [
+        "MISSING",
+        "PARTIAL",
+        "COMPLETE"
+      ]
+    },
+    "coverage_complete": {
+      "type": "boolean"
+    },
+    "data_qa_required": {
+      "type": "boolean"
     },
     "final_verdict": {
       "type": [
@@ -71,6 +136,18 @@
       }
     },
     "open_q1": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "open_q2": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "open_q3": {
       "type": "array",
       "items": {
         "type": "string"

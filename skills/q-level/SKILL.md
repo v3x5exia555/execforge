@@ -66,11 +66,12 @@ If product or engineering requirements are unclear, return to the correct upstre
 
 Before executing browser automation, API fuzzing, load tests, security scans, destructive data tests, or privileged workflows:
 
-1. Create `.q-level/qa-plan.md`.
-2. Create `.q-level/coverage-matrix.md`.
+1. Create `.q-level/qa-context.md`, `.q-level/qa-plan.md`, and `.q-level/coverage-matrix.md`.
+2. Create `.q-level/environment-approval.md`.
 3. Record target environment, test identities, permitted actions, test data, cleanup, rate limits, and excluded tests.
-4. Set `QA_PLAN_APPROVAL_REQUIRED`.
-5. Stop and request one response:
+4. Attach `.q-level/data-qa-plan.md` when persisted-state risk requires it.
+5. Set `QA_PLAN_APPROVAL_REQUIRED`.
+6. Stop and request one response:
    - `APPROVE QA PLAN`
    - `APPROVE QA PLAN WITH CHANGES`
    - `REJECT QA PLAN`
@@ -79,7 +80,7 @@ Before executing browser automation, API fuzzing, load tests, security scans, de
 
 Never run load or active security scans against production without explicit authorization.
 
-Read [the QA planning contract](references/qa-plan-contract.md).
+Read [the QA planning contract](references/qa-plan-contract.md) and the [data-QA attachment contract](references/data-qa-plan-contract.md) when persisted-state risk is material.
 
 ## QA Planner responsibility
 
@@ -96,6 +97,7 @@ The QA Main Orchestrator creates a risk-based plan containing:
 - Evidence requirements
 - Defect severity and retest policy
 - Untested areas and accepted risks
+- Accepted-risk owners and expiry/review dates
 
 Prioritize by user impact, data integrity, security, reversibility, frequency, and defect escape cost.
 
@@ -148,6 +150,8 @@ Verify actual system state:
 - Audit, lineage, and evidence persistence
 
 Prefer repository-native unit/integration tests and real disposable dependencies through Testcontainers when available.
+
+Attach the dedicated data-QA plan when migrations, backfills, replay, reconciliation, or silent data-corruption risk make generic backend/data checks too weak.
 
 ## Specialist adapters
 
@@ -206,8 +210,9 @@ After a fix:
 2. Run the narrow regression test.
 3. Run affected cross-layer tests.
 4. Update the defect and coverage matrices.
-5. Run a final delta code review when QA fixes changed production code.
-6. Re-run release-critical QA.
+5. Update `.q-level/execution-evidence.md`, `.q-level/defects.md`, and `.q-level/retest.md`.
+6. Run a final delta code review when QA fixes changed production code.
+7. Re-run release-critical QA.
 
 Limit autonomous fix/retest cycles to three. Repeated failure for the same root cause returns to engineering planning or blocks release.
 
@@ -243,6 +248,7 @@ Before returning:
 - Critical roles and authorization boundaries were tested.
 - Backend/data assertions verify real state, not only response text.
 - Commands and results are recorded.
+- Environment approval, execution evidence, defects, and retest artifacts are updated.
 - Skipped and unavailable tests remain visible.
 - No expected result was weakened to obtain a pass.
 - Q0/Q1 defects are not hidden behind accepted risk.

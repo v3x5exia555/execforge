@@ -23,6 +23,8 @@ Portal action
 
 Each accepted requirement receives one cross-layer coverage row.
 
+When persisted-state risk is material, attach the data-QA contract and plan to cover migrations, reconciliation, replay, precision/timezone, rollback, and audit behavior.
+
 ## Modes
 
 - `plan`
@@ -35,6 +37,21 @@ Each accepted requirement receives one cross-layer coverage row.
 ## Approval gate
 
 The orchestrator stops at `QA_PLAN_APPROVAL_REQUIRED` before executing the approved plan.
+
+Core artifacts:
+
+- `.q-level/qa-context.md`
+- `.q-level/qa-plan.md`
+- `.q-level/coverage-matrix.md`
+- `.q-level/environment-approval.md`
+- `.q-level/execution-evidence.md`
+- `.q-level/defects.md`
+- `.q-level/retest.md`
+- `.q-level/decision.md`
+
+Optional when data-risk is material:
+
+- `.q-level/data-qa-plan.md`
 
 Responses:
 

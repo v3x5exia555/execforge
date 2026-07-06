@@ -17,7 +17,19 @@ from datetime import datetime, timezone
 
 ROOT = Path(__file__).resolve().parents[1]
 SKILLS = ROOT / "skills"
-REQUIRED_SKILLS = {"c-level", "execforge", "eng-level", "q-level"}
+BUNDLED_SKILLS = {"c-level", "design-html", "eng-level", "execforge", "q-level"}
+REQUIRED_SKILLS = BUNDLED_SKILLS
+PLUGIN_MANIFESTS = [".claude-plugin/plugin.json", ".codex-plugin/plugin.json"]
+Q_LEVEL_ASSET_FILES = {
+    "coverage-matrix.md": "coverage-matrix.template.md",
+    "decision.md": "decision.template.md",
+    "defects.md": "defects.template.md",
+    "environment-approval.md": "environment-approval.template.md",
+    "execution-evidence.md": "execution-evidence.template.md",
+    "qa-context.md": "qa-context.template.md",
+    "qa-plan.md": "qa-plan.template.md",
+    "retest.md": "retest.template.md",
+}
 
 
 def parse_frontmatter(path: Path) -> dict[str, str]:
@@ -55,7 +67,7 @@ def validate_repo(root: Path = ROOT) -> list[str]:
         return ["skills/ directory is missing"]
 
     discovered = {p.name for p in skills_root.iterdir() if p.is_dir()}
-    missing = REQUIRED_SKILLS - discovered
+    missing = BUNDLED_SKILLS - discovered
     if missing:
         errors.append(f"Missing required skills: {', '.join(sorted(missing))}")
 
@@ -92,7 +104,7 @@ def validate_repo(root: Path = ROOT) -> list[str]:
 
     for rel in [
         "README.md", "LICENSE", "mkdocs.yml",
-        ".claude-plugin/plugin.json", ".codex-plugin/plugin.json",
+        *PLUGIN_MANIFESTS,
         "schemas/execforge-decision.schema.json",
         "schemas/eng-level-state.schema.json",
         "schemas/q-level-state.schema.json",
@@ -105,6 +117,17 @@ def validate_repo(root: Path = ROOT) -> list[str]:
             json.loads(path.read_text(encoding="utf-8"))
         except json.JSONDecodeError as exc:
             errors.append(f"{path}: invalid JSON: {exc}")
+
+    for manifest_path in PLUGIN_MANIFESTS:
+        manifest = root / manifest_path
+        if not manifest.exists():
+            continue
+        payload = json.loads(manifest.read_text(encoding="utf-8"))
+        manifest_skills = set(payload.get("skills", []))
+        if manifest_skills != BUNDLED_SKILLS:
+            errors.append(
+                f"{manifest}: skills {sorted(manifest_skills)} must match bundled skills {sorted(BUNDLED_SKILLS)}"
+            )
 
     return errors
 
@@ -121,9 +144,8 @@ def destination_for(target: str) -> Path:
 
 def install(destination: Path, force: bool = False) -> None:
     destination.mkdir(parents=True, exist_ok=True)
-    for source in sorted(SKILLS.iterdir()):
-        if not source.is_dir():
-            continue
+    for skill_name in sorted(BUNDLED_SKILLS):
+        source = SKILLS / skill_name
         target = destination / source.name
         if target.exists():
             if not force:
@@ -131,6 +153,12 @@ def install(destination: Path, force: bool = False) -> None:
             shutil.rmtree(target)
         shutil.copytree(source, target)
         print(f"installed {source.name} -> {target}")
+
+
+def seed_q_level_artifacts(destination: Path) -> None:
+    assets_root = SKILLS / "q-level" / "assets"
+    for target_name, template_name in Q_LEVEL_ASSET_FILES.items():
+        shutil.copy2(assets_root / template_name, destination / target_name)
 
 
 def check_superpowers() -> int:
@@ -183,8 +211,7 @@ def init_run(name: str, cwd: Path) -> Path:
     qa_state = json.loads(qa_state_source.read_text(encoding="utf-8"))
     qa_state["initiative"] = name
     (qa / "state.json").write_text(json.dumps(qa_state, indent=2) + "\n", encoding="utf-8")
-    shutil.copy2(SKILLS / "q-level" / "assets" / "qa-plan.template.md", qa / "qa-plan.md")
-    shutil.copy2(SKILLS / "q-level" / "assets" / "coverage-matrix.template.md", qa / "coverage-matrix.md")
+    seed_q_level_artifacts(qa)
 
     print(f"created run: {run}")
     print(f"created lifecycle state: {lifecycle / 'state.json'}")
@@ -217,7 +244,8 @@ def show_status(cwd: Path) -> int:
         print("[qa]")
         for key in [
             "initiative", "state", "plan_status", "plan_approval_status",
-            "target_environment", "build_or_commit", "final_verdict"
+            "environment_approval_status", "target_environment", "build_or_commit",
+            "execution_status", "evidence_status", "data_qa_required", "final_verdict"
         ]:
             print(f"{key}: {state.get(key)}")
         print(f"open_q0: {len(state.get('open_q0', []))}")

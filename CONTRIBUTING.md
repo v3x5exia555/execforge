@@ -11,9 +11,9 @@
 ## Local checks
 
 ```bash
-python scripts/execforge.py validate
-python -m unittest discover -s tests -v
-python -m pip install -r requirements-docs.txt
+python3 scripts/execforge.py validate
+python3 -m unittest discover -s tests -v
+python3 -m pip install -r requirements-docs.txt
 mkdocs build --strict
 ```
 

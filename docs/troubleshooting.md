@@ -11,7 +11,7 @@
 ## Superpowers not found
 
 ```bash
-python scripts/execforge.py check-superpowers
+python3 scripts/execforge.py check-superpowers
 ```
 
 Install Superpowers separately using its official instructions.
@@ -27,7 +27,7 @@ Stop and respond `REOPEN PRODUCT DECISION`. Product scope must be changed upstre
 ## CI fails on docs
 
 ```bash
-python -m pip install -r requirements-docs.txt
+python3 -m pip install -r requirements-docs.txt
 mkdocs build --strict
 ```
 

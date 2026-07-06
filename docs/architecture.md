@@ -13,7 +13,11 @@ The first passes are independent. The orchestrator resolves contradictions and o
 ## Engineering layer
 
 ```text
-Approved upstream requirements
+Approved product scope
+             ↓
+ Optional design-html bridge for UI work
+             ↓
+ Upstream requirement interpretation
              ↓
      User approval stop check
              ↓
@@ -32,6 +36,7 @@ Approved upstream requirements
 Product evidence
 → Scope ledger
 → Approved upstream requirements
+→ Interface brief / screen inventory when UI work applies
 → Engineering plan
 → Implementation tasks
 → Git diff

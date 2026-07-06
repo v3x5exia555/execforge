@@ -37,6 +37,13 @@ Use Testcontainers when:
 - Real database, queue, cache, or broker behavior matters.
 - In-memory mocks could hide transaction, migration, index, or serialization defects.
 
+Use the data-QA attachment when:
+
+- State survives beyond the request/response boundary.
+- Reconciliation, backfills, or replays are part of the change.
+- Precision, timezone, mapping, or ordering bugs could silently corrupt data.
+- Queue/event or warehouse state must be checked separately from the serving API.
+
 ## Performance
 
 Use k6 when:

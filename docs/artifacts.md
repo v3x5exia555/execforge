@@ -35,7 +35,7 @@ Recommended `.eng-level/` content:
 Validate structure with:
 
 ```bash
-python scripts/execforge.py validate
+python3 scripts/execforge.py validate
 ```
 
 
@@ -46,6 +46,7 @@ Recommended `.q-level/` content:
 - state.json
 - qa-context.md
 - qa-plan.md
+- data-qa-plan.md (when required)
 - environment-approval.md
 - coverage-matrix.md
 - execution-evidence.md

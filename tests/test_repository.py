@@ -22,14 +22,14 @@ class RepositoryTests(unittest.TestCase):
             for path in (ROOT / "skills").iterdir()
             if path.is_dir()
         }
-        self.assertTrue(module.REQUIRED_SKILLS.issubset(names))
+        self.assertEqual(module.BUNDLED_SKILLS, names)
 
     def test_install_copies_all_skills(self):
         with tempfile.TemporaryDirectory() as tmp:
             destination = Path(tmp) / "skills"
             module.install(destination)
             self.assertEqual(
-                module.REQUIRED_SKILLS,
+                module.BUNDLED_SKILLS,
                 {path.name for path in destination.iterdir() if path.is_dir()},
             )
 
@@ -43,6 +43,20 @@ class RepositoryTests(unittest.TestCase):
             qa_state = json.loads((cwd / ".q-level" / "state.json").read_text())
             self.assertEqual("Example Initiative", qa_state["initiative"])
             self.assertEqual("QA_INPUT_REQUIRED", qa_state["state"])
+            self.assertEqual(
+                {
+                    "coverage-matrix.md",
+                    "decision.md",
+                    "defects.md",
+                    "environment-approval.md",
+                    "execution-evidence.md",
+                    "qa-context.md",
+                    "qa-plan.md",
+                    "retest.md",
+                    "state.json",
+                },
+                {path.name for path in (cwd / ".q-level").iterdir()},
+            )
 
 
 if __name__ == "__main__":

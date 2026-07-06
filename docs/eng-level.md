@@ -2,6 +2,8 @@
 
 Use `/eng-level` after product intent is approved or when auditing an existing branch.
 
+For UI-facing work, `/design-html` can be used before engineering planning to turn approved scope into screen structure and interface-state expectations.
+
 ## Plan phase
 
 The plan reviewer evaluates architecture, data flow, failure paths, security, performance, rollback, tests, and exact implementation tasks.

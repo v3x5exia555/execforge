@@ -11,6 +11,8 @@ COO Subagent
              ↓
       User Approval Gate
              ↓
+   Optional UI/UX Design Bridge
+             ↓
         Eng Level Orchestrator
              ↓
   Plan Review → Build → Staff Review
@@ -25,9 +27,10 @@ COO Subagent
 | Skill | Purpose |
 |---|---|
 | `c-level` | Bootstrap/router that selects the correct workflow and integrates installed Superpowers skills |
+| `design-html` | Translates approved product scope into UX/interface structure and production-oriented HTML/CSS guidance for UI-facing work |
 | `execforge` | CEO + COO product pressure test and final `GO / MODIFY / PILOT / DEFER / KILL` decision |
 | `eng-level` | Upstream approval, engineering plan review, implementation conformance, Staff Engineer review, and final ship decision |
-| `q-level` | Risk-based portal/API/backend QA planning, execution, retest, and `QA PASS / RETURN / BLOCK` decision |
+| `q-level` | Risk-based portal/API/backend QA planning, execution, retest, data-QA attachment, and `QA PASS / RETURN / BLOCK` decision |
 
 The repository also includes:
 
@@ -44,8 +47,8 @@ The repository also includes:
 ### 1. Validate the repository
 
 ```bash
-python scripts/execforge.py validate
-python -m unittest discover -s tests -v
+python3 scripts/execforge.py validate
+python3 -m unittest discover -s tests -v
 ```
 
 ### 2. Install the skills
@@ -53,25 +56,25 @@ python -m unittest discover -s tests -v
 Project-local:
 
 ```bash
-python scripts/execforge.py install --destination .claude/skills
+python3 scripts/execforge.py install --destination .claude/skills
 ```
 
 User-level Claude installation:
 
 ```bash
-python scripts/execforge.py install --target claude
+python3 scripts/execforge.py install --target claude
 ```
 
 User-level Codex installation:
 
 ```bash
-python scripts/execforge.py install --target codex
+python3 scripts/execforge.py install --target codex
 ```
 
 ### 3. Check optional Superpowers integration
 
 ```bash
-python scripts/execforge.py check-superpowers
+python3 scripts/execforge.py check-superpowers
 ```
 
 Install Superpowers separately using its official instructions. ExecForge references Superpowers skills when present; it does not copy or fork their content.
@@ -83,7 +86,15 @@ Install Superpowers separately using its official instructions. ExecForge refere
 [problem, target user, proposed change, constraints, evidence]
 ```
 
-### 5. Move to engineering
+### 5. Optional UI/UX design bridge
+
+For UI-facing initiatives with approved scope:
+
+```text
+/design-html
+```
+
+### 6. Move to engineering
 
 After the product decision:
 
@@ -97,7 +108,7 @@ The lifecycle stops at `UPSTREAM_APPROVAL_REQUIRED`. Approve the interpreted req
 APPROVE UPSTREAM
 ```
 
-### 6. Build and review
+### 7. Build and review
 
 When Superpowers is installed, the recommended implementation path is:
 
@@ -111,7 +122,7 @@ using-git-worktrees
 
 ExecForge then performs the Staff Engineer review against the real diff, runs the portal/API/backend QA gate, and requires a final delta review when QA fixes production code.
 
-### 7. Run the QA gate
+### 8. Run the QA gate
 
 ```text
 /q-level --mode=auto
@@ -130,7 +141,7 @@ The full guide lives under [`docs/`](docs/index.md).
 Build it locally:
 
 ```bash
-python -m pip install -r requirements-docs.txt
+python3 -m pip install -r requirements-docs.txt
 mkdocs serve
 ```
 
@@ -142,6 +153,7 @@ Enable **Settings → Pages → Source: GitHub Actions** to publish the wiki.
 execforge/
 ├── skills/
 │   ├── c-level/
+│   ├── design-html/
 │   ├── execforge/
 │   ├── eng-level/
 │   └── q-level/
@@ -161,13 +173,17 @@ ExecForge answers:
 
 > Should we build this, and what is the smallest defensible scope?
 
+Design HTML answers:
+
+> Given approved scope, what is the smallest clear interface that delivers the user outcome and can be implemented faithfully?
+
 Eng Level answers:
 
 > Does the approved engineering plan and actual implementation satisfy the approved product requirements safely enough to ship?
 
 Q Level answers:
 
-> Does the critical business transaction work across portal, API, and backend/data with release-quality evidence?
+> Does the critical business transaction work across portal, API, and backend/data with release-quality evidence, including persisted-state risk where data QA is required?
 
 Superpowers answers:
 

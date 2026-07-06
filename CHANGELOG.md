@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Added bundled `design-html` for translating approved product scope into UX/interface and HTML/CSS-oriented output.
+- Expanded `q-level` with richer seeded artifacts, stronger state/schema tracking, and a dedicated data-QA attachment contract/template.
+- Added design-html and data-QA documentation plus new example artifacts.
+- Updated plugin manifests, installer/validator bundle checks, and repository tests for the expanded skill bundle.
+
 ## 0.4.0 — Portal/API/backend Q Level
 
 - Added `q-level` with Portal, API, and Backend/Data QA actors.

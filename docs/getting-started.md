@@ -11,14 +11,14 @@
 ## Install
 
 ```bash
-python scripts/execforge.py validate
-python scripts/execforge.py install --target claude
+python3 scripts/execforge.py validate
+python3 scripts/execforge.py install --target claude
 ```
 
 Or project-local:
 
 ```bash
-python scripts/execforge.py install --destination .claude/skills
+python3 scripts/execforge.py install --destination .claude/skills
 ```
 
 ## First product review
@@ -35,6 +35,12 @@ Constraints:
 
 ## Engineering handoff
 
+For UI-facing work with approved scope, optionally translate the product intent into interface output first:
+
+```text
+/design-html
+```
+
 ```text
 /eng-level --mode=auto
 ```
@@ -48,13 +54,13 @@ APPROVE UPSTREAM
 ## Initialize artifact directories
 
 ```bash
-python scripts/execforge.py init-run --name my-feature
+python3 scripts/execforge.py init-run --name my-feature
 ```
 
 ## Check status
 
 ```bash
-python scripts/execforge.py status
+python3 scripts/execforge.py status
 ```
 
 
