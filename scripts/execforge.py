@@ -112,6 +112,9 @@ def validate_repo(root: Path = ROOT) -> list[str]:
         if not (root / rel).exists():
             errors.append(f"Missing required file: {rel}")
 
+    for stray in root.glob("*SKILL*.md"):
+        errors.append(f"{stray.name}: legacy root skill file; skill bodies belong under skills/<name>/")
+
     for path in list((root / "schemas").glob("*.json")) + list((root / ".claude-plugin").glob("*.json")) + list((root / ".codex-plugin").glob("*.json")):
         try:
             json.loads(path.read_text(encoding="utf-8"))
@@ -142,8 +145,34 @@ def destination_for(target: str) -> Path:
     return mapping[target]
 
 
+def verify_installed_skill(target: Path) -> list[str]:
+    problems: list[str] = []
+    skill_file = target / "SKILL.md"
+    if not skill_file.exists():
+        return [f"{target}: SKILL.md missing after install"]
+    try:
+        meta = parse_frontmatter(skill_file)
+    except ValueError as exc:
+        return [str(exc)]
+    if meta.get("name") != target.name:
+        problems.append(f"{skill_file}: installed name '{meta.get('name')}' does not match directory '{target.name}'")
+    for link in markdown_links(skill_file):
+        if "://" in link or link.startswith("#"):
+            continue
+        if not (skill_file.parent / link.split("#", 1)[0]).resolve().exists():
+            problems.append(f"{skill_file}: broken local link {link}")
+    return problems
+
+
 def install(destination: Path, force: bool = False) -> None:
+    errors = validate_repo()
+    if errors:
+        raise RuntimeError(
+            "repository validation failed; refusing to install a broken bundle:\n  "
+            + "\n  ".join(errors)
+        )
     destination.mkdir(parents=True, exist_ok=True)
+    problems: list[str] = []
     for skill_name in sorted(BUNDLED_SKILLS):
         source = SKILLS / skill_name
         target = destination / source.name
@@ -152,13 +181,61 @@ def install(destination: Path, force: bool = False) -> None:
                 raise FileExistsError(f"{target} exists; rerun with --force")
             shutil.rmtree(target)
         shutil.copytree(source, target)
+        problems.extend(verify_installed_skill(target))
         print(f"installed {source.name} -> {target}")
+    if problems:
+        raise RuntimeError("post-install verification failed:\n  " + "\n  ".join(problems))
+    print(f"verified {len(BUNDLED_SKILLS)} installed skills at {destination}")
 
 
 def seed_q_level_artifacts(destination: Path) -> None:
     assets_root = SKILLS / "q-level" / "assets"
     for target_name, template_name in Q_LEVEL_ASSET_FILES.items():
         shutil.copy2(assets_root / template_name, destination / target_name)
+
+
+def doctor() -> int:
+    hard_failures = 0
+
+    def report(label: str, ok: bool, detail: str, hard: bool = True) -> None:
+        nonlocal hard_failures
+        status = "OK" if ok else ("FAIL" if hard else "WARN")
+        print(f"[{status}] {label}: {detail}")
+        if not ok and hard:
+            hard_failures += 1
+
+    version = sys.version_info
+    report(
+        "python",
+        version >= (3, 9),
+        f"{version.major}.{version.minor}.{version.micro} (requires >= 3.9)",
+    )
+
+    errors = validate_repo()
+    report("repository", not errors, "validation passed" if not errors else "; ".join(errors))
+
+    git = shutil.which("git")
+    report("git", git is not None, git or "not found; eng-level diff review needs Git", hard=False)
+
+    mkdocs = shutil.which("mkdocs")
+    report("mkdocs", mkdocs is not None, mkdocs or "not found; optional, only needed to build docs", hard=False)
+
+    for target in ["claude", "codex", "agents"]:
+        destination = destination_for(target)
+        probe = destination
+        while not probe.exists() and probe != probe.parent:
+            probe = probe.parent
+        writable = os.access(probe, os.W_OK)
+        report(f"install target {target}", writable, str(destination), hard=False)
+
+    superpowers = check_superpowers() == 0
+    report("superpowers", superpowers, "detected" if superpowers else "not detected; optional", hard=False)
+
+    if hard_failures:
+        print(f"doctor found {hard_failures} blocking problem(s).")
+        return 1
+    print("doctor found no blocking problems.")
+    return 0
 
 
 def check_superpowers() -> int:
@@ -271,6 +348,8 @@ def main() -> int:
 
     sub.add_parser("check-superpowers", help="check common Superpowers locations")
 
+    sub.add_parser("doctor", help="check installation prerequisites and dependencies")
+
     init_parser = sub.add_parser("init-run", help="initialize decision and lifecycle artifacts")
     init_parser.add_argument("--name", required=True)
     init_parser.add_argument("--root", type=Path, default=Path.cwd())
@@ -295,13 +374,16 @@ def main() -> int:
         destination = destination_for(args.target) if args.target else args.destination.expanduser().resolve()
         try:
             install(destination, args.force)
-        except FileExistsError as exc:
+        except (FileExistsError, RuntimeError) as exc:
             print(f"ERROR: {exc}", file=sys.stderr)
             return 1
         return 0
 
     if args.command == "check-superpowers":
         return check_superpowers()
+
+    if args.command == "doctor":
+        return doctor()
 
     if args.command == "init-run":
         init_run(args.name, args.root.resolve())

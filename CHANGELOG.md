@@ -1,11 +1,16 @@
 # Changelog
 
-## Unreleased
+## 0.5.0 — 2026-07-06 (first tagged release)
 
 - Added bundled `design-html` for translating approved product scope into UX/interface and HTML/CSS-oriented output.
 - Expanded `q-level` with richer seeded artifacts, stronger state/schema tracking, and a dedicated data-QA attachment contract/template.
 - Added design-html and data-QA documentation plus new example artifacts.
 - Updated plugin manifests, installer/validator bundle checks, and repository tests for the expanded skill bundle.
+- Split the legacy root skill monoliths (`ExecForge_SKILL.md`, `Eng_Level_SKILL_eng_skill.md`) into progressive references under `skills/execforge/references/` and `skills/eng-level/references/`, and removed the root files; the validator now rejects root-level skill files.
+- Added a `doctor` CLI command for installation and dependency validation, and made `install` validate the bundle before copying and verify every installed skill afterwards.
+- Added behavioral evaluation cases under `evaluations/`, one per bundled skill.
+- Added GitHub Actions CI (validate, doctor, tests, strict docs build) and a GitHub Pages docs deployment workflow.
+- Rewrote the README with requirements, a full CLI reference, evaluations, CI, layout, and release documentation.
 
 ## 0.4.0 — Portal/API/backend Q Level
 

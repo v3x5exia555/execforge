@@ -18,6 +18,36 @@ class SkillBundleTests(unittest.TestCase):
             manifest = json.loads((ROOT / rel).read_text())
             self.assertEqual(expected, sorted(manifest["skills"]))
 
+    def test_every_bundled_skill_has_an_evaluation_case(self):
+        evaluations = ROOT / "evaluations"
+        self.assertTrue((evaluations / "README.md").exists())
+        for skill_name in module.BUNDLED_SKILLS:
+            eval_file = evaluations / f"{skill_name}.eval.md"
+            self.assertTrue(eval_file.exists(), f"Missing evaluation case: {eval_file}")
+            meta = module.parse_frontmatter(eval_file)
+            self.assertEqual(skill_name, meta.get("skill"))
+            self.assertTrue(meta.get("id", "").startswith(skill_name))
+            self.assertIn(meta.get("type"), {"routing", "decision", "gate", "output-contract"})
+            body = eval_file.read_text(encoding="utf-8")
+            for section in ["## Scenario", "## Expected behavior", "## Failure conditions"]:
+                self.assertIn(section, body, f"{eval_file} missing section {section}")
+
+    def test_ci_workflows_exist(self):
+        for rel in [".github/workflows/ci.yml", ".github/workflows/docs.yml"]:
+            self.assertTrue((ROOT / rel).exists(), f"Missing workflow: {rel}")
+
+    def test_progressive_references_are_linked_from_skill_files(self):
+        expected = {
+            "execforge": ["references/review-phases.md", "references/execution-and-governance.md"],
+            "eng-level": ["references/lifecycle-protocol.md", "references/fallback-review-contracts.md"],
+        }
+        for skill_name, references in expected.items():
+            skill_file = ROOT / "skills" / skill_name / "SKILL.md"
+            links = module.markdown_links(skill_file)
+            for reference in references:
+                self.assertTrue((skill_file.parent / reference).exists(), f"Missing {reference}")
+                self.assertIn(reference, links, f"{skill_file} does not link {reference}")
+
     def test_design_html_and_data_qa_assets_exist(self):
         required_paths = [
             ROOT / "skills" / "design-html" / "SKILL.md",

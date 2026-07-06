@@ -5,7 +5,7 @@ license: MIT
 compatibility: Requires repository or deployed-environment evidence. Uses Playwright, Schemathesis, native tests, Testcontainers, k6, axe-core, ZAP, or Pact only when separately available and appropriate.
 metadata:
   author: ExecForge contributors
-  version: "0.4.0"
+  version: "0.5.0"
 ---
 
 # Q Level — Portal → API → Backend/Data

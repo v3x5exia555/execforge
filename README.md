@@ -22,54 +22,67 @@ COO Subagent
       Final Engineering Decision
 ```
 
-## What is included
+## Bundled skills
 
 | Skill | Purpose |
 |---|---|
 | `c-level` | Bootstrap/router that selects the correct workflow and integrates installed Superpowers skills |
-| `design-html` | Translates approved product scope into UX/interface structure and production-oriented HTML/CSS guidance for UI-facing work |
 | `execforge` | CEO + COO product pressure test and final `GO / MODIFY / PILOT / DEFER / KILL` decision |
+| `design-html` | Translates approved product scope into UX/interface structure and production-oriented HTML/CSS guidance for UI-facing work |
 | `eng-level` | Upstream approval, engineering plan review, implementation conformance, Staff Engineer review, and final ship decision |
 | `q-level` | Risk-based portal/API/backend QA planning, execution, retest, data-QA attachment, and `QA PASS / RETURN / BLOCK` decision |
 
+Each skill follows the Agent Skills directory convention: a concise `SKILL.md` entry point, detailed contracts under `references/`, and reusable templates under `assets/`.
+
 The repository also includes:
 
-- A MkDocs wiki and GitHub Pages workflow
-- Cross-harness plugin manifests
-- A dependency-free Python CLI for installation, validation, run initialization, and status
-- JSON schemas and reusable templates
+- A dependency-free Python CLI for validation, environment checks, installation, run initialization, and status
+- JSON schemas for decision and lifecycle state artifacts
+- Behavioral evaluation cases for every bundled skill
 - Static tests and GitHub Actions CI
-- Example decision artifacts
+- A MkDocs wiki with a GitHub Pages deployment workflow
+- Cross-harness plugin manifests (Claude and Codex)
+- Example decision artifacts for every lifecycle stage
 - Superpowers integration guidance without vendoring or modifying Superpowers
+
+## Requirements
+
+- **Python ≥ 3.9** — the CLI has no third-party dependencies.
+- **Git** — needed by `eng-level` for diff review (optional for the CLI itself).
+- **MkDocs** (optional) — only to build the documentation site: `python3 -m pip install -r requirements-docs.txt`.
+
+Check your environment at any time:
+
+```bash
+python3 scripts/execforge.py doctor
+```
 
 ## Quick start
 
-### 1. Validate the repository
+### 1. Validate and check the environment
 
 ```bash
 python3 scripts/execforge.py validate
+python3 scripts/execforge.py doctor
 python3 -m unittest discover -s tests -v
 ```
 
 ### 2. Install the skills
 
-Project-local:
+Installation validates the bundle first and verifies every installed skill afterwards.
 
 ```bash
+# Project-local
 python3 scripts/execforge.py install --destination .claude/skills
-```
 
-User-level Claude installation:
-
-```bash
+# User-level Claude installation
 python3 scripts/execforge.py install --target claude
-```
 
-User-level Codex installation:
-
-```bash
+# User-level Codex installation
 python3 scripts/execforge.py install --target codex
 ```
+
+Add `--force` to overwrite an existing installation.
 
 ### 3. Check optional Superpowers integration
 
@@ -96,17 +109,11 @@ For UI-facing initiatives with approved scope:
 
 ### 6. Move to engineering
 
-After the product decision:
-
 ```text
 /eng-level --mode=auto
 ```
 
-The lifecycle stops at `UPSTREAM_APPROVAL_REQUIRED`. Approve the interpreted requirements with:
-
-```text
-APPROVE UPSTREAM
-```
+The lifecycle stops at `UPSTREAM_APPROVAL_REQUIRED`. Approve the interpreted requirements with `APPROVE UPSTREAM`.
 
 ### 7. Build and review
 
@@ -128,43 +135,64 @@ ExecForge then performs the Staff Engineer review against the real diff, runs th
 /q-level --mode=auto
 ```
 
-Approve the proposed test plan and target environment with:
+Approve the proposed test plan and target environment with `APPROVE QA PLAN`.
 
-```text
-APPROVE QA PLAN
-```
+## CLI reference
+
+All commands run through `scripts/execforge.py` (or `scripts/install.sh` as a thin wrapper around `install`).
+
+| Command | Purpose |
+|---|---|
+| `validate` | Check repository structure, skill frontmatter, link integrity, manifests, and schemas |
+| `doctor` | Check Python version, repository integrity, Git/MkDocs availability, install-target writability, and Superpowers presence |
+| `install --target claude\|codex\|agents` or `--destination <dir>` | Validate, copy, and verify the skill bundle (`--force` to overwrite) |
+| `check-superpowers` | Detect a separately installed Superpowers setup |
+| `init-run --name <initiative>` | Seed `.execforge/`, `.eng-level/`, and `.q-level/` run artifacts |
+| `status` | Report current engineering and QA lifecycle state |
+
+## Evaluations
+
+`evaluations/` contains one behavioral evaluation case per bundled skill: an input scenario, an expected-behavior checklist, and explicit failure conditions. A case passes only when every expected behavior is observed and no failure condition occurs. The shared invariant across all cases: **never claim a review, test, approval, or lifecycle stage ran without evidence that it actually ran.** See [`evaluations/README.md`](evaluations/README.md).
+
+## Continuous integration
+
+GitHub Actions runs on every push and pull request ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)):
+
+1. `python3 scripts/execforge.py validate`
+2. `python3 scripts/execforge.py doctor`
+3. `python3 -m unittest discover -s tests -v`
+4. `mkdocs build --strict`
+
+A second workflow ([`.github/workflows/docs.yml`](.github/workflows/docs.yml)) deploys the MkDocs site to GitHub Pages on pushes to `main`. Enable **Settings → Pages → Source: GitHub Actions** to publish it.
 
 ## Documentation
 
-The full guide lives under [`docs/`](docs/index.md).
-
-Build it locally:
+The full guide lives under [`docs/`](docs/index.md). Build it locally:
 
 ```bash
 python3 -m pip install -r requirements-docs.txt
 mkdocs serve
 ```
 
-Enable **Settings → Pages → Source: GitHub Actions** to publish the wiki.
-
 ## Repository layout
 
 ```text
 execforge/
-├── skills/
+├── skills/              # Bundled skills (SKILL.md + references/ + assets/)
 │   ├── c-level/
 │   ├── design-html/
 │   ├── execforge/
 │   ├── eng-level/
 │   └── q-level/
-├── docs/
-├── examples/
-├── schemas/
-├── scripts/
-├── tests/
-├── .claude-plugin/
-├── .codex-plugin/
-└── .github/workflows/
+├── evaluations/         # Behavioral evaluation cases, one per skill
+├── docs/                # MkDocs wiki source
+├── examples/            # Example decision artifacts
+├── schemas/             # JSON schemas for decision/state artifacts
+├── scripts/             # Dependency-free CLI and install wrapper
+├── tests/               # Static repository and bundle tests
+├── .claude-plugin/      # Claude plugin manifest
+├── .codex-plugin/       # Codex plugin manifest
+└── .github/workflows/   # CI and docs deployment
 ```
 
 ## Decision boundaries
@@ -189,9 +217,13 @@ Superpowers answers:
 
 > How should the coding agent execute the approved implementation with disciplined planning, isolation, TDD, review, and verification?
 
-## Status
+## Versioning and releases
 
-This package is a repository-ready platform for product governance, engineering review, disciplined implementation, and portal/API/backend QA. It uses Agent Skills directory conventions and progressive disclosure so the main skill files stay concise while detailed contracts live under `references/`.
+Releases follow semantic-style `MAJOR.MINOR.PATCH` versions, tagged as `v<version>` in Git, with plugin manifests and skill frontmatter kept in sync. Changes are recorded in [CHANGELOG.md](CHANGELOG.md).
+
+## Contributing and security
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the contribution workflow and [SECURITY.md](SECURITY.md) for reporting security issues.
 
 ## License
 

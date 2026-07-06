@@ -1,0 +1,25 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Validate repository structure and skills
+        run: python3 scripts/execforge.py validate
+      - name: Check installation prerequisites
+        run: python3 scripts/execforge.py doctor
+      - name: Run tests
+        run: python3 -m unittest discover -s tests -v
+      - name: Build docs strictly
+        run: |
+          python3 -m pip install -r requirements-docs.txt
+          mkdocs build --strict

@@ -33,6 +33,27 @@ class RepositoryTests(unittest.TestCase):
                 {path.name for path in destination.iterdir() if path.is_dir()},
             )
 
+    def test_no_legacy_root_skill_files(self):
+        self.assertEqual([], list(ROOT.glob("*SKILL*.md")))
+
+    def test_install_verifies_installed_skills(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            destination = Path(tmp) / "skills"
+            module.install(destination)
+            for skill_name in module.BUNDLED_SKILLS:
+                self.assertEqual([], module.verify_installed_skill(destination / skill_name))
+
+    def test_verify_installed_skill_rejects_corrupted_copy(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            destination = Path(tmp) / "skills"
+            module.install(destination)
+            corrupted = destination / "execforge" / "SKILL.md"
+            corrupted.write_text("no frontmatter here\n", encoding="utf-8")
+            self.assertNotEqual([], module.verify_installed_skill(destination / "execforge"))
+
+    def test_doctor_reports_no_blocking_problems(self):
+        self.assertEqual(0, module.doctor())
+
     def test_init_run_creates_state(self):
         with tempfile.TemporaryDirectory() as tmp:
             cwd = Path(tmp)

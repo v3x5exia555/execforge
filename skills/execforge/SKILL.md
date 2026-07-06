@@ -5,7 +5,7 @@ license: MIT
 compatibility: Supports real subagents when available and isolated simulated review passes otherwise.
 metadata:
   author: ExecForge contributors
-  version: "0.4.0"
+  version: "0.5.0"
 ---
 
 # ExecForge Product Decision
@@ -103,7 +103,7 @@ Return:
    - `DEFER`
    - `KILL`
 
-Read [evidence and contradiction rules](references/evidence-and-contradictions.md) and [the detailed decision contract](references/decision-contract.md) when producing a full review.
+Read [evidence and contradiction rules](references/evidence-and-contradictions.md) and [the detailed decision contract](references/decision-contract.md) when producing a full review. For large initiatives, expand each stage with [the detailed review phases](references/review-phases.md) and [execution and governance detail](references/execution-and-governance.md).
 
 ## Required final output
 

@@ -5,7 +5,7 @@ license: MIT
 compatibility: Works with Agent Skills-compatible coding agents. Optional integrations require separately installed gstack and Superpowers skills.
 metadata:
   author: ExecForge contributors
-  version: "0.4.0"
+  version: "0.5.0"
 ---
 
 # C Level

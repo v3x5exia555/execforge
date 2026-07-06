@@ -5,7 +5,7 @@ license: MIT
 compatibility: Requires a Git repository for diff review. Integrates with separately installed gstack and Superpowers skills when available.
 metadata:
   author: ExecForge contributors
-  version: "0.4.0"
+  version: "0.5.0"
 ---
 
 # Eng Level
@@ -68,7 +68,7 @@ Do not plan, implement, or review before approval. Read [the upstream approval c
 
 ## Plan review
 
-Use the current installed gstack `plan-eng-review` skill when available. Otherwise state that the fallback contract is being used.
+Use the current installed gstack `plan-eng-review` skill when available. Otherwise state that [the fallback contract](references/fallback-review-contracts.md) is being used.
 
 The review must cover:
 
@@ -167,7 +167,7 @@ Rules:
 - Missing critical evidence or unsafe rollback blocks.
 - Maximum three automatic fix/review cycles before replan or block.
 
-Read [state and artifact contracts](references/state-and-artifacts.md).
+Read [state and artifact contracts](references/state-and-artifacts.md). For a full run, follow [the step-by-step lifecycle protocol](references/lifecycle-protocol.md) and produce [the final output contract](references/fallback-review-contracts.md).
 
 ## Validation gate
 
