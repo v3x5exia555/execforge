@@ -38,8 +38,13 @@ class SkillBundleTests(unittest.TestCase):
 
     def test_progressive_references_are_linked_from_skill_files(self):
         expected = {
-            "execforge": ["references/review-phases.md", "references/execution-and-governance.md"],
+            "execforge": [
+                "references/review-phases.md",
+                "references/execution-and-governance.md",
+                "references/initiative-flags.md",
+            ],
             "eng-level": ["references/lifecycle-protocol.md", "references/fallback-review-contracts.md"],
+            "full-cycle": ["references/fallback-implementation-contract.md"],
         }
         for skill_name, references in expected.items():
             skill_file = ROOT / "skills" / skill_name / "SKILL.md"
@@ -47,6 +52,28 @@ class SkillBundleTests(unittest.TestCase):
             for reference in references:
                 self.assertTrue((skill_file.parent / reference).exists(), f"Missing {reference}")
                 self.assertIn(reference, links, f"{skill_file} does not link {reference}")
+
+    def test_initiative_flags_reference_defines_the_gate_contract(self):
+        catalog = (ROOT / "skills" / "execforge" / "references" / "initiative-flags.md").read_text(encoding="utf-8")
+        for flag in [
+            "offensive-security",
+            "legally-gated",
+            "regulated-impersonation",
+            "user-prescribed-mechanism",
+        ]:
+            self.assertIn(flag, catalog, f"initiative-flags.md missing flag {flag}")
+        for verdict in ["AUTHORIZED", "NOT AUTHORIZED", "N-A (justified"]:
+            self.assertIn(verdict, catalog, f"initiative-flags.md missing decision value {verdict}")
+
+    def test_authorization_gate_is_wired_into_lifecycle_skills(self):
+        checks = {
+            "full-cycle": "Authorization / Rules-of-Engagement gate",
+            "eng-level": "Initiative flags and authorization status",
+            "sec-level": "authorization gate",
+        }
+        for skill_name, needle in checks.items():
+            body = (ROOT / "skills" / skill_name / "SKILL.md").read_text(encoding="utf-8")
+            self.assertIn(needle, body, f"{skill_name}/SKILL.md missing '{needle}'")
 
     def test_design_html_and_data_qa_assets_exist(self):
         required_paths = [

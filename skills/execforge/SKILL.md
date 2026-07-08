@@ -5,7 +5,7 @@ license: MIT
 compatibility: Supports real subagents when available and isolated simulated review passes otherwise.
 metadata:
   author: ExecForge contributors
-  version: "0.5.0"
+  version: "0.6.0"
 ---
 
 # ExecForge Product Decision
@@ -85,17 +85,23 @@ Return:
    - `YES`: prove concrete pain.
    - `PARTIAL`: reduce or reframe.
    - `NO`: defer or kill.
-2. **Scope mode:** select exactly one:
+2. **Set initiative flags:** decide whether the work is `offensive-security`,
+   `legally-gated`, `regulated-impersonation`, or `user-prescribed-mechanism`, and record
+   each as set or not set. Any of the first three makes the Authorization / Rules-of-
+   Engagement gate a non-negotiable control below. When `user-prescribed-mechanism` is set,
+   separate the requested mechanism from the underlying goal and evaluate the goal — the
+   review may redirect the mechanism. See [initiative flags](references/initiative-flags.md).
+3. **Scope mode:** select exactly one:
    - Scope Expansion
    - Selective Expansion
    - Hold Scope
    - Scope Reduction
-3. **10× challenge:** separate transformational value from incremental polish.
-4. **Complexity check:** remove architecture and process not required to prove value.
-5. **Contradictions:** classify as factual or strategic.
-6. **Optional rebuttal:** one orchestrator-mediated round for material disagreement.
-7. **Resolution:** decide scope, controls, ownership, success thresholds, and kill criteria.
-8. **Final verdict:** select exactly one:
+4. **10× challenge:** separate transformational value from incremental polish.
+5. **Complexity check:** remove architecture and process not required to prove value.
+6. **Contradictions:** classify as factual or strategic.
+7. **Optional rebuttal:** one orchestrator-mediated round for material disagreement.
+8. **Resolution:** decide scope, controls, ownership, success thresholds, and kill criteria.
+9. **Final verdict:** select exactly one:
    - `GO`
    - `GO WITH CONDITIONS`
    - `MODIFY`

@@ -5,7 +5,7 @@ license: MIT
 compatibility: Requires a Git repository for diff review. Integrates with separately installed gstack and Superpowers skills when available.
 metadata:
   author: ExecForge contributors
-  version: "0.5.0"
+  version: "0.6.0"
 ---
 
 # Eng Level
@@ -52,11 +52,18 @@ When an ExecForge, CEO/COO, PRD, or product plan exists:
    - What, why, and for whom
    - In scope, deferred, skipped, and non-goals
    - Product success metrics
+   - Acceptance criteria / definition of done (the concrete pass test for the work; state
+     it before building — do not rely on "test until it is fixed")
+   - Initiative flags and authorization status (`offensive-security`, `legally-gated`,
+     `regulated-impersonation`, `user-prescribed-mechanism`, each set or not set; and the
+     authorization decision for any gating flag: `AUTHORIZED` / `NOT AUTHORIZED` /
+     `N-A (justified)`)
    - Non-negotiable CEO decisions
    - Non-negotiable COO controls
    - Assumptions and unknowns
    - Kill criteria
-2. Save `.eng-level/upstream-requirements.md`.
+2. Save `.eng-level/upstream-requirements.md`. Planning may not proceed while any gating
+   flag has an unresolved authorization decision.
 3. Set `UPSTREAM_APPROVAL_REQUIRED`.
 4. Stop and request one response:
    - `APPROVE UPSTREAM`

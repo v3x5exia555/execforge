@@ -18,12 +18,14 @@ Before acting, select the smallest applicable workflow. Do not inspect code, ask
 
 | Situation | Required workflow |
 |---|---|
+| Initiative must be governed end-to-end from idea to ship in one engagement | Use `full-cycle` |
 | New product, feature, platform, automation, or unclear user need | Use `execforge` |
 | Approved product scope needs UX/interface structure or production-oriented HTML/CSS guidance | Use `design-html` |
 | Approved product/PRD needs engineering planning | Use `eng-level --mode=plan` |
 | Implementation plan is approved and code work starts | Use the installed Superpowers execution skills |
 | Existing branch needs final audit | Use `eng-level --mode=review` |
 | Web portal/API/backend behavior needs test planning or execution | Use `q-level` |
+| Change touches auth, user input, secrets, sensitive data, new dependencies, or network exposure | Attach `sec-level` (threat model at plan stage, security review at diff stage) |
 | QA finds a code defect | Return to implementation, then retest |
 | QA finds an architecture/integration defect | Return to `eng-level --mode=plan` |
 | QA finds unclear or contradictory acceptance criteria | Return to `execforge` |
