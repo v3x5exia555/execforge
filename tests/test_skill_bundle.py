@@ -40,6 +40,7 @@ class SkillBundleTests(unittest.TestCase):
         expected = {
             "execforge": ["references/review-phases.md", "references/execution-and-governance.md"],
             "eng-level": ["references/lifecycle-protocol.md", "references/fallback-review-contracts.md"],
+            "full-cycle": ["references/fallback-implementation-contract.md"],
         }
         for skill_name, references in expected.items():
             skill_file = ROOT / "skills" / skill_name / "SKILL.md"

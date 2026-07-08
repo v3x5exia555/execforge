@@ -1,6 +1,6 @@
 # ExecForge
 
-ExecForge is an agent-skill platform for governing a software initiative from **product decision** through **engineering and cross-layer QA** to a final ship decision.
+ExecForge is an agent-skill platform for governing a software initiative from **product decision** through **engineering, security, and cross-layer QA** to a final ship decision. Run the whole pipeline in one governed engagement with `full-cycle`, or enter at any single stage.
 
 ```text
 CEO Subagent
@@ -15,7 +15,7 @@ COO Subagent
              ↓
         Eng Level Orchestrator
              ↓
-  Plan Review → Build → Staff Review
+  Plan Review (+ Threat Model) → Build → Staff Review (+ Security Review)
              ↓
  Portal → API → Backend/Data QA
              ↓
@@ -27,10 +27,12 @@ COO Subagent
 | Skill | Purpose |
 |---|---|
 | `c-level` | Bootstrap/router that selects the correct workflow and integrates installed Superpowers skills |
+| `full-cycle` | End-to-end lifecycle orchestrator: product decision → approval → design → plan → build → reviews → QA → final ship verdict in one governed run |
 | `execforge` | CEO + COO product pressure test and final `GO / MODIFY / PILOT / DEFER / KILL` decision |
 | `design-html` | Translates approved product scope into UX/interface structure and production-oriented HTML/CSS guidance for UI-facing work |
 | `eng-level` | Upstream approval, engineering plan review, implementation conformance, Staff Engineer review, and final ship decision |
 | `q-level` | Risk-based portal/API/backend QA planning, execution, retest, data-QA attachment, and `QA PASS / RETURN / BLOCK` decision |
+| `sec-level` | Application-security actor: threat model at plan stage, OWASP-mapped adversarial review of the real diff, and `SEC PASS / FIX REQUIRED / BLOCK` verdict |
 
 Each skill follows the Agent Skills directory convention: a concise `SKILL.md` entry point, detailed contracts under `references/`, and reusable templates under `assets/`.
 
@@ -92,7 +94,16 @@ python3 scripts/execforge.py check-superpowers
 
 Install Superpowers separately using its official instructions. ExecForge references Superpowers skills when present; it does not copy or fork their content.
 
-### 4. Start with a product decision
+### 4. Start with a product decision — or run the whole lifecycle
+
+For one governed end-to-end run (all stages, both user gates):
+
+```text
+/full-cycle Take this from idea to ship:
+[problem, target user, proposed change, constraints, evidence]
+```
+
+Or enter stage by stage, starting with the product decision:
 
 ```text
 /execforge Review this initiative:
@@ -129,7 +140,17 @@ using-git-worktrees
 
 ExecForge then performs the Staff Engineer review against the real diff, runs the portal/API/backend QA gate, and requires a final delta review when QA fixes production code.
 
-### 8. Run the QA gate
+### 8. Attach the security actor when it applies
+
+For changes touching auth, user input, secrets, sensitive data, new dependencies, or network exposure:
+
+```text
+/sec-level --mode=auto
+```
+
+`auto` runs a threat model before implementation and an OWASP-mapped review once a real diff exists. An unresolved `S0`/`S1` finding blocks shipping like a `P0`/`P1`.
+
+### 9. Run the QA gate
 
 ```text
 /q-level --mode=auto
@@ -183,7 +204,9 @@ execforge/
 │   ├── design-html/
 │   ├── execforge/
 │   ├── eng-level/
-│   └── q-level/
+│   ├── full-cycle/
+│   ├── q-level/
+│   └── sec-level/
 ├── evaluations/         # Behavioral evaluation cases, one per skill
 ├── docs/                # MkDocs wiki source
 ├── examples/            # Example decision artifacts
@@ -196,6 +219,10 @@ execforge/
 ```
 
 ## Decision boundaries
+
+Full Cycle answers:
+
+> Has every lifecycle stage for this initiative run in order, with evidence, through both user gates, to a single final verdict?
 
 ExecForge answers:
 
@@ -212,6 +239,10 @@ Eng Level answers:
 Q Level answers:
 
 > Does the critical business transaction work across portal, API, and backend/data with release-quality evidence, including persisted-state risk where data QA is required?
+
+Sec Level answers:
+
+> Can an attacker abuse this change — proven against the actual code, configuration, and dependencies, not the plan's stated intent?
 
 Superpowers answers:
 

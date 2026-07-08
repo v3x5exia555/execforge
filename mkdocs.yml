@@ -10,9 +10,11 @@ nav:
   - Getting Started: getting-started.md
   - Architecture: architecture.md
   - Product Decision: product-decision.md
+  - Full Cycle: full-cycle.md
   - Design HTML: design-html.md
   - Eng Level: eng-level.md
   - Q Level: q-level.md
+  - Sec Level: sec-level.md
   - Data QA: data-qa.md
   - Upstream Approval: upstream-approval.md
   - Superpowers Integration: superpowers-integration.md
