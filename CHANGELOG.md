@@ -1,7 +1,12 @@
 # Changelog
 
-## Unreleased
+## 0.7.0 — 2026-07-08
 
+- Added an **initiative-flags** mechanism to `execforge`: named flags (`offensive-security`, `legally-gated`, `regulated-impersonation`, `user-prescribed-mechanism`) set at the product/upstream stage that arm conditional downstream governance gates. Detailed catalog and contracts in `skills/execforge/references/initiative-flags.md`.
+- Added an **Authorization / Rules-of-Engagement gate**: a hard STOP before implementation for offensive-security, legally-gated, or brand-impersonation work, requiring a recorded `AUTHORIZED` / `NOT AUTHORIZED` / `N-A (justified)` decision with written authorization, scope of engagement, consent basis, no unapproved third-party impersonation, and captured-data handling. Wired into `full-cycle` (operating rule 7 + validation gate), the `eng-level` upstream stop check, and clarified against technical appsec in `sec-level`. The agent never self-answers this gate.
+- Added a **goal-vs-mechanism guard** to `execforge`: when a request prescribes a mechanism, the outcome and the mechanism are stated separately and the review may redirect to root cause.
+- Made **acceptance criteria / definition of done** a required field in the `eng-level` upstream-requirements artifact.
+- Added `docs/authorization-gate.md` (+ nav), an authorization-gate evaluation case, and repository tests covering the initiative-flags reference and gate contract.
 - Added bundled `full-cycle` skill: an end-to-end lifecycle orchestrator that sequences product decision, upstream approval, optional design, plan review, implementation, Staff Engineer review, QA gate, delta review, and the final ship verdict, with two mandatory user gates and evidence-backed stage tracking.
 - Added bundled `sec-level` skill: an application-security actor with plan-stage threat modeling (STRIDE), a diff-stage adversarial review mapped to OWASP Top 10:2025 and AI-generated-code failure patterns, S0–S3 severities aligned with eng-level, and a `SEC PASS / FIX REQUIRED / BLOCK` verdict.
 - Added `full-cycle` and `sec-level` to the `c-level` router, `full-cycle` stage rules, plugin manifests, docs navigation, and evaluations.

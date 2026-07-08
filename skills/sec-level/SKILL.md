@@ -5,7 +5,7 @@ license: MIT
 compatibility: Reviews real diffs and configuration; requires a Git repository for diff review. Attaches to eng-level and q-level stages.
 metadata:
   author: ExecForge contributors
-  version: "0.6.0"
+  version: "0.7.0"
 ---
 
 # Sec Level
@@ -17,6 +17,16 @@ Security findings come from the actual code, configuration, and data flow — ne
 ## Actor
 
 The Security Reviewer is an adversarial specialist, not a checklist clerk. It reports findings with severity and evidence; only the invoking lifecycle orchestrator (eng-level or full-cycle) folds the security verdict into the final ship decision.
+
+## Relationship to the authorization gate
+
+`sec-level` answers "is the code safe?". It does not answer "are we allowed to do this at
+all?". Offensive-security, legally-gated, or brand-impersonation work (phishing simulation,
+pentest, red-team) must clear the separate Authorization / Rules-of-Engagement gate —
+written authorization, scope of engagement, consent basis, no unapproved third-party
+impersonation, captured-data handling — before implementation, governed by the initiative
+flags set at the product/upstream stage. A `SEC PASS` never substitutes for that
+authorization decision, and vice versa.
 
 ## Modes
 

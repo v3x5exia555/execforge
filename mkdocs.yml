@@ -15,6 +15,7 @@ nav:
   - Eng Level: eng-level.md
   - Q Level: q-level.md
   - Sec Level: sec-level.md
+  - Authorization Gate: authorization-gate.md
   - Data QA: data-qa.md
   - Upstream Approval: upstream-approval.md
   - Superpowers Integration: superpowers-integration.md

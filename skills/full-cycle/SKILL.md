@@ -5,7 +5,7 @@ license: MIT
 compatibility: Orchestrates the other bundled ExecForge skills. Optional integrations require separately installed gstack and Superpowers skills.
 metadata:
   author: ExecForge contributors
-  version: "0.6.0"
+  version: "0.7.0"
 ---
 
 # Full Cycle
@@ -42,6 +42,7 @@ Stage 9  Final engineering decision  SHIP / SHIP WITH REQUIRED FIXES /
 4. Mark Stage 2 `NOT APPLICABLE` for non-UI scope, recording one sentence of justification.
 5. A `KILL` or `DEFER` verdict at Stage 0 ends the cycle; do not continue to planning.
 6. When the change touches auth, user input, secrets, sensitive data, new dependencies, or network exposure, attach `sec-level`: `threat-model` inside Stage 3 and `review` inside Stage 6. An unresolved `S0`/`S1` blocks Stage 9 like a `P0`/`P1`.
+7. When Stage 0 sets a gating initiative flag (`offensive-security`, `legally-gated`, or `regulated-impersonation`), the Authorization / Rules-of-Engagement gate is a hard STOP before Stage 4: the operator must record an `AUTHORIZED` / `NOT AUTHORIZED` / `N-A (justified)` decision with its evidence (written authorization, scope, consent basis, no unapproved third-party impersonation, captured-data handling). The agent never self-answers this gate. `NOT AUTHORIZED` or an unresolved decision blocks implementation, and blocks Stage 9 like a `P0`. This governance gate is distinct from the `sec-level` technical review. See execforge's initiative-flags reference.
 
 ## Feedback routing
 
@@ -74,5 +75,6 @@ Before returning a final result:
 
 - Every stage is DONE with evidence, NOT APPLICABLE with justification, or explicitly reported as not run.
 - Both user gates received an actual user response.
+- Any gating initiative flag has a recorded authorization decision; no `NOT AUTHORIZED` or unresolved authorization is hidden behind the final verdict.
 - No P0/P1 finding or blocking QA defect is hidden behind the final verdict.
 - The verdict is traceable to the recorded artifacts.
