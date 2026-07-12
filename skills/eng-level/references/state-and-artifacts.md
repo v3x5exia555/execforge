@@ -45,8 +45,26 @@ Return states:
 ├── staff-review.md
 ├── conformance.md
 ├── contradictions.md
+├── backlog.md
 └── decision.md
 ```
+
+## Deferred backlog
+
+`.eng-level/backlog.md` holds work that was planned and deliberately not executed. Deferred
+work belongs in a resumable artifact, never only in a commit message or a chat turn.
+
+Each action carries a cycle and a provenance marker:
+
+| Field | Values |
+|---|---|
+| Cycle | `Now` — ship this cycle · `Boundary` — starts at the cycle edge, user call · `Next` — deferred |
+| Provenance | `[C]` consensus · `[R]` resolved disagreement · `[gate]` externally blocked |
+
+Record for every deferred action: what it is, why it was deferred, what unblocks it, and the
+measurable condition that would pull it forward.
+
+`--mode=status` reads this file and answers what was parked, why, and what unblocks it.
 
 ## Replan triggers
 

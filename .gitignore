@@ -2,3 +2,6 @@ __pycache__/
 *.pyc
 .DS_Store
 site/
+
+# Extracted prompt transcripts — contain plaintext credentials. Never commit.
+prompt-history/

@@ -5,7 +5,7 @@ license: MIT
 compatibility: Works with Agent Skills-compatible coding agents. Optional integrations require separately installed gstack and Superpowers skills.
 metadata:
   author: ExecForge contributors
-  version: "0.5.0"
+  version: "0.8.0"
 ---
 
 # C Level
@@ -20,7 +20,7 @@ Before acting, select the smallest applicable workflow. Do not inspect code, ask
 |---|---|
 | Initiative must be governed end-to-end from idea to ship in one engagement | Use `full-cycle` |
 | New product, feature, platform, automation, or unclear user need | Use `execforge` |
-| Approved product scope needs UX/interface structure or production-oriented HTML/CSS guidance | Use `design-html` |
+| Approved product scope needs UX/interface structure or production-oriented HTML/CSS guidance | Use `design-html`; forward `--design-system=<name\|auto\|none>` when the operator set one |
 | Approved product/PRD needs engineering planning | Use `eng-level --mode=plan` |
 | Implementation plan is approved and code work starts | Use the installed Superpowers execution skills |
 | Existing branch needs final audit | Use `eng-level --mode=review` |
@@ -32,6 +32,34 @@ Before acting, select the smallest applicable workflow. Do not inspect code, ask
 | Product assumption becomes invalid during implementation | Return to `execforge` |
 | Architecture assumption becomes invalid during implementation | Return to `eng-level --mode=plan` |
 
+## Trigger aliases
+
+Users do not type canonical skill names. Route these to the real skill without asking:
+
+| What the user says | Route to |
+|---|---|
+| `product plan`, `c-plan`, `CEO plan`, `COO review`, `product review` | `execforge` |
+| `eng-plan`, `eng plan`, `engineering review`, `tech review`, `CR review` | `eng-level` |
+| `eng-lifecycle`, `eng-lifecyle`, `the lifecycle`, `full lifecycle`, `end to end` | `full-cycle` |
+| `QA-level`, `QA plan`, `QA it`, `test it` | `q-level` |
+| `designer`, `design plan`, `UI review`, `UX review` | `design-html` |
+| `security review`, `threat model`, `pentest review` | `sec-level` |
+| `exec-forge`, `excecforge`, `execforge lifecycle` | `execforge`, or `full-cycle` when the request spans build-to-ship |
+
+Misspellings and casing variants of any skill name route to that skill. When a request names
+several — "trigger product plan and eng-level" — run them in lifecycle order, not the order
+spoken.
+
+Do not ask the user to restate a request in canonical form.
+
+## Roles inside eng-level
+
+`eng-level` carries roles: `architect`, `manager`, `staff-engineer`, `backend-engineer`,
+`platform-engineer`. Do not ask which one. Infer from the request and the change surface:
+cost and capacity questions are `architect`; schema and query work is `backend-engineer`;
+deploy, DNS, containers, and TLS are `platform-engineer`; tickets and sequencing are
+`manager`; diff review is `staff-engineer`. Requests carrying several roles get all of them.
+
 ## Superpowers bridge
 
 When Superpowers is installed, use its current skill instructions rather than memory.
@@ -39,7 +67,7 @@ When Superpowers is installed, use its current skill instructions rather than me
 Recommended mapping:
 
 1. Product ambiguity: `execforge`; use Superpowers `brainstorming` only when design discovery is still required.
-2. UI-facing scope translation: `design-html`.
+2. UI-facing scope translation: `design-html`, with `--design-system` forwarded when a visual language is required.
 3. Approved technical design: Superpowers `using-git-worktrees`.
 4. Atomic execution plan: Superpowers `writing-plans`.
 5. Implementation: `subagent-driven-development` or `executing-plans`.
