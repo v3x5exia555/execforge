@@ -193,7 +193,9 @@ Use current installed gstack `review` when available. Inspect actual source, con
 
 Dispatch `backend-engineer` and `platform-engineer` as specialist auditors when the diff
 touches their surface. Pair an adversarial reviewer when the change is integrity-critical.
-Read [subagent dispatch](references/subagent-dispatch.md).
+Read [subagent dispatch](references/subagent-dispatch.md) and use the
+[reviewer briefs](references/reviewer-briefs.md) as written — the adversarial framing is the
+mechanism, so do not paraphrase them into a summary.
 
 ## Post-hoc review
 

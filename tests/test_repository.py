@@ -54,6 +54,57 @@ class RepositoryTests(unittest.TestCase):
     def test_doctor_reports_no_blocking_problems(self):
         self.assertEqual(0, module.doctor())
 
+    def test_status_surfaces_stop_boundary_and_backlog(self):
+        """SKILL.md claims --mode=status reports the brake and the parked work.
+        If status does not print them, that claim is false."""
+        import contextlib
+        import io
+
+        with tempfile.TemporaryDirectory() as tmp:
+            cwd = Path(tmp)
+            module.init_run("Braked Initiative", cwd)
+
+            state_file = cwd / ".eng-level" / "state.json"
+            state = json.loads(state_file.read_text())
+            state["stop_after"] = "plan"
+            state["routed_roles"] = ["architect", "backend-engineer"]
+            state["adversarial_pair"] = True
+            state_file.write_text(json.dumps(state, indent=2))
+
+            backlog = cwd / ".eng-level" / "backlog.md"
+            backlog.write_text(
+                "# Deferred Backlog\n\n"
+                "| # | Action | Cycle | Provenance | Why deferred | What unblocks it |\n"
+                "|---|---|---|---|---|---|\n"
+                "| 1 | Rebuild table | `Next` | `[R]` | risky | validated ER layer |\n"
+            )
+
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                module.show_status(cwd)
+            out = buf.getvalue()
+
+            self.assertIn("stop_after: plan", out)
+            self.assertIn("architect", out)
+            self.assertIn("backend-engineer", out)
+            self.assertIn("adversarial_pair: True", out)
+            self.assertIn("Rebuild table", out)
+            self.assertIn("validated ER layer", out)
+
+    def test_status_reports_empty_backlog_without_crashing(self):
+        import contextlib
+        import io
+
+        with tempfile.TemporaryDirectory() as tmp:
+            cwd = Path(tmp)
+            module.init_run("Fresh Initiative", cwd)
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                module.show_status(cwd)
+            out = buf.getvalue()
+            self.assertIn("backlog: (empty)", out)
+            self.assertIn("stop_after: None", out)
+
     def test_codex_manifest_uses_path_string_not_name_array(self):
         """A name array does not load as a Codex plugin; skills must be a './' path."""
         payload = json.loads((ROOT / ".codex-plugin" / "plugin.json").read_text())

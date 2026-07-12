@@ -355,6 +355,37 @@ def init_run(name: str, cwd: Path) -> Path:
     return run
 
 
+def print_backlog(backlog_file: Path) -> None:
+    """Surface deferred work. A parked plan nobody can find is not parked, it is lost."""
+    if not backlog_file.exists():
+        print("backlog: (none)")
+        return
+
+    rows = []
+    for line in backlog_file.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line.startswith("|") or line.startswith("|---"):
+            continue
+        cells = [c.strip() for c in line.strip("|").split("|")]
+        # Skip the header row and the unfilled template row.
+        if not cells or cells[0] in {"#", ""} or not any(cells[1:2]):
+            continue
+        rows.append(cells)
+
+    if not rows:
+        print("backlog: (empty)")
+        return
+
+    print(f"backlog: {len(rows)} deferred action(s) in {backlog_file}")
+    for cells in rows:
+        num = cells[0] if len(cells) > 0 else "?"
+        action = cells[1] if len(cells) > 1 else "?"
+        cycle = cells[2] if len(cells) > 2 else "?"
+        unblocks = cells[5] if len(cells) > 5 else ""
+        suffix = f" | unblocked by: {unblocks}" if unblocks else ""
+        print(f"  - [{cycle}] {num} {action}{suffix}")
+
+
 def show_status(cwd: Path) -> int:
     found = False
 
@@ -368,10 +399,25 @@ def show_status(cwd: Path) -> int:
             "base_branch", "base_commit", "final_decision"
         ]:
             print(f"{key}: {state.get(key)}")
+
+        # A stop boundary that is not reported is a brake nobody can see.
+        roles = state.get("routed_roles") or []
+        print(f"routed_roles: {', '.join(roles) if roles else '(none recorded)'}")
+        print(f"adversarial_pair: {state.get('adversarial_pair', False)}")
+        stop_after = state.get("stop_after")
+        if stop_after:
+            print(f"stop_after: {stop_after}  <- run halts here; do not resume without a new instruction")
+        else:
+            print("stop_after: None")
+        if state.get("post_hoc_review"):
+            print("post_hoc_review: true  <- ungated diff; SHIP is unavailable")
+
         blockers = state.get("open_blockers", [])
         print(f"open_blockers: {len(blockers)}")
         for blocker in blockers:
             print(f"  - {blocker}")
+
+        print_backlog(cwd / ".eng-level" / "backlog.md")
 
     qa_file = cwd / ".q-level" / "state.json"
     if qa_file.exists():

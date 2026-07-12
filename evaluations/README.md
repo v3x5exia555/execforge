@@ -4,7 +4,10 @@ Behavioral evaluation cases for the bundled skills. Each case describes an input
 
 ## File format
 
-One file per bundled skill, named `<skill>.eval.md`, with YAML frontmatter:
+Every bundled skill has at least one case, named `<skill>.eval.md`. A skill may carry
+additional cases for distinct behaviors, named `<skill>-<behavior>.eval.md` — for example
+`eng-level-role-routing.eval.md` and `full-cycle-authorization-gate.eval.md`. Every file
+carries YAML frontmatter:
 
 ```yaml
 ---
