@@ -21,11 +21,30 @@ plan, building at implement, auditing at review.
 ```text
 --mode=plan    with no role → architect + manager
 --mode=review  with no role → staff-engineer
---role=<r>                  → that lens only
+--role=<r>                  → narrows the advisory lenses to <r>
 --role=auto    (default)    → see role-routing.md
 ```
 
 Existing invocations without `--role` behave exactly as before.
+
+**`--role` never suppresses a mandatory lens.** `staff-engineer` always attaches when a diff
+exists; `architect` and `manager` always attach at plan. An explicit role narrows only the
+advisory lenses — `backend-engineer` and `platform-engineer` — so a user cannot route their
+way out of a review the lifecycle requires.
+
+## Recording
+
+Roles are honoured by the model, not enforced by code. The record is therefore the control.
+Before work starts, write `routed_roles`, `temperament`, and `adversarial_pair` to
+`.eng-level/state.json`; on exit, report what ran against what was routed. A role that was
+not recorded did not run, and must not be claimed.
+
+## Independence
+
+A role that built a surface does not audit its own work unreviewed. When
+`backend-engineer` or `platform-engineer` implements at Stage 2, its Stage 3 audit is a
+self-check, and `staff-engineer` — which did not write the code — remains the independent
+reviewer of record. Never present a builder's self-audit as independent review.
 
 ## Per-role contracts
 

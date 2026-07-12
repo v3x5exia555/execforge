@@ -121,16 +121,73 @@ def validate_repo(root: Path = ROOT) -> list[str]:
         except json.JSONDecodeError as exc:
             errors.append(f"{path}: invalid JSON: {exc}")
 
-    for manifest_path in PLUGIN_MANIFESTS:
-        manifest = root / manifest_path
-        if not manifest.exists():
-            continue
-        payload = json.loads(manifest.read_text(encoding="utf-8"))
-        manifest_skills = set(payload.get("skills", []))
-        if manifest_skills != BUNDLED_SKILLS:
-            errors.append(
-                f"{manifest}: skills {sorted(manifest_skills)} must match bundled skills {sorted(BUNDLED_SKILLS)}"
-            )
+    # Each host defines its own manifest contract. Validating both against one
+    # shape is what previously hid the Codex manifest being unloadable.
+    errors.extend(_validate_claude_manifest(root))
+    errors.extend(_validate_codex_manifest(root))
+
+    return errors
+
+
+def _validate_claude_manifest(root: Path) -> list[str]:
+    """Claude plugin manifest: skills is a list of bundled skill names."""
+    errors: list[str] = []
+    manifest = root / ".claude-plugin" / "plugin.json"
+    if not manifest.exists():
+        return errors
+
+    payload = json.loads(manifest.read_text(encoding="utf-8"))
+    skills = payload.get("skills")
+    if not isinstance(skills, list):
+        errors.append(f"{manifest}: 'skills' must be a list of skill names for the Claude plugin format")
+        return errors
+
+    if set(skills) != BUNDLED_SKILLS:
+        errors.append(
+            f"{manifest}: skills {sorted(set(skills))} must match bundled skills {sorted(BUNDLED_SKILLS)}"
+        )
+    return errors
+
+
+def _validate_codex_manifest(root: Path) -> list[str]:
+    """Codex plugin manifest: skills is a plugin-root-relative directory path.
+
+    Per the Codex plugin contract, `skills`/`mcpServers`/`apps` are relative path
+    strings beginning with './' -- not arrays. A name array is silently unloadable,
+    so assert the path shape and that the directory it names actually holds the
+    bundled skills.
+    """
+    errors: list[str] = []
+    manifest = root / ".codex-plugin" / "plugin.json"
+    if not manifest.exists():
+        return errors
+
+    payload = json.loads(manifest.read_text(encoding="utf-8"))
+
+    for field in ("name", "version", "description"):
+        if not payload.get(field):
+            errors.append(f"{manifest}: missing required field '{field}'")
+
+    skills = payload.get("skills")
+    if not isinstance(skills, str):
+        errors.append(
+            f"{manifest}: 'skills' must be a plugin-root-relative path string such as './skills/', "
+            f"not {type(skills).__name__}; a name array does not load as a Codex plugin"
+        )
+        return errors
+
+    if not skills.startswith("./"):
+        errors.append(f"{manifest}: 'skills' path {skills!r} must be plugin-root-relative and start with './'")
+
+    skills_dir = root / skills.lstrip("./").rstrip("/")
+    if not skills_dir.is_dir():
+        errors.append(f"{manifest}: 'skills' path {skills!r} does not resolve to a directory")
+        return errors
+
+    discovered = {p.name for p in skills_dir.iterdir() if (p / "SKILL.md").exists()}
+    missing = BUNDLED_SKILLS - discovered
+    if missing:
+        errors.append(f"{manifest}: 'skills' path {skills!r} is missing bundled skills {sorted(missing)}")
 
     return errors
 
@@ -281,6 +338,8 @@ def init_run(name: str, cwd: Path) -> Path:
     (lifecycle / "state.json").write_text(json.dumps(state, indent=2) + "\n", encoding="utf-8")
     upstream_source = SKILLS / "eng-level" / "assets" / "upstream-requirements.template.md"
     shutil.copy2(upstream_source, lifecycle / "upstream-requirements.md")
+    backlog_source = SKILLS / "eng-level" / "assets" / "backlog.template.md"
+    shutil.copy2(backlog_source, lifecycle / "backlog.md")
 
     qa = cwd / ".q-level"
     qa.mkdir(exist_ok=True)

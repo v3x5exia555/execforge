@@ -68,6 +68,16 @@ Defaults:
 **Do not require the user to name a role.** Infer it. Announce the routed set in one line
 and proceed; accept a one-word correction. Do not open a confirmation gate.
 
+Roles are model-honoured conventions, not enforced arguments. Nothing in the tooling
+prevents a role from being ignored, so the discipline is the record: write the routed set to
+`routed_roles`, `temperament`, and `adversarial_pair` in `.eng-level/state.json` before the
+work starts, and report what actually ran against what was routed. An unrecorded role did
+not run.
+
+An explicit `--role` narrows the *advisory* lenses only. It never suppresses a lens the
+lifecycle requires: `staff-engineer` always attaches when a diff exists, and `architect` plus
+`manager` always attach at plan.
+
 Read [role routing](references/role-routing.md) and [role contracts](references/role-contracts.md).
 
 ## Stop-after
@@ -76,9 +86,12 @@ Read [role routing](references/role-routing.md) and [role contracts](references/
 its artifacts, and executes nothing beyond it.
 
 Honour a stated intent to stop as if it were the parameter. "Plan it but do not deploy",
-"keep it for next cycle", and "let me review first" all set `--stop-after`. Record it in
-state so it survives a later turn. Do not resume past a stop boundary without a new
-instruction.
+"keep it for next cycle", and "let me review first" all set `--stop-after`.
+
+Write it to `stop_after` in `.eng-level/state.json` the moment it is set. That record is what
+makes the brake survive a later turn or a context compaction — an unrecorded stop boundary
+does not exist. On every re-entry, read `stop_after` from state before acting, and do not
+resume past it without a new instruction from the user.
 
 Deferred work goes to `.eng-level/backlog.md`, not to a commit message. Read
 [state and artifact contracts](references/state-and-artifacts.md).

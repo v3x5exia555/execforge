@@ -42,7 +42,7 @@ Adversarial pair: ON  (migration detected)
 | Request | Routed roles | Why |
 |---|---|---|
 | "see the db design and optimise it" | `backend-engineer` | schema/index intent, no diff |
-| "review the cost and scale for me, i need domain and vps" | `architect` | capacity + cost, no diff |
+| "review the cost and scale for me, i need domain and vps" | `architect` + `platform-engineer` | capacity is architectural; "domain and vps" is a platform signal. Superset rule: attach both rather than drop one. |
 | "can it handle 1500 people?" | `architect` | scale ceiling |
 | "set up the mail service, end to end process able to be run" | `platform-engineer` | deploy/ops intent |
 | "why can't the site be accessed" | `platform-engineer` | availability, not code |

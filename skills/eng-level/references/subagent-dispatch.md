@@ -61,6 +61,22 @@ Mark every action in the resulting plan:
 
 Provenance makes the contested parts of a plan auditable. Report which actions carry `[R]`.
 
+## When subagents are unavailable
+
+Not every host can dispatch subagents. When dispatch is unavailable or disabled, do not
+silently skip the lenses.
+
+- Run each routed role in sequence, in-line, as separate passes with the same scoped briefs.
+- Run an adversarial pair as two sequential passes: argue the pragmatist case in full, then
+  the purist case in full, then reconcile. Sequential argument is weaker than independent
+  argument, because the second pass has seen the first — say so in the output.
+- Label the run: `Sequential role review used; parallel subagent dispatch was unavailable.`
+- Never claim a parallel or independent review that did not happen.
+
+Define behavior for partial failure: if a dispatched role returns nothing, times out, or
+errors, record that role's findings as `UNVERIFIABLE` and name it in the output. A missing
+role is a stated gap, never a silent pass.
+
 ## Cost discipline
 
 Subagents are not free. Do not dispatch a role whose surface the change does not touch. The
