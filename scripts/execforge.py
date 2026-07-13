@@ -11,7 +11,9 @@ import json
 import os
 from pathlib import Path
 import re
+import shlex
 import shutil
+import subprocess
 import sys
 from datetime import datetime, timezone
 
@@ -123,6 +125,48 @@ def parse_verdict(text: str, n_expected: int, n_failures: int) -> dict:
                 "passed": all(expected) and not any(failures),
             }
     raise ValueError("judge output contained no verdict JSON with matching list sizes")
+
+
+def run_eval_case(path: Path, agent_cmd: list[str], judge_cmd: list[str],
+                  timeout: int = 600) -> dict:
+    """Replay a case's scenario through a headless agent, then grade the transcript."""
+    case = parse_eval_case(path)
+    agent = subprocess.run(agent_cmd + [case["scenario"]], capture_output=True,
+                           text=True, timeout=timeout)
+    transcript = agent.stdout + agent.stderr
+    judge = subprocess.run(judge_cmd + [build_grading_prompt(case, transcript)],
+                           capture_output=True, text=True, timeout=timeout)
+    verdict = parse_verdict(judge.stdout, len(case["expected"]), len(case["failures"]))
+    return {"id": case["id"], "transcript": transcript, **verdict}
+
+
+def cmd_eval(args) -> int:
+    cases = sorted((ROOT / "evaluations").glob("*.eval.md"))
+    if args.list:
+        for path in cases:
+            print(parse_eval_case(path)["id"])
+        return 0
+    if args.case != "all":
+        cases = [p for p in cases if parse_eval_case(p)["id"] == args.case]
+        if not cases:
+            print(f"no eval case with id '{args.case}'")
+            return 1
+    cases = cases[: args.limit] if args.limit else cases
+    agent_cmd = shlex.split(args.agent_cmd)
+    judge_cmd = shlex.split(args.judge_cmd)
+    failed = 0
+    for path in cases:
+        try:
+            result = run_eval_case(path, agent_cmd, judge_cmd)
+        except (ValueError, OSError, subprocess.TimeoutExpired) as exc:
+            print(f"ERROR {path.name}: {exc}")
+            failed += 1
+            continue
+        print(f"{'PASS' if result['passed'] else 'FAIL'} {result['id']}")
+        if not result["passed"]:
+            failed += 1
+    print(f"eval: {len(cases) - failed}/{len(cases)} passed")
+    return 1 if failed else 0
 
 
 def validate_repo(root: Path = ROOT) -> list[str]:
@@ -527,6 +571,13 @@ def main() -> int:
     status_parser = sub.add_parser("status", help="show lifecycle state")
     status_parser.add_argument("--root", type=Path, default=Path.cwd())
 
+    eval_parser = sub.add_parser("eval", help="run behavioral eval cases via a headless agent")
+    eval_parser.add_argument("case", nargs="?", default="all", help="case id or 'all'")
+    eval_parser.add_argument("--list", action="store_true", help="list case ids")
+    eval_parser.add_argument("--limit", type=int, default=0, help="cap number of cases")
+    eval_parser.add_argument("--agent-cmd", default="claude -p")
+    eval_parser.add_argument("--judge-cmd", default="claude -p")
+
     args = parser.parse_args()
 
     if args.command == "validate":
@@ -561,6 +612,9 @@ def main() -> int:
 
     if args.command == "status":
         return show_status(args.root.resolve())
+
+    if args.command == "eval":
+        return cmd_eval(args)
 
     return 2
 

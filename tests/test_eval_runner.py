@@ -87,5 +87,37 @@ class VerdictTests(unittest.TestCase):
             module.parse_verdict('{"expected": [true], "failures": [false]}', 2, 1)
 
 
+def _fake_tool(tmpdir: Path, name: str, body: str) -> list[str]:
+    """A stand-in for the headless agent/judge: prints canned output."""
+    script = tmpdir / name
+    script.write_text(body)
+    return [sys.executable, str(script)]
+
+
+class RunEvalCaseTests(unittest.TestCase):
+    def test_runs_agent_then_judge_and_passes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmpdir = Path(tmp)
+            case_path = tmpdir / "demo.eval.md"
+            case_path.write_text(CASE)
+            agent = _fake_tool(tmpdir, "agent.py",
+                               'print("I produced a QA plan and stopped for approval")')
+            judge = _fake_tool(tmpdir, "judge.py",
+                               'print(\'{"expected": [true, true], "failures": [false]}\')')
+            result = module.run_eval_case(case_path, agent, judge)
+            self.assertTrue(result["passed"])
+            self.assertIn("QA plan", result["transcript"])
+
+    def test_judge_failure_condition_fails_case(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmpdir = Path(tmp)
+            case_path = tmpdir / "demo.eval.md"
+            case_path.write_text(CASE)
+            agent = _fake_tool(tmpdir, "agent.py", 'print("ran tests immediately")')
+            judge = _fake_tool(tmpdir, "judge.py",
+                               'print(\'{"expected": [false, false], "failures": [true]}\')')
+            self.assertFalse(module.run_eval_case(case_path, agent, judge)["passed"])
+
+
 if __name__ == "__main__":
     unittest.main()
