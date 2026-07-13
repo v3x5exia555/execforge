@@ -2,8 +2,7 @@
 
 ## Near term
 
-- Add prompt-harness behavior scenarios for end-to-end skill evaluation.
-- Add optional bundled-skill validation in CI.
+- Promote the advisory behavioral-evals CI job to a required check once it runs quiet.
 - Add harness-specific session-start adapters after end-to-end testing.
 - Add JSON artifact emission helpers.
 - Add release packaging.
