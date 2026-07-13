@@ -1,5 +1,40 @@
 # Changelog
 
+## 0.10.0 — 2026-07-14
+
+Operating layer: ExecForge now watches itself and its siblings across a multi-repository,
+multi-harness setup — a single operator running Claude Code and Codex over several
+projects.
+
+- Added **`doctor --installed`**: compares bundled skills against every known install
+  root (`~/.claude/skills`, `~/.codex/skills`, `~/.agents/skills`) and reports missing or
+  content-drifted files without modifying any installation.
+- Added **`doctor --portfolio <path>`**: a read-only scan of direct-child Git
+  repositories for missing `AGENTS.md`/`CLAUDE.md` instruction parity, unresolved Git
+  conflicts, and lifecycle state whose recorded branch or commit lineage no longer
+  matches what is actually checked out.
+- Added **initiative-scoped operating state**: `init-run` now creates matching run IDs
+  under `.execforge/runs/<run-id>`, `.eng-level/runs/<run-id>`, and
+  `.q-level/runs/<run-id>`, selected through an authoritative `.execforge/current.json`.
+  `.eng-level/current.json` and `.q-level/current.json` remain compatibility
+  projections, not stronger evidence than the run artifacts, Git, code, or tests.
+  Legacy root state stays readable and is never silently migrated or deleted.
+- Added **`resume --root <repo>`** and **`next --root <repo>`**: `resume` reports the
+  selected run, the repository's real branch/HEAD, staleness warnings, blockers, the
+  stop-after boundary, and evidence paths. `next` derives exactly one safe next action
+  and fails closed on Git conflicts, unsafe or stale state, missing approval, blockers,
+  or a `stop_after` boundary.
+- Built and reviewed as its own fully governed initiative (upstream requirements, plan
+  review, staff review, security review — `SEC PASS`) in
+  `.eng-level/operating-layer-phase-1/`; 89 tests pass including fail-closed coverage
+  for cross-platform selector links, frozen review lineage, and stale branch evidence.
+- Verified against the operator's real project portfolio during integration:
+  `doctor --portfolio` caught genuinely stale `.eng-level/state.json` in two sibling
+  repositories whose recorded branch no longer matched the branch actually checked out.
+- Deferred (see `.eng-level/backlog.md`): fsync-before-publish durability, versioned
+  state schemas, external-producer input bounds, Windows runtime verification, and a
+  concurrent portfolio-scan race — none block this phase's scope.
+
 ## 0.9.0 — 2026-07-13
 
 Evidence release: the skills' behavioral evals now execute, and governed verdicts can
