@@ -454,3 +454,45 @@ git diff --check
 
 - Exit status: `0` for each command.
 - Validation reported `ExecForge validation passed.`
+
+### Final frozen-lineage correction
+
+Correction base: `39111d870081d7b53ee98c5b1f158ae33a759264`.
+
+RED command:
+
+```sh
+python3 -m unittest tests.test_repository.RepositoryTests.test_frozen_states_require_complete_valid_lineage tests.test_repository.RepositoryTests.test_legacy_unknown_and_terminal_lifecycle_actions tests.test_repository.RepositoryTests.test_next_honors_each_stop_boundary_only_after_it_is_reached -v
+```
+
+- Exit status: `1`.
+- Result: `15` failures across `3` methods and their parameterized subcases.
+- Missing/null `base_commit` and `implementation_head` allowed
+  `REVIEW_READY`, `REVIEW_PASSED`, and `SHIP_READY` to advance. Legacy frozen
+  records with neither lineage anchor also advanced.
+- Invalid/divergent base commits and invalid/mismatched implementation heads
+  already failed closed during this RED run.
+
+GREEN focused and full commands, with resource warnings promoted to errors:
+
+```sh
+python3 -W error::ResourceWarning -m unittest tests.test_repository.RepositoryTests.test_frozen_states_require_complete_valid_lineage tests.test_repository.RepositoryTests.test_legacy_unknown_and_terminal_lifecycle_actions tests.test_repository.RepositoryTests.test_next_honors_each_stop_boundary_only_after_it_is_reached -v
+python3 -W error::ResourceWarning -m unittest discover -s tests -v
+```
+
+- Exit status: `0` for both commands.
+- Focused result: all `3` methods passed.
+- Full result: all `79` tests passed.
+- Frozen states now require a non-null base commit that resolves to a commit
+  reachable from current HEAD and a non-null implementation head exactly equal
+  to current HEAD. Missing, invalid, divergent, or mismatched lineage returns
+  the single stale-state reconciliation action with exit `1`.
+- Legacy frozen records without complete lineage emit explicit
+  `base_commit_missing` and `implementation_head_missing` warnings and cannot
+  advance.
+
+Security delta review examined the fail-open state transition and new warning
+paths against the real diff from `39111d8`. The correction uses fixed warning
+text, exposes no state contents, adds no dependency or command argument, and
+routes incomplete evidence through the existing fail-closed stale precedence.
+Unresolved S0/S1: none. Verdict: `SEC PASS`.

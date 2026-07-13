@@ -55,7 +55,8 @@ _STATE_RANKS = {
 }
 _STALE_CODES = {
     "branch_mismatch", "commit_mismatch", "base_commit_mismatch",
-    "implementation_head_mismatch",
+    "base_commit_missing", "implementation_head_mismatch",
+    "implementation_head_missing",
 }
 _UNSAFE_CODES = {
     "selector_malformed", "lifecycle_state_malformed", "git_command_error"
@@ -571,6 +572,7 @@ def operating_snapshot(project: Path) -> OperatingSnapshot:
     git_head = head_output.strip() if head_output and head_output.strip() else None
 
     if state is not None:
+        frozen_implementation = state["state"] in _FROZEN_IMPLEMENTATION_STATES
         recorded_branch = state.get("branch")
         if not recorded_branch:
             findings.append(
@@ -603,9 +605,23 @@ def operating_snapshot(project: Path) -> OperatingSnapshot:
                         )
                     )
         implementation_head = state.get("implementation_head")
+        if frozen_implementation and state.get("base_commit") is None:
+            findings.append(
+                Finding(
+                    "error", "base_commit_missing", project.name,
+                    "frozen review state has no recorded base commit",
+                )
+            )
+        if frozen_implementation and implementation_head is None:
+            findings.append(
+                Finding(
+                    "error", "implementation_head_missing", project.name,
+                    "frozen review state has no recorded implementation HEAD",
+                )
+            )
         # BLOCKED is phase-ambiguous and does not inherit a frozen review snapshot.
         if (
-            state["state"] in _FROZEN_IMPLEMENTATION_STATES
+            frozen_implementation
             and implementation_head is not None
             and implementation_head != git_head
         ):

@@ -516,9 +516,15 @@ class RepositoryTests(unittest.TestCase):
                 with self.subTest(boundary=boundary, phase="not-reached"):
                     repo = root / f"{boundary}-before"
                     state_file, state = self._initialize_operating_repo(repo)
+                    lineage = (
+                        {"base_commit": state["commit"], "implementation_head": state["commit"]}
+                        if before in {"REVIEW_READY", "REVIEW_PASSED", "SHIP_READY"}
+                        else {}
+                    )
                     self._write_state(
                         state_file, state, state=before, stop_after=boundary,
                         upstream_approval_status=("PENDING" if before == "UPSTREAM_APPROVAL_REQUIRED" else "APPROVED"),
+                        **lineage,
                     )
                     returncode, output = self._run_operating_command("next", repo)
                     self.assertEqual(0, returncode)
@@ -526,9 +532,15 @@ class RepositoryTests(unittest.TestCase):
                 with self.subTest(boundary=boundary, phase="reached"):
                     repo = root / f"{boundary}-reached"
                     state_file, state = self._initialize_operating_repo(repo)
+                    lineage = (
+                        {"base_commit": state["commit"], "implementation_head": state["commit"]}
+                        if reached in {"REVIEW_READY", "REVIEW_PASSED", "SHIP_READY"}
+                        else {}
+                    )
                     self._write_state(
                         state_file, state, state=reached, stop_after=boundary,
                         upstream_approval_status="APPROVED",
+                        **lineage,
                     )
                     returncode, output = self._run_operating_command("next", repo)
                     self.assertEqual(0, returncode)
@@ -613,13 +625,13 @@ class RepositoryTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             cases = {
-                "legacy": ("PLAN_REQUIRED", "create or revise engineering plan"),
-                "unknown": ("FUTURE_STATE", "reconcile lifecycle state"),
-                "review-ready": ("REVIEW_READY", "run Staff Engineer review"),
-                "review-passed": ("REVIEW_PASSED", "run q-level --mode=auto"),
-                "ship-ready": ("SHIP_READY", "prepare ship-ready handoff"),
+                "legacy": ("PLAN_REQUIRED", "create or revise engineering plan", 0),
+                "unknown": ("FUTURE_STATE", "reconcile lifecycle state", 1),
+                "review-ready": ("REVIEW_READY", "reconcile stale lifecycle state", 1),
+                "review-passed": ("REVIEW_PASSED", "reconcile stale lifecycle state", 1),
+                "ship-ready": ("SHIP_READY", "reconcile stale lifecycle state", 1),
             }
-            for name, (lifecycle_state, action) in cases.items():
+            for name, (lifecycle_state, action, expected_code) in cases.items():
                 with self.subTest(name=name):
                     repo = root / name
                     self._initialize_repo(repo)
@@ -639,7 +651,7 @@ class RepositoryTests(unittest.TestCase):
                         )
                     )
                     returncode, output = self._run_operating_command("next", repo)
-                    self.assertEqual(1 if name == "unknown" else 0, returncode)
+                    self.assertEqual(expected_code, returncode)
                     self.assertIn(f"next_action: {action}", output)
                     self.assertEqual(1, len([line for line in output.splitlines() if line.startswith("next_action:")]))
 
@@ -735,6 +747,88 @@ class RepositoryTests(unittest.TestCase):
                     else:
                         self.assertEqual(0, returncode)
                         self.assertNotIn("implementation_head_mismatch", output)
+
+    def test_frozen_states_require_complete_valid_lineage(self):
+        actions = {
+            "REVIEW_READY": "run Staff Engineer review",
+            "REVIEW_PASSED": "run q-level --mode=auto",
+            "SHIP_READY": "prepare ship-ready handoff",
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for lifecycle_state, valid_action in actions.items():
+                for case in (
+                    "missing_base", "missing_implementation", "both_missing",
+                    "invalid_base", "invalid_implementation",
+                    "mismatched_implementation", "valid",
+                ):
+                    with self.subTest(state=lifecycle_state, case=case):
+                        repo = root / f"{lifecycle_state.casefold()}-{case}"
+                        state_file, state = self._initialize_operating_repo(repo)
+                        base = state["commit"]
+                        head = self._commit_tracked(repo, f"{case}\n")
+                        updates = {
+                            "state": lifecycle_state,
+                            "upstream_approval_status": "APPROVED",
+                            "base_commit": base,
+                            "implementation_head": head,
+                        }
+                        if case == "missing_base":
+                            updates.pop("base_commit")
+                            state.pop("base_commit", None)
+                        elif case == "missing_implementation":
+                            updates["implementation_head"] = None
+                        elif case == "both_missing":
+                            updates.pop("base_commit")
+                            updates.pop("implementation_head")
+                            state.pop("base_commit", None)
+                            state.pop("implementation_head", None)
+                        elif case == "invalid_base":
+                            updates["base_commit"] = "not-a-commit"
+                        elif case == "invalid_implementation":
+                            updates["implementation_head"] = "not-a-commit"
+                        elif case == "mismatched_implementation":
+                            updates["implementation_head"] = base
+                        self._write_state(state_file, state, **updates)
+                        returncode, output = self._run_operating_command("next", repo)
+                        action_lines = [
+                            line for line in output.splitlines()
+                            if line.startswith("next_action:")
+                        ]
+                        self.assertEqual(1, len(action_lines))
+                        if case == "valid":
+                            self.assertEqual(0, returncode)
+                            self.assertEqual(f"next_action: {valid_action}", action_lines[0])
+                        else:
+                            self.assertEqual(1, returncode)
+                            self.assertEqual(
+                                "next_action: reconcile stale lifecycle state",
+                                action_lines[0],
+                            )
+
+            for lifecycle_state in actions:
+                with self.subTest(state=lifecycle_state, case="legacy_missing_lineage"):
+                    repo = root / f"legacy-{lifecycle_state.casefold()}"
+                    self._initialize_repo(repo)
+                    head = self._commit_tracked(repo, "legacy\n")
+                    self.assertTrue(head)
+                    (repo / ".eng-level").mkdir()
+                    (repo / ".eng-level" / "state.json").write_text(
+                        json.dumps(
+                            {
+                                "initiative": "Legacy Frozen",
+                                "state": lifecycle_state,
+                                "upstream_approval_status": "APPROVED",
+                                "open_blockers": [],
+                            }
+                        ),
+                        encoding="utf-8",
+                    )
+                    returncode, output = self._run_operating_command("next", repo)
+                    self.assertEqual(1, returncode)
+                    self.assertIn("next_action: reconcile stale lifecycle state", output)
+                    self.assertIn("warning: base_commit_missing", output)
+                    self.assertIn("warning: implementation_head_missing", output)
 
     def test_operating_state_rejects_malformed_or_oversized_metadata(self):
         malformed_cases = (
