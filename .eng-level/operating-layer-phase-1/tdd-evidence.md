@@ -496,3 +496,43 @@ paths against the real diff from `39111d8`. The correction uses fixed warning
 text, exposes no state contents, adds no dependency or command argument, and
 routes incomplete evidence through the existing fail-closed stale precedence.
 Unresolved S0/S1: none. Verdict: `SEC PASS`.
+
+# Task 4 TDD Evidence
+
+Locked pre-Task-4 base: `5e18a4d`.
+
+## RED
+
+The documentation-contract test was added before editing README, Getting
+Started, or the Eng Level skill/reference documents.
+
+```sh
+python3 -W error::ResourceWarning -m unittest tests.test_repository.RepositoryTests.test_operating_layer_documentation_contract -v
+```
+
+- Exit status: `1`.
+- Result: `36` failing subcases in one test method.
+- Missing contracts covered the four operating commands; initiative-scoped run
+  directories and selectors; evidence precedence and legacy compatibility;
+  branch/commit/frozen-review lineage; privacy and read-only diagnostics;
+  recovery, stable locking, and Windows coverage limits; and selected-run paths
+  in the Eng Level skill.
+
+## GREEN
+
+The same focused command exited `0`; the documentation-contract test passed.
+
+Final verification:
+
+```sh
+python3 -W error::ResourceWarning -m unittest discover -s tests -v
+python3 scripts/execforge.py validate
+python3 -m py_compile scripts/operating_state.py scripts/execforge.py tests/test_repository.py
+git diff --check
+```
+
+- Exit status: `0` for every command.
+- The complete suite passed all `80` tests with ResourceWarnings promoted to
+  errors.
+- Repository validation reported `ExecForge validation passed.`
+- Bytecode compilation and diff whitespace validation produced no findings.

@@ -950,6 +950,88 @@ class RepositoryTests(unittest.TestCase):
         discovered = {p.name for p in skills_dir.iterdir() if (p / "SKILL.md").exists()}
         self.assertEqual(set(), module.BUNDLED_SKILLS - discovered)
 
+    def test_operating_layer_documentation_contract(self):
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        getting_started = (ROOT / "docs" / "getting-started.md").read_text(
+            encoding="utf-8"
+        )
+        eng_skill = (ROOT / "skills" / "eng-level" / "SKILL.md").read_text(
+            encoding="utf-8"
+        )
+        state_contract = (
+            ROOT / "skills" / "eng-level" / "references" / "state-and-artifacts.md"
+        ).read_text(encoding="utf-8")
+
+        def normalized(document: str) -> str:
+            return " ".join(document.split()).casefold()
+
+        commands = (
+            "python3 scripts/execforge.py doctor --installed",
+            "python3 scripts/execforge.py doctor --portfolio ~/Desktop/project",
+            "python3 scripts/execforge.py resume --root <repo>",
+            "python3 scripts/execforge.py next --root <repo>",
+        )
+        for command in commands:
+            with self.subTest(command=command):
+                self.assertIn(command, readme)
+                self.assertIn(command, getting_started)
+
+        for token in (
+            ".execforge/runs/<run-id>",
+            ".eng-level/runs/<run-id>",
+            ".q-level/runs/<run-id>",
+            ".execforge/current.json",
+            ".eng-level/current.json",
+            ".q-level/current.json",
+            ".execforge-init-run.lock",
+            "compatibility projection",
+            "authoritative selector",
+        ):
+            with self.subTest(layout_token=token):
+                self.assertIn(normalized(token), normalized(state_contract))
+
+        for token in (
+            "runtime behavior",
+            "executed tests",
+            "actual code",
+            "Git diff",
+            "rebuildable index",
+            "legacy root state",
+            "never silently migrate or delete",
+            "branch equality",
+            "base_commit",
+            "implementation_head",
+            "exact implementation head",
+            "metadata-only",
+            "control characters",
+            "raw `next_action`",
+            "read-only",
+            "stop_after",
+        ):
+            with self.subTest(state_token=token):
+                self.assertIn(normalized(token), normalized(state_contract))
+
+        for token in (
+            "remove the selectors and run directories",
+            "revert the feature branch",
+            "legacy artifacts are preserved",
+            "stable lock file",
+            "Windows lock implementation",
+            "runtime CI coverage remains limited",
+        ):
+            with self.subTest(recovery_token=token):
+                self.assertIn(normalized(token), normalized(getting_started))
+
+        for token in (
+            "initiative-scoped",
+            "resume --root <repo>",
+            "next --root <repo>",
+            "stop_after",
+            ".eng-level/runs/<run-id>/state.json",
+        ):
+            with self.subTest(skill_token=token):
+                self.assertIn(normalized(token), normalized(eng_skill))
+
     def test_codex_manifest_rejects_claude_shaped_skills(self):
         """The validator must catch the name-array shape rather than pass it."""
         with tempfile.TemporaryDirectory() as tmp:

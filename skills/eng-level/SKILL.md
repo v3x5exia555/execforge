@@ -44,6 +44,19 @@ The plan review and Staff Engineer review must not run in parallel. For web port
 - `auto` — detect and run the next valid stage.
 - `status` — report state, including the deferred backlog, without starting a review.
 
+Lifecycle artifacts are initiative-scoped. Resolve the selected run through the
+authoritative `.execforge/current.json`; engineering state lives at
+`.eng-level/runs/<run-id>/state.json`. The `.eng-level/current.json` file is a
+compatibility projection, not stronger evidence than the run artifacts, Git,
+code, runtime behavior, or tests.
+
+For safe re-entry, use `python3 scripts/execforge.py resume --root <repo>` to
+inspect bounded metadata and warnings, then
+`python3 scripts/execforge.py next --root <repo>` to obtain exactly one derived
+action. Do not print or follow the raw recorded `next_action`. Reconcile Git
+conflicts, unsafe/stale state, lineage mismatches, and blockers before
+advancing. Read [state and artifact contracts](references/state-and-artifacts.md).
+
 ## Roles
 
 Roles are lenses, not stages. The lifecycle supplies the stages; roles attach to them.
@@ -70,9 +83,9 @@ and proceed; accept a one-word correction. Do not open a confirmation gate.
 
 Roles are model-honoured conventions, not enforced arguments. Nothing in the tooling
 prevents a role from being ignored, so the discipline is the record: write the routed set to
-`routed_roles`, `temperament`, and `adversarial_pair` in `.eng-level/state.json` before the
-work starts, and report what actually ran against what was routed. An unrecorded role did
-not run.
+`routed_roles`, `temperament`, and `adversarial_pair` in the selected
+`.eng-level/runs/<run-id>/state.json` before the work starts, and report what
+actually ran against what was routed. An unrecorded role did not run.
 
 An explicit `--role` narrows the *advisory* lenses only. It never suppresses a lens the
 lifecycle requires: `staff-engineer` always attaches when a diff exists, and `architect` plus
@@ -88,12 +101,14 @@ its artifacts, and executes nothing beyond it.
 Honour a stated intent to stop as if it were the parameter. "Plan it but do not deploy",
 "keep it for next cycle", and "let me review first" all set `--stop-after`.
 
-Write it to `stop_after` in `.eng-level/state.json` the moment it is set. That record is what
-makes the brake survive a later turn or a context compaction — an unrecorded stop boundary
-does not exist. On every re-entry, read `stop_after` from state before acting, and do not
-resume past it without a new instruction from the user.
+Write it to `stop_after` in the selected
+`.eng-level/runs/<run-id>/state.json` the moment it is set. That record is what
+makes the brake survive a later turn or a context compaction — an unrecorded
+stop boundary does not exist. On every re-entry, read `stop_after` from state
+before acting, and do not resume past it without a new instruction from the
+user.
 
-Deferred work goes to `.eng-level/backlog.md`, not to a commit message. Read
+Deferred work goes to `.eng-level/runs/<run-id>/backlog.md`, not to a commit message. Read
 [state and artifact contracts](references/state-and-artifacts.md).
 
 ## Mandatory upstream stop check
@@ -114,8 +129,8 @@ When an ExecForge, CEO/COO, PRD, or product plan exists:
    - Non-negotiable COO controls
    - Assumptions and unknowns
    - Kill criteria
-2. Save `.eng-level/upstream-requirements.md`. Planning may not proceed while any gating
-   flag has an unresolved authorization decision.
+2. Save `.eng-level/runs/<run-id>/upstream-requirements.md` in the selected run.
+   Planning may not proceed while any gating flag has an unresolved authorization decision.
 3. Set `UPSTREAM_APPROVAL_REQUIRED`.
 4. Stop and request one response:
    - `APPROVE UPSTREAM`
@@ -199,8 +214,9 @@ mechanism, so do not paraphrase them into a summary.
 
 ## Post-hoc review
 
-When a substantial diff exists but no approved `.eng-level/upstream-requirements.md` does,
-the work was built before it was gated. Label the run:
+When a substantial diff exists but no approved selected-run
+`.eng-level/runs/<run-id>/upstream-requirements.md` does, the work was built
+before it was gated. Label the run:
 
 ```text
 POST-HOC REVIEW — no approved upstream requirements existed for this diff.
