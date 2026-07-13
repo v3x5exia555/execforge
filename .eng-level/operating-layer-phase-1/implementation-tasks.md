@@ -34,4 +34,3 @@
   - Dependencies: T1–T4 verification
   - Verify: byte equality with `CLAUDE.md`; dirty repositories and DPO unchanged.
   - Risk: Low
-

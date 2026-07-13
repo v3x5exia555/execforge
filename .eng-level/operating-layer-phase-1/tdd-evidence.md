@@ -568,3 +568,41 @@ git diff --check
 - The complete suite passed all `80` tests.
 - Validation reported `ExecForge validation passed.`
 - Diff whitespace validation produced no findings.
+
+## Task 4 recovery and output-safety correction
+
+Correction base: `f56b5cd231ee65e1a1c42c90a6a4f4791e694bea`.
+
+The documentation test was refactored before the documentation changes. It now
+checks five independently headed recovery cases in both operator and Eng Level
+documentation, independent output-safety invariants, and prohibited overclaims
+instead of matching one exact privacy paragraph.
+
+The first test invocation exposed a test-harness `NameError` because the new
+section matcher lacked its `re` import. After that test-only defect was fixed,
+the valid RED command was:
+
+```sh
+python3 -W error::ResourceWarning -m unittest tests.test_repository.RepositoryTests.test_operating_layer_documentation_contract -v
+```
+
+- Exit status: `1`.
+- Result: `24` failing subcases and no errors.
+- Failures covered all five missing recovery sections across both documents and
+  the missing allowlisted/bounded/terminal-safe, non-redaction, sensitive-field
+  warnings.
+
+After the two documentation contracts were updated, the same focused command
+exited `0`. Pre-commit verification also exited `0`:
+
+```sh
+python3 -W error::ResourceWarning -m unittest discover -s tests -v
+python3 scripts/execforge.py validate
+python3 -m py_compile scripts/operating_state.py scripts/execforge.py tests/test_repository.py
+git diff --check
+```
+
+- The complete suite passed all `80` tests with ResourceWarnings promoted to
+  errors.
+- Validation reported `ExecForge validation passed.`
+- Compilation and working-tree diff whitespace checks produced no findings.

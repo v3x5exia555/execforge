@@ -14,4 +14,3 @@
 | N1 | Next precedence | Conflict outranks stale state, blocker, approval, plan, implementation, review and QA |
 | C1 | Compatibility | Legacy singleton state remains readable when pointer is absent |
 | C2 | Regression | Repository validation and complete unit suite return zero failures |
-

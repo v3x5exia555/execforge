@@ -24,4 +24,3 @@
 - Legacy root state remains readable and is never silently migrated.
 - No third-party dependency is introduced.
 - External repository edits are limited to new instruction adapters in clean repositories.
-

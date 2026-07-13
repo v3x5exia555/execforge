@@ -116,22 +116,70 @@ ancestors of current HEAD, and frozen review states (`REVIEW_READY`,
 `implementation_head` exactly equal to current HEAD. Missing, invalid,
 divergent, or mismatched frozen lineage requires reconciliation.
 
-`doctor --portfolio`, `resume`, and `next` have a metadata-only output boundary;
-this privacy contract does not apply to the legacy `status` report. State and
-Git output are byte/count/length bounded, control characters are escaped,
-blocker contents are counted rather than printed, and the raw recorded
-`next_action` is never printed. Diagnostics are read-only; they do not repair
-selectors or artifacts.
+## Output safety boundary
+
+For `doctor --portfolio`, `resume`, and `next` only, output is allowlisted,
+bounded, terminal-safe metadata output. This boundary excludes the legacy
+`status` report. It is not semantic secret/PII redaction: displayed metadata
+fields such as `initiative`, `branch`, `project`, and evidence paths must not
+contain sensitive content.
+
+State and Git input are byte/count/length bounded, control characters are
+escaped, blocker contents are counted rather than printed, and the raw recorded
+`next_action` is never printed. These diagnostics are read-only; they do not
+repair selectors or artifacts.
 
 ## Recovery and rollback
 
-To abandon operating-layer state introduced only on a feature branch, remove
-the selectors and run directories created by that branch, or revert the
-feature branch. Do this only after confirming the run IDs are not shared with
-work you intend to keep. Prior legacy artifacts are preserved by the CLI; it
-does not silently migrate or delete them. Leave the stable lock file in place:
-`.execforge-init-run.lock` is harmless, ignored, and provides the stable lock
-file inode needed for process coordination.
+The commands report evidence; the operator chooses and performs recovery. No
+repair is performed by diagnostics.
+
+### Malformed or unsafe selector
+
+If `resume` reports `selector_malformed`, inspect `.execforge/current.json`,
+both compatibility projections, and the referenced state files. Confirm that
+the run IDs agree and every path names the expected contained regular file.
+Keep `next` stopped until a known existing Eng/QA run pair is intentionally
+selected or the feature branch is reverted; no repair is performed.
+
+### Stale branch or commit lineage
+
+Compare recorded state with read-only Git evidence:
+
+```bash
+git branch --show-current
+git rev-parse HEAD
+git merge-base --is-ancestor <recorded-commit> HEAD
+```
+
+For stale branch or commit lineage, switch to the recorded branch when it is
+the intended work, or return to the lifecycle stage that can record evidence
+from the actual branch and reachable commits. Do not overwrite lineage merely
+to silence a warning.
+
+### Missing frozen-review lineage
+
+Warnings `base_commit_missing` or `implementation_head_missing` mean a frozen
+review state is incomplete. Inspect the selected state, current HEAD, and the
+review artifacts, then return to review and record `base_commit` plus the exact
+reviewed `implementation_head`. Never invent hashes or infer approval from the
+state name.
+
+### Safe legacy fallback
+
+A contained legacy root state may remain inspectable through `resume` when the
+current selector is unsafe. That safe legacy fallback cannot authorize forward
+progress while an unsafe selector warning exists: `next` exits nonzero and
+requires selector reconciliation. Preserve the legacy files while identifying
+the intended initiative run or rolling back.
+
+### Intentional rollback
+
+Before deleting anything, confirm the selected `run_id` in all selectors and
+confirm which run directories belong only to the feature branch. Then remove
+only those selectors and run directories, or revert the feature branch. Prior
+legacy artifacts remain preserved. Leave `.execforge-init-run.lock` in place;
+it is ignored and provides the stable inode used for process coordination.
 
 ## Portal/API/backend QA
 

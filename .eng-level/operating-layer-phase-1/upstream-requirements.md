@@ -65,4 +65,3 @@ Extend ExecForge for a single operator who uses Claude Code and Codex across sev
 - Resume presents stale state as current without warning.
 - Diagnostics mutate a repository or expose sensitive content.
 - Runtime parity requires replacing project-specific rules.
-

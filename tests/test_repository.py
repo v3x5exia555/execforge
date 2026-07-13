@@ -5,6 +5,7 @@ import importlib.util
 import io
 import json
 import os
+import re
 import shlex
 import shutil
 import subprocess
@@ -1002,7 +1003,6 @@ class RepositoryTests(unittest.TestCase):
             "base_commit",
             "implementation_head",
             "exact implementation head",
-            "metadata-only",
             "control characters",
             "raw `next_action`",
             "read-only",
@@ -1012,9 +1012,7 @@ class RepositoryTests(unittest.TestCase):
                 self.assertIn(normalized(token), normalized(state_contract))
 
         for token in (
-            "remove the selectors and run directories",
             "revert the feature branch",
-            "legacy artifacts are preserved",
             "stable lock file",
             "Windows lock implementation",
             "runtime CI coverage remains limited",
@@ -1022,19 +1020,81 @@ class RepositoryTests(unittest.TestCase):
             with self.subTest(recovery_token=token):
                 self.assertIn(normalized(token), normalized(getting_started))
 
-        scoped_privacy_contract = (
-            "`doctor --portfolio`, `resume`, and `next` have a metadata-only output "
-            "boundary; this privacy contract does not apply to the legacy `status` report. "
-            "State and Git output are byte/count/length bounded, control characters are "
-            "escaped, blocker contents are counted rather than printed, and the raw "
-            "recorded `next_action` is never printed."
-        )
-        self.assertIn(
-            normalized(scoped_privacy_contract),
-            normalized(getting_started),
-            "Getting Started must scope the privacy contract to the three read-only "
-            "operating diagnostics and explicitly exclude legacy status",
-        )
+        recovery_sections = {
+            "Malformed or unsafe selector": (
+                "`selector_malformed`",
+                "inspect `.execforge/current.json`",
+                "no repair is performed",
+            ),
+            "Stale branch or commit lineage": (
+                "git branch --show-current",
+                "git rev-parse HEAD",
+                "git merge-base --is-ancestor",
+            ),
+            "Missing frozen-review lineage": (
+                "`base_commit_missing`",
+                "`implementation_head_missing`",
+                "return to review",
+            ),
+            "Safe legacy fallback": (
+                "inspectable",
+                "cannot authorize forward progress",
+                "unsafe selector warning",
+            ),
+            "Intentional rollback": (
+                "confirm the selected `run_id`",
+                "revert the feature branch",
+                "legacy artifacts",
+            ),
+        }
+        for document_name, document in (
+            ("Getting Started", getting_started),
+            ("state contract", state_contract),
+        ):
+            for heading, invariants in recovery_sections.items():
+                with self.subTest(document=document_name, recovery=heading):
+                    match = re.search(
+                        rf"^### {re.escape(heading)}\n(.*?)(?=^### |^## |\Z)",
+                        document,
+                        re.M | re.S,
+                    )
+                    self.assertIsNotNone(match, f"{document_name} lacks recovery case {heading}")
+                    section = normalized(match.group(1))
+                    for invariant in invariants:
+                        self.assertIn(normalized(invariant), section)
+
+            output_invariants = (
+                "allowlisted, bounded, terminal-safe metadata output",
+                "`doctor --portfolio`",
+                "`resume`",
+                "`next`",
+                "legacy `status`",
+                "not semantic secret/PII redaction",
+                "`initiative`",
+                "`branch`",
+                "`project`",
+                "evidence paths",
+                "must not contain sensitive content",
+            )
+            output_match = re.search(
+                r"^## Output safety(?: and diagnostic)? boundary\n(.*?)(?=^## |\Z)",
+                document,
+                re.M | re.S,
+            )
+            self.assertIsNotNone(output_match, f"{document_name} lacks output safety section")
+            output_section = normalized(output_match.group(1))
+            for invariant in output_invariants:
+                with self.subTest(document=document_name, output=invariant):
+                    self.assertIn(normalized(invariant), output_section)
+
+            for prohibited in (
+                "automatically repairs selectors",
+                "automatically reconstructs artifacts",
+                "redacts all secrets and PII",
+                "safe for sensitive content",
+            ):
+                with self.subTest(document=document_name, prohibited=prohibited):
+                    self.assertNotIn(normalized(prohibited), output_section)
 
         for token in (
             "initiative-scoped",

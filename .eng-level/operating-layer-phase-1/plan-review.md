@@ -35,4 +35,3 @@ The plan uses the existing dependency-free CLI and artifact conventions, separat
 ## Rollback
 
 Revert the feature branch. Namespaced run directories are additive; legacy state is preserved. External `AGENTS.md` additions can be removed independently without changing `CLAUDE.md`.
-
