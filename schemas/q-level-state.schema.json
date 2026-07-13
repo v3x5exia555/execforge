@@ -5,13 +5,6 @@
   "required": [
     "version",
     "initiative",
-    "run_id",
-    "created_at",
-    "updated_at",
-    "branch",
-    "commit",
-    "artifact_root",
-    "next_action",
     "state"
   ],
   "properties": {

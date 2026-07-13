@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import argparse
 from contextlib import contextmanager
-import fcntl
 import importlib.util
 import json
 import os
@@ -21,6 +20,15 @@ import sys
 import threading
 from datetime import datetime, timezone
 import uuid
+
+try:
+    import fcntl as _fcntl
+except ImportError:  # pragma: no cover - exercised by the portability subprocess test
+    _fcntl = None
+try:
+    import msvcrt as _msvcrt
+except ImportError:  # pragma: no cover - unavailable on POSIX
+    _msvcrt = None
 
 ROOT = Path(__file__).resolve().parents[1]
 SKILLS = ROOT / "skills"
@@ -40,6 +48,16 @@ Q_LEVEL_ASSET_FILES = {
 _RUN_NAMESPACES = (".execforge", ".eng-level", ".q-level")
 _INIT_LOCKS: dict[str, threading.Lock] = {}
 _INIT_LOCKS_GUARD = threading.Lock()
+
+
+class RunPublicationError(RuntimeError):
+    def __init__(self, original: BaseException, restore_errors: list[BaseException]):
+        super().__init__(
+            f"run publication failed ({type(original).__name__}); "
+            f"{len(restore_errors)} selector restore(s) also failed"
+        )
+        self.original = original
+        self.restore_errors = tuple(restore_errors)
 
 
 def _load_operating_state_module():
@@ -496,7 +514,8 @@ def _init_run_locked(name: str, cwd: Path) -> Path:
     qa_run = qa / "runs" / run_id
     new_runs = (run, lifecycle_run, qa_run)
     pointer_snapshots = {
-        root: _snapshot_pointer(root / "current.json") for root in (lifecycle, qa)
+        root: _snapshot_pointer(root / "current.json")
+        for root in (lifecycle, qa, roots[".execforge"])
     }
     branch, commit = _git_metadata(cwd)
     created_at = now.isoformat()
@@ -553,12 +572,21 @@ def _init_run_locked(name: str, cwd: Path) -> Path:
         publication_started = True
         _write_current_pointer(lifecycle, run_id)
         _write_current_pointer(qa, run_id)
-    except Exception:
+        _write_authoritative_pointer(roots[".execforge"], run_id)
+    except BaseException as original:
+        restore_errors: list[BaseException] = []
         if publication_started:
             for root, snapshot in pointer_snapshots.items():
-                _restore_pointer(root / "current.json", snapshot)
+                try:
+                    _restore_pointer(root / "current.json", snapshot)
+                except BaseException as restore_error:
+                    restore_errors.append(restore_error)
+        referenced_run = _authoritative_run_id(cwd)
         for new_run in reversed(new_runs):
-            _remove_new_run(new_run)
+            if new_run.name != referenced_run:
+                _remove_new_run(new_run)
+        if restore_errors:
+            raise RunPublicationError(original, restore_errors) from original
         raise
 
     print(f"created run: {run}")
@@ -600,12 +628,52 @@ def _repository_init_lock(cwd: Path):
         if hasattr(os, "O_NOFOLLOW"):
             flags |= os.O_NOFOLLOW
         descriptor = os.open(lock_path, flags, 0o600)
+        acquired = False
         try:
-            fcntl.flock(descriptor, fcntl.LOCK_EX)
+            _lock_descriptor(descriptor)
+            acquired = True
             yield
         finally:
-            fcntl.flock(descriptor, fcntl.LOCK_UN)
-            os.close(descriptor)
+            active_error = sys.exc_info()[1]
+            release_errors: list[BaseException] = []
+            try:
+                if acquired:
+                    _unlock_descriptor(descriptor)
+            except BaseException as error:
+                release_errors.append(error)
+            try:
+                os.close(descriptor)
+            except BaseException as error:
+                release_errors.append(error)
+            if release_errors:
+                if active_error is not None:
+                    setattr(active_error, "lock_cleanup_errors", tuple(release_errors))
+                else:
+                    raise RuntimeError(
+                        f"repository lock cleanup failed ({len(release_errors)} error(s))"
+                    ) from release_errors[0]
+
+
+def _lock_descriptor(descriptor: int) -> None:
+    if os.name == "nt":
+        if _msvcrt is None:
+            raise RuntimeError("Windows file locking backend is unavailable")
+        if os.fstat(descriptor).st_size == 0:
+            os.write(descriptor, b"\0")
+        os.lseek(descriptor, 0, os.SEEK_SET)
+        _msvcrt.locking(descriptor, _msvcrt.LK_LOCK, 1)
+    else:
+        if _fcntl is None:
+            raise RuntimeError("POSIX file locking backend is unavailable")
+        _fcntl.flock(descriptor, _fcntl.LOCK_EX)
+
+
+def _unlock_descriptor(descriptor: int) -> None:
+    if os.name == "nt":
+        os.lseek(descriptor, 0, os.SEEK_SET)
+        _msvcrt.locking(descriptor, _msvcrt.LK_UNLCK, 1)
+    else:
+        _fcntl.flock(descriptor, _fcntl.LOCK_UN)
 
 
 def _snapshot_pointer(pointer: Path) -> bytes | None:
@@ -622,9 +690,20 @@ def _atomic_write(pointer: Path, payload: bytes) -> None:
             stream.flush()
             os.fsync(stream.fileno())
         temporary.replace(pointer)
+        _fsync_directory(pointer.parent)
     finally:
         if temporary.exists():
             temporary.unlink()
+
+
+def _fsync_directory(directory: Path) -> None:
+    if os.name == "nt":
+        return
+    descriptor = os.open(directory, os.O_RDONLY)
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
 
 
 def _restore_pointer(pointer: Path, snapshot: bytes | None) -> None:
@@ -641,6 +720,18 @@ def _remove_new_run(run: Path) -> None:
     runs_root = run.parent
     if run.resolve().parent == runs_root.resolve():
         shutil.rmtree(run)
+
+
+def _authoritative_run_id(cwd: Path) -> str | None:
+    pointer = cwd / ".execforge" / "current.json"
+    if pointer.is_symlink() or not pointer.is_file():
+        return None
+    try:
+        payload = json.loads(pointer.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        return None
+    run_id = payload.get("run_id") if isinstance(payload, dict) else None
+    return run_id if _is_canonical_run_id(run_id) else None
 
 
 def _git_metadata(cwd: Path) -> tuple[str | None, str | None]:
@@ -700,6 +791,36 @@ def _write_current_pointer(lifecycle_root: Path, run_id: str) -> None:
         "state_path": state_path.relative_to(lifecycle_root.parent).as_posix(),
     }
     _atomic_write(pointer, (json.dumps(payload, indent=2) + "\n").encode("utf-8"))
+
+
+def _write_authoritative_pointer(execforge_root: Path, run_id: str) -> None:
+    if not _is_canonical_run_id(run_id):
+        raise ValueError("run_id must be canonical")
+    repository = execforge_root.parent
+    eng_state = repository / ".eng-level" / "runs" / run_id / "state.json"
+    qa_state = repository / ".q-level" / "runs" / run_id / "state.json"
+    for state, namespace in ((eng_state, ".eng-level"), (qa_state, ".q-level")):
+        run_root = state.parent
+        runs_root = run_root.parent
+        if (
+            run_root.is_symlink()
+            or runs_root.is_symlink()
+            or state.is_symlink()
+            or not state.is_file()
+            or state.resolve().relative_to(repository.resolve())
+            != Path(namespace) / "runs" / run_id / "state.json"
+        ):
+            raise ValueError("authoritative selector must reference contained real state")
+    payload = {
+        "version": "1",
+        "run_id": run_id,
+        "eng_state_path": eng_state.relative_to(repository).as_posix(),
+        "qa_state_path": qa_state.relative_to(repository).as_posix(),
+    }
+    _atomic_write(
+        execforge_root / "current.json",
+        (json.dumps(payload, indent=2) + "\n").encode("utf-8"),
+    )
 
 
 def _is_canonical_run_id(run_id: object) -> bool:

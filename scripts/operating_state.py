@@ -174,6 +174,15 @@ def _selected_state_path(lifecycle_root: Path) -> tuple[Path | None, Finding | N
     namespace = lifecycle_root.name
     project = lifecycle_root.parent
     runs_root = lifecycle_root / "runs"
+    authoritative = project / ".execforge" / "current.json"
+    if authoritative.exists() or authoritative.is_symlink():
+        selected = _authoritative_state_path(project, namespace)
+        if selected is not None:
+            return selected, None
+        return None, Finding(
+            "error", "lifecycle_pointer_malformed", project.name,
+            ".execforge/current.json does not select aligned contained state files",
+        )
     if lifecycle_root.is_symlink() or runs_root.is_symlink() or pointer_path.is_symlink():
         return None, Finding(
             "error", "lifecycle_pointer_malformed", project.name,
@@ -244,6 +253,37 @@ def _selected_state_path(lifecycle_root: Path) -> tuple[Path | None, Finding | N
             f"{namespace}/current.json does not select a contained state file",
         )
     return candidate, None
+
+
+def _authoritative_state_path(project: Path, namespace: str) -> Path | None:
+    pointer_path = project / ".execforge" / "current.json"
+    if pointer_path.is_symlink() or not _is_contained(pointer_path, project):
+        return None
+    pointer = _load_json_object(pointer_path)
+    if pointer is None or not _is_canonical_run_id(pointer.get("run_id")):
+        return None
+    run_id = pointer["run_id"]
+    candidates: dict[str, Path] = {}
+    for selected_namespace, field in (
+        (".eng-level", "eng_state_path"),
+        (".q-level", "qa_state_path"),
+    ):
+        value = pointer.get(field)
+        if not isinstance(value, str) or Path(value).is_absolute():
+            return None
+        candidate = project / value
+        expected = project / selected_namespace / "runs" / run_id / "state.json"
+        if (
+            candidate != expected
+            or candidate.is_symlink()
+            or candidate.parent.is_symlink()
+            or candidate.parent.parent.is_symlink()
+            or not candidate.is_file()
+            or not _is_contained(candidate, project / selected_namespace)
+        ):
+            return None
+        candidates[selected_namespace] = candidate
+    return candidates.get(namespace)
 
 
 def selected_or_legacy_state_path(lifecycle_root: Path) -> Path | None:

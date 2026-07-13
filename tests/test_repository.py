@@ -442,7 +442,7 @@ class RepositoryTests(unittest.TestCase):
                 "run_id", "created_at", "updated_at", "branch", "commit",
                 "artifact_root", "next_action",
             }
-            self.assertTrue(metadata.issubset(schema["required"]))
+            self.assertTrue(metadata.isdisjoint(schema["required"]))
             for key, value in template.items():
                 self.assertIn(
                     key, props, f"{level} state template key {key!r} is absent from the schema"
@@ -457,6 +457,14 @@ class RepositoryTests(unittest.TestCase):
                     self._matches_json_type(value, props[key].get("type")),
                     f"{level} template field {key!r} has the wrong JSON type",
                 )
+                if props[key].get("type") == "array":
+                    self.assertIn("items", props[key])
+                    for item in value:
+                        self.assertTrue(
+                            self._matches_json_type(item, props[key]["items"].get("type"))
+                            or item in props[key]["items"].get("enum", []),
+                            f"{level} array item in {key!r} violates its schema",
+                        )
 
     def test_schema_allows_ungated_post_hoc_verdict(self):
         schema = json.loads((ROOT / "schemas" / "eng-level-state.schema.json").read_text())
@@ -469,6 +477,7 @@ class RepositoryTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             cwd = Path(tmp)
             product_run = module.init_run("Example Initiative", cwd)
+            authoritative = json.loads((cwd / ".execforge" / "current.json").read_text())
             eng_pointer = json.loads((cwd / ".eng-level" / "current.json").read_text())
             qa_pointer = json.loads((cwd / ".q-level" / "current.json").read_text())
             eng_run = cwd / ".eng-level" / "runs" / eng_pointer["run_id"]
@@ -485,6 +494,9 @@ class RepositoryTests(unittest.TestCase):
             self.assertEqual("QA_INPUT_REQUIRED", qa_state["state"])
             self.assertEqual(eng_pointer["run_id"], qa_pointer["run_id"])
             self.assertEqual(eng_pointer["run_id"], product_run.name)
+            self.assertEqual(product_run.name, authoritative["run_id"])
+            self.assertEqual(eng_pointer["state_path"], authoritative["eng_state_path"])
+            self.assertEqual(qa_pointer["state_path"], authoritative["qa_state_path"])
             self.assertEqual("1", eng_pointer["version"])
             self.assertEqual(
                 f".eng-level/runs/{eng_pointer['run_id']}/state.json",
@@ -701,6 +713,7 @@ class RepositoryTests(unittest.TestCase):
 
             self.assertFalse((cwd / ".eng-level" / "current.json").exists())
             self.assertFalse((cwd / ".q-level" / "current.json").exists())
+            self.assertFalse((cwd / ".execforge" / "current.json").exists())
             for namespace in (".execforge", ".eng-level", ".q-level"):
                 self.assertEqual([], list((cwd / namespace / "runs").iterdir()))
 
@@ -733,6 +746,169 @@ class RepositoryTests(unittest.TestCase):
             eng = json.loads((cwd / ".eng-level" / "current.json").read_text())
             qa = json.loads((cwd / ".q-level" / "current.json").read_text())
             self.assertEqual(eng["run_id"], qa["run_id"])
+            authoritative = json.loads((cwd / ".execforge" / "current.json").read_text())
+            self.assertEqual(eng["run_id"], authoritative["run_id"])
+
+    def test_authoritative_selector_wins_during_split_projection_window(self):
+        import contextlib
+        import io
+
+        with tempfile.TemporaryDirectory() as tmp:
+            cwd = Path(tmp)
+            first = module.init_run("Old Authoritative", cwd)
+            observed = {}
+
+            def interrupt_before_authoritative(root, run_id):
+                observed["eng"] = json.loads((cwd / ".eng-level" / "current.json").read_text())
+                observed["qa"] = json.loads((cwd / ".q-level" / "current.json").read_text())
+                output = io.StringIO()
+                with contextlib.redirect_stdout(output):
+                    module.show_status(cwd)
+                observed["status"] = output.getvalue()
+                observed["portfolio_state"] = operating_state._state_metadata(cwd)[0]
+                raise SystemExit("interrupted before authoritative publish")
+
+            with mock.patch.object(
+                module, "_write_authoritative_pointer", side_effect=interrupt_before_authoritative
+            ):
+                with self.assertRaises(SystemExit):
+                    module.init_run("New Projection", cwd)
+
+            self.assertNotEqual(first.name, observed["eng"]["run_id"])
+            self.assertEqual(observed["eng"]["run_id"], observed["qa"]["run_id"])
+            self.assertIn("initiative: Old Authoritative", observed["status"])
+            self.assertNotIn("initiative: New Projection", observed["status"])
+            self.assertEqual("Old Authoritative", observed["portfolio_state"]["initiative"])
+
+    def test_base_exceptions_restore_all_selectors_after_each_publish_boundary(self):
+        for boundary in ("after_eng", "after_qa", "before_authoritative", "at_authoritative"):
+            with self.subTest(boundary=boundary):
+                with tempfile.TemporaryDirectory() as tmp:
+                    cwd = Path(tmp)
+                    first = module.init_run("First", cwd)
+                    selector_paths = (
+                        cwd / ".eng-level" / "current.json",
+                        cwd / ".q-level" / "current.json",
+                        cwd / ".execforge" / "current.json",
+                    )
+                    originals = {path: path.read_bytes() for path in selector_paths}
+                    projection_writer = module._write_current_pointer
+                    authoritative_writer = module._write_authoritative_pointer
+                    projection_calls = 0
+
+                    def projections(root, run_id):
+                        nonlocal projection_calls
+                        projection_calls += 1
+                        projection_writer(root, run_id)
+                        if boundary == "after_eng" and projection_calls == 1:
+                            raise KeyboardInterrupt()
+                        if boundary == "after_qa" and projection_calls == 2:
+                            raise KeyboardInterrupt()
+
+                    def authoritative(root, run_id):
+                        if boundary == "before_authoritative":
+                            raise SystemExit()
+                        authoritative_writer(root, run_id)
+                        if boundary == "at_authoritative":
+                            raise SystemExit()
+
+                    with mock.patch.object(module, "_write_current_pointer", side_effect=projections), mock.patch.object(
+                        module, "_write_authoritative_pointer", side_effect=authoritative
+                    ):
+                        with self.assertRaises((KeyboardInterrupt, SystemExit)):
+                            module.init_run("Second", cwd)
+
+                    for path, content in originals.items():
+                        self.assertEqual(content, path.read_bytes())
+                    for namespace in (".execforge", ".eng-level", ".q-level"):
+                        self.assertEqual(
+                            {first.name},
+                            {path.name for path in (cwd / namespace / "runs").iterdir()},
+                        )
+
+    def test_restore_failures_are_aggregated_and_all_restores_attempted(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cwd = Path(tmp)
+            module.init_run("First", cwd)
+            original_restore = module._restore_pointer
+            restored = []
+
+            def record_restore(pointer, snapshot):
+                restored.append(pointer)
+                if len(restored) in {1, 2}:
+                    raise OSError(f"restore {len(restored)} failed")
+                return original_restore(pointer, snapshot)
+
+            with mock.patch.object(
+                module, "_write_authoritative_pointer", side_effect=ValueError("publish cause")
+            ), mock.patch.object(module, "_restore_pointer", side_effect=record_restore):
+                with self.assertRaises(module.RunPublicationError) as raised:
+                    module.init_run("Second", cwd)
+
+            self.assertEqual(3, len(restored))
+            self.assertIsInstance(raised.exception.__cause__, ValueError)
+            self.assertEqual(2, len(raised.exception.restore_errors))
+
+    def test_failed_authoritative_restore_keeps_referenced_new_run(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cwd = Path(tmp)
+            module.init_run("First", cwd)
+            original_authoritative = module._write_authoritative_pointer
+            original_restore = module._restore_pointer
+
+            def publish_then_fail(root, run_id):
+                original_authoritative(root, run_id)
+                raise OSError("post-publish interruption")
+
+            def fail_authoritative_restore(pointer, snapshot):
+                if pointer == cwd / ".execforge" / "current.json":
+                    raise OSError("authoritative restore failed")
+                return original_restore(pointer, snapshot)
+
+            with mock.patch.object(
+                module, "_write_authoritative_pointer", side_effect=publish_then_fail
+            ), mock.patch.object(module, "_restore_pointer", side_effect=fail_authoritative_restore):
+                with self.assertRaises(module.RunPublicationError) as raised:
+                    module.init_run("Referenced New", cwd)
+
+            selected = json.loads((cwd / ".execforge" / "current.json").read_text())["run_id"]
+            self.assertIsInstance(raised.exception.__cause__, OSError)
+            for namespace in (".execforge", ".eng-level", ".q-level"):
+                self.assertTrue((cwd / namespace / "runs" / selected).is_dir())
+
+    def test_cli_imports_when_fcntl_is_unavailable(self):
+        code = (
+            "import builtins, runpy; original=builtins.__import__; "
+            "builtins.__import__=lambda name,*a,**k: "
+            "(_ for _ in ()).throw(ImportError('blocked')) if name=='fcntl' else original(name,*a,**k); "
+            f"runpy.run_path({str(SCRIPT)!r}, run_name='execforge_import_test')"
+        )
+        result = subprocess.run(
+            [sys.executable, "-c", code], capture_output=True, text=True, check=False
+        )
+        self.assertEqual(0, result.returncode, result.stderr)
+
+    def test_cross_process_init_runs_are_serialized(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cwd = Path(tmp)
+            commands = [
+                [sys.executable, str(SCRIPT), "init-run", "--name", name, "--root", str(cwd)]
+                for name in ("Process One", "Process Two")
+            ]
+            processes = [
+                subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                for command in commands
+            ]
+            results = [process.communicate(timeout=15) + (process.returncode,) for process in processes]
+            for stdout, stderr, returncode in results:
+                self.assertEqual(0, returncode, stdout + stderr)
+            authoritative = json.loads((cwd / ".execforge" / "current.json").read_text())
+            eng = json.loads((cwd / ".eng-level" / "current.json").read_text())
+            qa = json.loads((cwd / ".q-level" / "current.json").read_text())
+            self.assertEqual(authoritative["run_id"], eng["run_id"])
+            self.assertEqual(authoritative["run_id"], qa["run_id"])
+            for namespace in (".execforge", ".eng-level", ".q-level"):
+                self.assertEqual(2, len(list((cwd / namespace / "runs").iterdir())))
 
     def test_pointer_reader_rejects_noncanonical_ids_and_symlinked_selected_state(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -815,7 +991,7 @@ class RepositoryTests(unittest.TestCase):
             self.assertIn("initiative: Selected", selected.getvalue())
             self.assertNotIn("initiative: Legacy", selected.getvalue())
 
-            (legacy_root / "current.json").write_text(
+            (cwd / ".execforge" / "current.json").write_text(
                 json.dumps({"version": "1", "state_path": "../../outside.json"}),
                 encoding="utf-8",
             )

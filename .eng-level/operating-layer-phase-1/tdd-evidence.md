@@ -54,6 +54,54 @@ git diff --check
 - Repository validation reported `ExecForge validation passed.`
 - Diff whitespace validation produced no findings.
 
+# Task 2 Authoritative Selector Hardening Evidence
+
+Locked hardening base: `6cea45df639bf8b185a193243536913ef7f11515`.
+
+The second review regression tests were added before selector, rollback, schema,
+and portability changes. RED command:
+
+```sh
+python3 -m unittest tests.test_repository.RepositoryTests.test_authoritative_selector_wins_during_split_projection_window tests.test_repository.RepositoryTests.test_base_exceptions_restore_all_selectors_after_each_publish_boundary tests.test_repository.RepositoryTests.test_restore_failures_are_aggregated_and_all_restores_attempted tests.test_repository.RepositoryTests.test_failed_authoritative_restore_keeps_referenced_new_run tests.test_repository.RepositoryTests.test_cli_imports_when_fcntl_is_unavailable tests.test_repository.RepositoryTests.test_state_schemas_accept_template_state tests.test_repository.RepositoryTests.test_init_run_creates_state -v
+```
+
+- Exit status: `1`.
+- Result: `2` failures and `8` errors across seven tests including
+  parameterized interruption subtests.
+- Generic failures: `.execforge/current.json` and its writer did not exist;
+  split projection windows had no authoritative selector; `KeyboardInterrupt`
+  and `SystemExit` were not coordinated rollback paths; restore failures were
+  not aggregated; `fcntl` was imported unconditionally; and metadata additions
+  were breaking schema requirements.
+
+GREEN command:
+
+```sh
+python3 -m unittest tests.test_repository.RepositoryTests.test_authoritative_selector_wins_during_split_projection_window tests.test_repository.RepositoryTests.test_base_exceptions_restore_all_selectors_after_each_publish_boundary tests.test_repository.RepositoryTests.test_restore_failures_are_aggregated_and_all_restores_attempted tests.test_repository.RepositoryTests.test_failed_authoritative_restore_keeps_referenced_new_run tests.test_repository.RepositoryTests.test_cli_imports_when_fcntl_is_unavailable tests.test_repository.RepositoryTests.test_state_schemas_accept_template_state tests.test_repository.RepositoryTests.test_init_run_creates_state -v
+```
+
+- Exit status: `0`.
+- Result: all seven focused tests passed.
+
+The stable `.execforge-init-run.lock` inode is intentionally retained and
+ignored by Git. Each operation reliably releases its OS lock and closes the
+descriptor; retaining the inode prevents a new process from bypassing a waiter
+that already holds the same lock file open. POSIX uses `fcntl`; Windows uses
+`msvcrt` conditionally.
+
+Final verification:
+
+```sh
+python3 -m unittest discover -s tests -v
+python3 scripts/execforge.py validate
+python3 -m py_compile scripts/operating_state.py scripts/execforge.py tests/test_repository.py
+git diff --check
+```
+
+- The complete suite passed all `61` tests.
+- Validation, bytecode compilation, and diff whitespace validation each exited
+  `0`.
+
 # Task 2 Quality and Security Hardening Evidence
 
 Locked hardening base: `e6d64b40916349235a7f5c0918c1539afec43fb4`.
