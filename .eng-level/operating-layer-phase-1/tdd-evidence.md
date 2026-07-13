@@ -318,3 +318,56 @@ git diff --check
 - Repository validation reported `ExecForge validation passed.`
 - Bytecode compilation produced no findings.
 - Diff whitespace validation produced no findings.
+
+# Task 3 TDD Evidence
+
+## RED reproduction
+
+- Locked pre-Task-3 base: `77b4775`.
+- Production files were unchanged when the focused tests first ran.
+
+Command:
+
+```sh
+python3 -m unittest tests.test_repository.RepositoryTests.test_resume_reports_fresh_selected_run_without_inference tests.test_repository.RepositoryTests.test_next_pending_approval_and_open_blocker_are_safety_stops tests.test_repository.RepositoryTests.test_next_real_merge_conflict_has_highest_precedence tests.test_repository.RepositoryTests.test_next_honors_each_stop_boundary_only_after_it_is_reached tests.test_repository.RepositoryTests.test_resume_and_next_warn_and_stop_for_branch_or_commit_mismatch tests.test_repository.RepositoryTests.test_malformed_unsafe_selector_uses_safe_legacy_only_for_resume tests.test_repository.RepositoryTests.test_legacy_unknown_and_terminal_lifecycle_actions -v
+```
+
+- Exit status: `1`.
+- Result: `22` errors across `7` test methods and their parameterized subcases.
+- Failure reason: the required `resume_run` and `show_next` production entry
+  points did not exist. No Task 3 behavior reached a passing state.
+
+## GREEN verification
+
+Focused Task 3 command (including CLI subprocess coverage):
+
+```sh
+python3 -m unittest tests.test_repository.RepositoryTests.test_resume_reports_fresh_selected_run_without_inference tests.test_repository.RepositoryTests.test_next_pending_approval_and_open_blocker_are_safety_stops tests.test_repository.RepositoryTests.test_next_real_merge_conflict_has_highest_precedence tests.test_repository.RepositoryTests.test_next_honors_each_stop_boundary_only_after_it_is_reached tests.test_repository.RepositoryTests.test_resume_and_next_warn_and_stop_for_branch_or_commit_mismatch tests.test_repository.RepositoryTests.test_malformed_unsafe_selector_uses_safe_legacy_only_for_resume tests.test_repository.RepositoryTests.test_legacy_unknown_and_terminal_lifecycle_actions tests.test_repository.RepositoryTests.test_resume_and_next_are_registered_cli_commands -v
+```
+
+- Exit status: `0`.
+- Result: all `8` focused test methods passed, including each reached/not-reached
+  stop boundary, a real merge conflict, safe legacy fallback, unsafe selector
+  and state handling, lineage mismatches, blockers, unknown state, and terminal
+  lifecycle actions.
+
+Complete unit test suite:
+
+```sh
+python3 -m unittest discover -s tests -v
+```
+
+- Exit status: `0`.
+- Result: all `72` tests passed.
+
+Repository and source verification:
+
+```sh
+python3 scripts/execforge.py validate
+python3 -m py_compile scripts/operating_state.py scripts/execforge.py tests/test_repository.py
+git diff --check
+```
+
+- Exit status: `0` for each command.
+- Repository validation reported `ExecForge validation passed.`
+- Bytecode compilation and diff whitespace validation produced no findings.

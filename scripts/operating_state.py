@@ -22,8 +22,40 @@ class Finding(NamedTuple):
     detail: str
 
 
+class OperatingSnapshot(NamedTuple):
+    """Safe, read-only lifecycle and Git metadata for resume decisions."""
+
+    project: Path
+    state_path: Path | None
+    state: dict | None
+    git_branch: str | None
+    git_head: str | None
+    backlog_count: int | None
+    findings: tuple[Finding, ...]
+
+
 _CONFLICT_CODES = {"DD", "AU", "UD", "UA", "DU", "AA", "UU"}
 _STATE_FIELDS = {"initiative", "state", "branch", "base_branch", "run_id"}
+_STOP_BOUNDARIES = {"product": 1, "plan": 2, "implement": 3, "review": 4, "qa": 5}
+_STATE_RANKS = {
+    "NO_CONTEXT": 0,
+    "UPSTREAM_INTAKE": 0,
+    "UPSTREAM_APPROVAL_REQUIRED": 0,
+    "RETURN_TO_PRODUCT_PLAN": 0,
+    "PLAN_REQUIRED": 1,
+    "RETURN_TO_PLAN": 1,
+    "PLAN_APPROVED": 2,
+    "WAITING_FOR_IMPLEMENTATION": 2,
+    "IMPLEMENTATION_IN_PROGRESS": 2,
+    "RETURN_TO_IMPLEMENTATION": 2,
+    "REVIEW_READY": 3,
+    "REVIEW_PASSED": 4,
+    "SHIP_READY": 5,
+}
+_STALE_CODES = {"branch_mismatch", "commit_mismatch", "implementation_head_mismatch"}
+_UNSAFE_CODES = {
+    "selector_malformed", "lifecycle_state_malformed", "git_command_error"
+}
 
 
 def _tree_digest(root: Path) -> str:
@@ -305,6 +337,217 @@ def selected_or_legacy_state_path(lifecycle_root: Path) -> Path | None:
     if legacy.is_file() and not legacy.is_symlink() and _is_contained(legacy, lifecycle_root):
         return legacy
     return None
+
+
+def _safe_operating_state(project: Path) -> tuple[Path | None, dict | None, list[Finding]]:
+    engineering_root = project / ".eng-level"
+    selected, pointer_finding = _selected_state_path(engineering_root)
+    findings: list[Finding] = []
+    if pointer_finding is not None:
+        findings.append(
+            Finding(
+                "error", "selector_malformed", project.name,
+                "authoritative lifecycle selector is malformed or unsafe",
+            )
+        )
+
+    state_path = selected
+    legacy = engineering_root / "state.json"
+    if (
+        state_path is None
+        and not engineering_root.is_symlink()
+        and engineering_root.is_dir()
+        and engineering_root.resolve() == project.resolve() / ".eng-level"
+        and legacy.is_file()
+        and not legacy.is_symlink()
+        and _is_contained(legacy, engineering_root)
+    ):
+        state_path = legacy
+    if state_path is None:
+        findings.append(
+            Finding(
+                "error", "lifecycle_state_malformed", project.name,
+                "no safe readable engineering lifecycle state was found",
+            )
+        )
+        return None, None, findings
+
+    state = _load_json_object(state_path)
+    if state is None or not isinstance(state.get("initiative"), str) or not isinstance(
+        state.get("state"), str
+    ):
+        findings.append(
+            Finding(
+                "error", "lifecycle_state_malformed", project.name,
+                "selected lifecycle state is malformed or unreadable",
+            )
+        )
+        return state_path, None, findings
+
+    nullable_strings = (
+        "run_id", "branch", "base_branch", "commit", "implementation_head",
+        "artifact_root", "next_action", "stop_after", "upstream_approval_status",
+    )
+    malformed = any(
+        key in state and state[key] is not None and not isinstance(state[key], str)
+        for key in nullable_strings
+    )
+    malformed = malformed or (
+        "open_blockers" in state and not isinstance(state["open_blockers"], list)
+    )
+    stop_after = state.get("stop_after")
+    malformed = malformed or (
+        stop_after is not None and stop_after not in _STOP_BOUNDARIES
+    )
+    if selected is not None and "run_id" in state:
+        malformed = malformed or state["run_id"] != selected.parent.name
+    artifact_root = state.get("artifact_root")
+    if artifact_root:
+        artifact_path = Path(artifact_root)
+        artifact_candidate = project / artifact_path
+        malformed = (
+            malformed
+            or artifact_path.is_absolute()
+            or not _is_contained(artifact_candidate, project)
+            or artifact_candidate.resolve() != state_path.parent.resolve()
+        )
+    if malformed:
+        findings.append(
+            Finding(
+                "error", "lifecycle_state_malformed", project.name,
+                "selected lifecycle state metadata is malformed or unsafe",
+            )
+        )
+        return state_path, None, findings
+    return state_path, state, findings
+
+
+def _backlog_count(backlog: Path) -> int | None:
+    if not backlog.is_file() or backlog.is_symlink():
+        return None
+    try:
+        lines = backlog.read_text(encoding="utf-8").splitlines()
+    except (OSError, UnicodeError):
+        return None
+    count = 0
+    for line in lines:
+        stripped = line.strip()
+        if not stripped.startswith("|") or stripped.startswith("|---"):
+            continue
+        cells = [cell.strip() for cell in stripped.strip("|").split("|")]
+        if cells and cells[0] not in {"", "#"} and any(cells[1:2]):
+            count += 1
+    return count
+
+
+def operating_snapshot(project: Path) -> OperatingSnapshot:
+    """Read the selected lifecycle state and reconcile it with read-only Git queries."""
+    project = Path(project)
+    state_path, state, findings = _safe_operating_state(project)
+
+    porcelain, status_error = _run_git(project, "status", "--porcelain", "--untracked-files=all")
+    if status_error is not None:
+        findings.append(status_error)
+    elif porcelain:
+        conflicts = sorted(
+            {line[:2] for line in porcelain.splitlines() if line[:2] in _CONFLICT_CODES}
+        )
+        if conflicts:
+            findings.append(
+                Finding(
+                    "error", "git_conflict", project.name,
+                    f"unresolved Git index status: {', '.join(conflicts)}",
+                )
+            )
+        findings.append(
+            Finding("warning", "dirty_worktree", project.name, "Git worktree has changes")
+        )
+
+    branch_output, branch_error = _run_git(project, "branch", "--show-current")
+    head_output, head_error = _run_git(project, "rev-parse", "HEAD")
+    for error in (branch_error, head_error):
+        if error is not None:
+            findings.append(error)
+    git_branch = branch_output.strip() if branch_output and branch_output.strip() else None
+    git_head = head_output.strip() if head_output and head_output.strip() else None
+
+    if state is not None:
+        recorded_branch = state.get("branch") if "branch" in state else state.get("base_branch")
+        if recorded_branch and recorded_branch != git_branch:
+            findings.append(
+                Finding(
+                    "error", "branch_mismatch", project.name,
+                    f"recorded branch {recorded_branch!r} differs from current branch {git_branch!r}",
+                )
+            )
+        recorded_commit = state.get("commit")
+        if recorded_commit and recorded_commit != git_head:
+            findings.append(
+                Finding(
+                    "error", "commit_mismatch", project.name,
+                    "recorded lifecycle commit differs from current HEAD",
+                )
+            )
+        implementation_head = state.get("implementation_head")
+        if implementation_head and implementation_head != git_head:
+            findings.append(
+                Finding(
+                    "error", "implementation_head_mismatch", project.name,
+                    "recorded implementation HEAD differs from current HEAD",
+                )
+            )
+
+    backlog_count = _backlog_count(state_path.parent / "backlog.md") if state_path else None
+    if state_path is not None and backlog_count is None:
+        findings.append(
+            Finding("warning", "backlog_unreadable", project.name, "backlog summary is unreadable")
+        )
+    return OperatingSnapshot(
+        project, state_path, state, git_branch, git_head, backlog_count, tuple(findings)
+    )
+
+
+def deterministic_next(snapshot: OperatingSnapshot) -> tuple[str, int]:
+    """Return one deterministic action and its CLI exit status."""
+    codes = {finding.code for finding in snapshot.findings}
+    if "git_conflict" in codes:
+        return "resolve Git conflicts", 1
+    if snapshot.state is None or codes & _UNSAFE_CODES:
+        return "reconcile unreadable or unsafe lifecycle state", 1
+    if codes & _STALE_CODES:
+        return "reconcile stale lifecycle state", 1
+
+    state = snapshot.state
+    lifecycle_state = state["state"]
+    blockers = state.get("open_blockers") or []
+    if blockers or lifecycle_state == "BLOCKED":
+        return "resolve open blockers", 1
+    if lifecycle_state not in _STATE_RANKS:
+        return "reconcile lifecycle state", 0
+    if lifecycle_state in {"NO_CONTEXT", "UPSTREAM_INTAKE", "RETURN_TO_PRODUCT_PLAN"}:
+        return "capture upstream context", 0
+    if lifecycle_state == "UPSTREAM_APPROVAL_REQUIRED" or state.get(
+        "upstream_approval_status"
+    ) not in {None, "APPROVED"}:
+        return "request upstream approval", 0
+
+    rank = _STATE_RANKS.get(lifecycle_state)
+    stop_after = state.get("stop_after")
+    if stop_after is not None and rank is not None and rank >= _STOP_BOUNDARIES[stop_after]:
+        return f"await explicit user instruction (stop_after: {stop_after} reached)", 0
+
+    actions = {
+        "PLAN_REQUIRED": "create or revise engineering plan",
+        "RETURN_TO_PLAN": "create or revise engineering plan",
+        "PLAN_APPROVED": "implement approved plan",
+        "WAITING_FOR_IMPLEMENTATION": "implement approved plan",
+        "IMPLEMENTATION_IN_PROGRESS": "complete or fix implementation",
+        "RETURN_TO_IMPLEMENTATION": "complete or fix implementation",
+        "REVIEW_READY": "run Staff Engineer review",
+        "REVIEW_PASSED": "run q-level --mode=auto",
+        "SHIP_READY": "prepare ship-ready handoff",
+    }
+    return actions.get(lifecycle_state, "reconcile lifecycle state"), 0
 
 
 def _state_metadata(project: Path) -> tuple[dict | None, tuple[Finding, ...]]:

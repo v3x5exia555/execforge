@@ -1,6 +1,8 @@
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
+import contextlib
 import importlib.util
+import io
 import json
 import os
 import shlex
@@ -40,6 +42,27 @@ class RepositoryTests(unittest.TestCase):
         self._git(repo, "config", "user.name", "ExecForge Tests")
         (repo / "AGENTS.md").write_text("instructions\n", encoding="utf-8")
         (repo / "CLAUDE.md").write_text("instructions\n", encoding="utf-8")
+
+    def _initialize_operating_repo(self, repo: Path, initiative: str = "Resume Initiative"):
+        self._initialize_repo(repo)
+        (repo / "tracked.txt").write_text("base\n", encoding="utf-8")
+        self._git(repo, "add", ".")
+        self._git(repo, "commit", "-m", "base")
+        module.init_run(initiative, repo)
+        pointer = json.loads((repo / ".eng-level" / "current.json").read_text())
+        state_file = repo / pointer["state_path"]
+        return state_file, json.loads(state_file.read_text())
+
+    def _run_operating_command(self, command: str, repo: Path):
+        output = io.StringIO()
+        function = module.resume_run if command == "resume" else module.show_next
+        with contextlib.redirect_stdout(output):
+            returncode = function(repo)
+        return returncode, output.getvalue()
+
+    def _write_state(self, state_file: Path, payload: dict, **updates):
+        payload.update(updates)
+        state_file.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
     def test_installed_skill_diagnostics(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -395,6 +418,233 @@ class RepositoryTests(unittest.TestCase):
             out = buf.getvalue()
             self.assertIn("backlog: (empty)", out)
             self.assertIn("stop_after: None", out)
+
+    def test_resume_reports_fresh_selected_run_without_inference(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp) / "repo"
+            state_file, state = self._initialize_operating_repo(repo, "Fresh Run")
+            returncode, output = self._run_operating_command("resume", repo)
+
+            self.assertEqual(0, returncode)
+            self.assertIn("initiative: Fresh Run", output)
+            self.assertIn(f"run_id: {state['run_id']}", output)
+            self.assertIn("git_branch: main", output)
+            self.assertIn(f"git_head: {state['commit']}", output)
+            self.assertIn("lifecycle_state: UPSTREAM_INTAKE", output)
+            self.assertIn("stop_after: none", output)
+            self.assertIn("blockers: 0", output)
+            self.assertIn(f"artifact_root: {state['artifact_root']}", output)
+            self.assertIn(f"evidence_root: {state_file.parent}", output)
+            self.assertIn(f"backlog_location: {state_file.parent / 'backlog.md'}", output)
+            self.assertIn("backlog_summary: 0 deferred action(s)", output)
+            self.assertIn("recorded_next_action: Complete upstream intake and secure approval.", output)
+            self.assertIn("warning: dirty_worktree", output)
+
+    def test_next_pending_approval_and_open_blocker_are_safety_stops(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            approval_repo = root / "approval"
+            state_file, state = self._initialize_operating_repo(approval_repo)
+            self._write_state(
+                state_file, state, state="UPSTREAM_APPROVAL_REQUIRED",
+                upstream_approval_status="PENDING",
+            )
+            returncode, output = self._run_operating_command("next", approval_repo)
+            self.assertEqual(0, returncode)
+            self.assertEqual(1, len([line for line in output.splitlines() if line.startswith("next_action:")]))
+            self.assertIn("next_action: request upstream approval", output)
+
+            blocker_repo = root / "blocker"
+            state_file, state = self._initialize_operating_repo(blocker_repo)
+            self._write_state(
+                state_file, state, state="BLOCKED",
+                upstream_approval_status="APPROVED", open_blockers=["credential=do-not-print"],
+            )
+            returncode, output = self._run_operating_command("next", blocker_repo)
+            self.assertEqual(1, returncode)
+            self.assertIn("next_action: resolve open blockers", output)
+            self.assertNotIn("do-not-print", output)
+            self.assertEqual(1, len([line for line in output.splitlines() if line.startswith("next_action:")]))
+
+    def test_next_real_merge_conflict_has_highest_precedence(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp) / "repo"
+            state_file, state = self._initialize_operating_repo(repo)
+            self._git(repo, "add", ".")
+            self._git(repo, "commit", "-m", "operating state")
+            self._git(repo, "checkout", "-b", "other")
+            (repo / "tracked.txt").write_text("other\n", encoding="utf-8")
+            self._git(repo, "commit", "-am", "other")
+            self._git(repo, "checkout", "main")
+            (repo / "tracked.txt").write_text("main\n", encoding="utf-8")
+            self._git(repo, "commit", "-am", "main")
+            self._git(repo, "merge", "other", check=False)
+            self._write_state(
+                state_file, state, state="BLOCKED", branch="stale",
+                commit="stale", open_blockers=["secret blocker"],
+            )
+
+            returncode, output = self._run_operating_command("next", repo)
+            self.assertEqual(1, returncode)
+            self.assertIn("next_action: resolve Git conflicts", output)
+            self.assertNotIn("secret blocker", output)
+            self.assertEqual(1, len([line for line in output.splitlines() if line.startswith("next_action:")]))
+
+    def test_next_honors_each_stop_boundary_only_after_it_is_reached(self):
+        cases = {
+            "product": ("UPSTREAM_APPROVAL_REQUIRED", "PLAN_REQUIRED", "request upstream approval"),
+            "plan": ("PLAN_REQUIRED", "WAITING_FOR_IMPLEMENTATION", "create or revise engineering plan"),
+            "implement": ("IMPLEMENTATION_IN_PROGRESS", "REVIEW_READY", "complete or fix implementation"),
+            "review": ("REVIEW_READY", "REVIEW_PASSED", "run Staff Engineer review"),
+            "qa": ("REVIEW_PASSED", "SHIP_READY", "run q-level --mode=auto"),
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for boundary, (before, reached, before_action) in cases.items():
+                with self.subTest(boundary=boundary, phase="not-reached"):
+                    repo = root / f"{boundary}-before"
+                    state_file, state = self._initialize_operating_repo(repo)
+                    self._write_state(
+                        state_file, state, state=before, stop_after=boundary,
+                        upstream_approval_status=("PENDING" if before == "UPSTREAM_APPROVAL_REQUIRED" else "APPROVED"),
+                    )
+                    returncode, output = self._run_operating_command("next", repo)
+                    self.assertEqual(0, returncode)
+                    self.assertIn(f"next_action: {before_action}", output)
+                with self.subTest(boundary=boundary, phase="reached"):
+                    repo = root / f"{boundary}-reached"
+                    state_file, state = self._initialize_operating_repo(repo)
+                    self._write_state(
+                        state_file, state, state=reached, stop_after=boundary,
+                        upstream_approval_status="APPROVED",
+                    )
+                    returncode, output = self._run_operating_command("next", repo)
+                    self.assertEqual(0, returncode)
+                    self.assertIn("next_action: await explicit user instruction", output)
+                    self.assertEqual(1, len([line for line in output.splitlines() if line.startswith("next_action:")]))
+
+    def test_resume_and_next_warn_and_stop_for_branch_or_commit_mismatch(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            cases = {
+                "branch": ({"branch": "other"}, "branch_mismatch"),
+                "commit": ({"commit": "0" * 40}, "commit_mismatch"),
+                "implementation": (
+                    {"implementation_head": "1" * 40}, "implementation_head_mismatch"
+                ),
+            }
+            for name, (updates, warning) in cases.items():
+                with self.subTest(name=name):
+                    repo = root / name
+                    state_file, state = self._initialize_operating_repo(repo)
+                    self._write_state(state_file, state, **updates)
+                    resume_code, resume_output = self._run_operating_command("resume", repo)
+                    next_code, next_output = self._run_operating_command("next", repo)
+                    self.assertEqual(0, resume_code)
+                    self.assertIn(f"warning: {warning}", resume_output)
+                    self.assertEqual(1, next_code)
+                    self.assertIn("next_action: reconcile stale lifecycle state", next_output)
+
+    def test_malformed_unsafe_selector_uses_safe_legacy_only_for_resume(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp) / "repo"
+            self._initialize_repo(repo)
+            (repo / "tracked.txt").write_text("base\n", encoding="utf-8")
+            self._git(repo, "add", ".")
+            self._git(repo, "commit", "-m", "base")
+            (repo / ".execforge").mkdir()
+            (repo / ".execforge" / "current.json").write_text(
+                json.dumps({"run_id": "../../escape", "sensitive": "do-not-print"})
+            )
+            (repo / ".eng-level").mkdir()
+            (repo / ".eng-level" / "state.json").write_text(
+                json.dumps({"initiative": "Legacy Safe", "state": "PLAN_REQUIRED"})
+            )
+
+            resume_code, resume_output = self._run_operating_command("resume", repo)
+            next_code, next_output = self._run_operating_command("next", repo)
+            self.assertEqual(0, resume_code)
+            self.assertIn("initiative: Legacy Safe", resume_output)
+            self.assertIn("warning: selector_malformed", resume_output)
+            self.assertNotIn("do-not-print", resume_output + next_output)
+            self.assertEqual(1, next_code)
+            self.assertIn("next_action: reconcile unreadable or unsafe lifecycle state", next_output)
+
+            malformed_state = Path(tmp) / "malformed-state"
+            state_file, state = self._initialize_operating_repo(malformed_state)
+            self._write_state(
+                state_file, state, artifact_root="../../unsafe", sensitive="do-not-print"
+            )
+            resume_code, resume_output = self._run_operating_command("resume", malformed_state)
+            next_code, next_output = self._run_operating_command("next", malformed_state)
+            self.assertEqual(1, resume_code)
+            self.assertIn("warning: lifecycle_state_malformed", resume_output)
+            self.assertEqual(1, next_code)
+            self.assertIn("next_action: reconcile unreadable or unsafe lifecycle state", next_output)
+            self.assertNotIn("do-not-print", resume_output + next_output)
+
+            no_state = Path(tmp) / "no-state"
+            self._initialize_repo(no_state)
+            resume_code, resume_output = self._run_operating_command("resume", no_state)
+            next_code, next_output = self._run_operating_command("next", no_state)
+            self.assertEqual(1, resume_code)
+            self.assertIn("lifecycle_state: unknown", resume_output)
+            self.assertEqual(1, next_code)
+            self.assertIn("next_action: reconcile unreadable or unsafe lifecycle state", next_output)
+
+    def test_legacy_unknown_and_terminal_lifecycle_actions(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            cases = {
+                "legacy": ("PLAN_REQUIRED", "create or revise engineering plan"),
+                "unknown": ("FUTURE_STATE", "reconcile lifecycle state"),
+                "review-ready": ("REVIEW_READY", "run Staff Engineer review"),
+                "review-passed": ("REVIEW_PASSED", "run q-level --mode=auto"),
+                "ship-ready": ("SHIP_READY", "prepare ship-ready handoff"),
+            }
+            for name, (lifecycle_state, action) in cases.items():
+                with self.subTest(name=name):
+                    repo = root / name
+                    self._initialize_repo(repo)
+                    (repo / "tracked.txt").write_text("base\n", encoding="utf-8")
+                    self._git(repo, "add", ".")
+                    self._git(repo, "commit", "-m", "base")
+                    (repo / ".eng-level").mkdir()
+                    (repo / ".eng-level" / "state.json").write_text(
+                        json.dumps(
+                            {
+                                "initiative": name, "state": lifecycle_state,
+                                "upstream_approval_status": (
+                                    "PENDING" if name == "unknown" else "APPROVED"
+                                ),
+                                "open_blockers": [],
+                            }
+                        )
+                    )
+                    returncode, output = self._run_operating_command("next", repo)
+                    self.assertEqual(0, returncode)
+                    self.assertIn(f"next_action: {action}", output)
+                    self.assertEqual(1, len([line for line in output.splitlines() if line.startswith("next_action:")]))
+
+    def test_resume_and_next_are_registered_cli_commands(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp) / "repo"
+            self._initialize_operating_repo(repo)
+            resume = subprocess.run(
+                [sys.executable, str(SCRIPT), "resume", "--root", str(repo)],
+                capture_output=True, text=True,
+            )
+            next_result = subprocess.run(
+                [sys.executable, str(SCRIPT), "next", "--root", str(repo)],
+                capture_output=True, text=True,
+            )
+            self.assertEqual(0, resume.returncode, resume.stdout + resume.stderr)
+            self.assertIn("lifecycle_state: UPSTREAM_INTAKE", resume.stdout)
+            self.assertEqual(0, next_result.returncode, next_result.stdout + next_result.stderr)
+            self.assertEqual(
+                ["next_action: capture upstream context"],
+                [line for line in next_result.stdout.splitlines() if line.startswith("next_action:")],
+            )
 
     def test_codex_manifest_uses_path_string_not_name_array(self):
         """A name array does not load as a Codex plugin; skills must be a './' path."""

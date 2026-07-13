@@ -960,6 +960,64 @@ def show_status(cwd: Path) -> int:
     return 0
 
 
+def _print_operating_warnings(snapshot) -> None:
+    for finding in snapshot.findings:
+        print(f"warning: {finding.code}: {finding.detail}")
+
+
+def resume_run(cwd: Path) -> int:
+    """Report authoritative lifecycle metadata reconciled with actual Git state."""
+    operating_state = _load_operating_state_module()
+    snapshot = operating_state.operating_snapshot(cwd)
+    state = snapshot.state or {}
+
+    def display(value: object) -> str:
+        return str(value).replace("\r", r"\r").replace("\n", r"\n")[:500]
+
+    def recorded(key: str) -> str:
+        if key not in state:
+            return "unknown"
+        value = state[key]
+        if value is None:
+            return "none"
+        return display(value)
+
+    print(f"initiative: {recorded('initiative')}")
+    print(f"run_id: {recorded('run_id')}")
+    print(f"git_branch: {snapshot.git_branch or 'unknown'}")
+    print(f"git_head: {snapshot.git_head or 'unknown'}")
+    print(f"lifecycle_state: {recorded('state')}")
+    print(f"stop_after: {recorded('stop_after')}")
+    blockers = state.get("open_blockers") if isinstance(state.get("open_blockers"), list) else None
+    print(f"blockers: {len(blockers) if blockers is not None else 'unknown'}")
+    print(f"artifact_root: {recorded('artifact_root')}")
+    evidence_root = snapshot.state_path.parent if snapshot.state_path else None
+    backlog = evidence_root / "backlog.md" if evidence_root else None
+    print(f"evidence_root: {evidence_root or 'unknown'}")
+    print(f"backlog_location: {backlog or 'unknown'}")
+    backlog_summary = (
+        f"{snapshot.backlog_count} deferred action(s)"
+        if snapshot.backlog_count is not None else "unknown"
+    )
+    print(f"backlog_summary: {backlog_summary}")
+    print(f"recorded_next_action: {recorded('next_action')}")
+    _print_operating_warnings(snapshot)
+    return 0 if snapshot.state is not None else 1
+
+
+def show_next(cwd: Path) -> int:
+    """Print exactly one safe next action plus content-safe warnings."""
+    operating_state = _load_operating_state_module()
+    snapshot = operating_state.operating_snapshot(cwd)
+    action, returncode = operating_state.deterministic_next(snapshot)
+    print(f"next_action: {action}")
+    blockers = snapshot.state.get("open_blockers") if snapshot.state else None
+    if blockers:
+        print(f"warning: open_blockers: {len(blockers)}")
+    _print_operating_warnings(snapshot)
+    return returncode
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(prog="execforge")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -989,6 +1047,12 @@ def main() -> int:
 
     status_parser = sub.add_parser("status", help="show lifecycle state")
     status_parser.add_argument("--root", type=Path, default=Path.cwd())
+
+    resume_parser = sub.add_parser("resume", help="resume selected lifecycle context")
+    resume_parser.add_argument("--root", type=Path, default=Path.cwd())
+
+    next_parser = sub.add_parser("next", help="show the next safe lifecycle action")
+    next_parser.add_argument("--root", type=Path, default=Path.cwd())
 
     eval_parser = sub.add_parser("eval", help="run behavioral eval cases via a headless agent")
     eval_parser.add_argument("case", nargs="?", default="all", help="case id or 'all'")
@@ -1034,6 +1098,12 @@ def main() -> int:
 
     if args.command == "status":
         return show_status(args.root.resolve())
+
+    if args.command == "resume":
+        return resume_run(args.root.resolve())
+
+    if args.command == "next":
+        return show_next(args.root.resolve())
 
     if args.command == "eval":
         return cmd_eval(args)
