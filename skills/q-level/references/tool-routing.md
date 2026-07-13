@@ -10,6 +10,16 @@ Use Playwright when:
 
 Use repository-native UI tests when already established and sufficient.
 
+Use the installed gstack `/browse` + `/qa` skills when gstack is present:
+
+- A persistent logged-in browser session materially reduces evidence cost
+  (portals behind Supabase/session auth, multi-step journeys).
+- Evidence artifacts (screenshots, transcripts) must attach to the QA run.
+
+gstack is optional. When it is not installed, the Playwright and
+repository-native routes above remain the authoritative path, and the
+Fallback section applies unchanged.
+
 ## API
 
 Use Schemathesis when:

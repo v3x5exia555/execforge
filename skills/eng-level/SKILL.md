@@ -257,6 +257,10 @@ Rules:
 - Missing critical evidence or unsafe rollback blocks.
 - A post-hoc review cannot return `SHIP`.
 - A stop-after boundary ends the run at that stage; no verdict beyond it is issued.
+- A `SHIP` verdict ends the lifecycle; ExecForge does not deploy. When the
+  installed gstack `/land-and-deploy` or `/ship` skill is present, hand the
+  approved branch to it and record the handoff in `decision.md`. When it is
+  not, deployment stays with the operator's own release process.
 - Maximum three automatic fix/review cycles before replan or block.
 
 Read [state and artifact contracts](references/state-and-artifacts.md). For a full run, follow [the step-by-step lifecycle protocol](references/lifecycle-protocol.md) and produce [the final output contract](references/fallback-review-contracts.md).

@@ -79,6 +79,11 @@ Return exactly one:
 - `eng-level --mode=plan`: attach `threat-model` before the plan verdict when the trigger list applies.
 - `eng-level --mode=review`: attach `review`; an S0/S1 counts as a P0/P1 in the final engineering decision.
 - `q-level`: security-relevant scenarios (authz boundaries, injection probes, ZAP routing) reference the threat model's entry points.
+- When the installed gstack `/cso` skill is present, it may be used as an
+  additional runtime-evidence tool (OWASP/STRIDE probing of a running,
+  approved target). It complements — never replaces — this skill's code,
+  configuration, and data-flow review, and its findings enter the same
+  severity ledger.
 - QA-driven or security-driven fixes that change production code require a security delta re-review before `SHIP`.
 
 ## Validation gate
