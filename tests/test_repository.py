@@ -749,7 +749,7 @@ class RepositoryTests(unittest.TestCase):
             authoritative = json.loads((cwd / ".execforge" / "current.json").read_text())
             self.assertEqual(eng["run_id"], authoritative["run_id"])
 
-    def test_authoritative_selector_wins_during_split_projection_window(self):
+    def test_old_selector_wins_before_authoritative_commit(self):
         import contextlib
         import io
 
@@ -774,7 +774,7 @@ class RepositoryTests(unittest.TestCase):
                 with self.assertRaises(SystemExit):
                     module.init_run("New Projection", cwd)
 
-            self.assertNotEqual(first.name, observed["eng"]["run_id"])
+            self.assertEqual(first.name, observed["eng"]["run_id"])
             self.assertEqual(observed["eng"]["run_id"], observed["qa"]["run_id"])
             self.assertIn("initiative: Old Authoritative", observed["status"])
             self.assertNotIn("initiative: New Projection", observed["status"])
@@ -825,6 +825,115 @@ class RepositoryTests(unittest.TestCase):
                             {first.name},
                             {path.name for path in (cwd / namespace / "runs").iterdir()},
                         )
+
+    def test_authoritative_first_publication_is_observable_after_every_step(self):
+        import contextlib
+        import io
+
+        for repository_kind in ("fresh", "replacement"):
+            for boundary in ("authoritative", "eng_projection", "qa_projection"):
+                with self.subTest(repository_kind=repository_kind, boundary=boundary):
+                    with tempfile.TemporaryDirectory() as tmp:
+                        cwd = Path(tmp)
+                        if repository_kind == "replacement":
+                            module.init_run("Old", cwd)
+                        original_authoritative = module._write_authoritative_pointer
+                        original_projection = module._write_current_pointer
+                        projection_calls = 0
+                        observed = {}
+
+                        def observe_committed():
+                            output = io.StringIO()
+                            with contextlib.redirect_stdout(output):
+                                module.show_status(cwd)
+                            observed["status"] = output.getvalue()
+
+                        def authoritative(root, run_id):
+                            original_authoritative(root, run_id)
+                            if boundary == "authoritative":
+                                observe_committed()
+                                raise KeyboardInterrupt()
+
+                        def projection(root, run_id):
+                            nonlocal projection_calls
+                            projection_calls += 1
+                            original_projection(root, run_id)
+                            expected = 1 if boundary == "eng_projection" else 2
+                            if boundary != "authoritative" and projection_calls == expected:
+                                observe_committed()
+                                raise KeyboardInterrupt()
+
+                        with mock.patch.object(
+                            module, "_write_authoritative_pointer", side_effect=authoritative
+                        ), mock.patch.object(
+                            module, "_write_current_pointer", side_effect=projection
+                        ):
+                            with self.assertRaises(KeyboardInterrupt):
+                                module.init_run("New Committed", cwd)
+
+                        self.assertIn("initiative: New Committed", observed["status"])
+
+    def test_projection_restore_failure_retains_all_new_run_targets(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cwd = Path(tmp)
+            module.init_run("Old", cwd)
+            original_authoritative = module._write_authoritative_pointer
+            original_projection = module._write_current_pointer
+            original_restore = module._restore_pointer
+            published = {}
+
+            def publish_then_fail(root, run_id):
+                published["run_id"] = run_id
+                original_authoritative(root, run_id)
+
+            projection_calls = 0
+
+            def fail_after_projection(root, run_id):
+                nonlocal projection_calls
+                projection_calls += 1
+                original_projection(root, run_id)
+                if projection_calls == 1:
+                    raise OSError("projection publish failed")
+
+            def fail_eng_restore(pointer, snapshot):
+                if pointer == cwd / ".eng-level" / "current.json":
+                    raise OSError("projection restore failed")
+                return original_restore(pointer, snapshot)
+
+            with mock.patch.object(
+                module, "_write_authoritative_pointer", side_effect=publish_then_fail
+            ), mock.patch.object(
+                module, "_write_current_pointer", side_effect=fail_after_projection
+            ), mock.patch.object(
+                module, "_restore_pointer", side_effect=fail_eng_restore
+            ):
+                with self.assertRaises(module.RunPublicationError):
+                    module.init_run("New Retained", cwd)
+
+            run_id = published["run_id"]
+            for namespace in (".execforge", ".eng-level", ".q-level"):
+                self.assertTrue((cwd / namespace / "runs" / run_id).is_dir())
+
+    def test_authoritative_reader_rejects_symlinked_namespace_roots(self):
+        with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as out:
+            base = Path(tmp)
+            outside = Path(out)
+            for namespace in (".execforge", ".eng-level", ".q-level"):
+                with self.subTest(namespace=namespace):
+                    project = base / namespace.removeprefix(".")
+                    project.mkdir()
+                    module.init_run("Selected", project)
+                    original = project / namespace
+                    moved = outside / namespace.removeprefix(".")
+                    shutil.move(original, moved)
+                    original.symlink_to(moved, target_is_directory=True)
+
+                    selected, finding = operating_state._selected_state_path(
+                        project / ".eng-level"
+                    )
+
+                    self.assertIsNone(selected)
+                    self.assertIsNotNone(finding)
 
     def test_restore_failures_are_aggregated_and_all_restores_attempted(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -174,6 +174,16 @@ def _selected_state_path(lifecycle_root: Path) -> tuple[Path | None, Finding | N
     namespace = lifecycle_root.name
     project = lifecycle_root.parent
     runs_root = lifecycle_root / "runs"
+    project_resolved = project.resolve()
+    for selected_namespace in (".execforge", ".eng-level", ".q-level"):
+        root = project / selected_namespace
+        if root.is_symlink() or (
+            root.exists() and root.resolve() != project_resolved / selected_namespace
+        ):
+            return None, Finding(
+                "error", "lifecycle_pointer_malformed", project.name,
+                f"{selected_namespace} must be a contained real directory",
+            )
     authoritative = project / ".execforge" / "current.json"
     if authoritative.exists() or authoritative.is_symlink():
         selected = _authoritative_state_path(project, namespace)

@@ -570,9 +570,9 @@ def _init_run_locked(name: str, cwd: Path) -> Path:
         seed_q_level_artifacts(qa_run)
 
         publication_started = True
+        _write_authoritative_pointer(roots[".execforge"], run_id)
         _write_current_pointer(lifecycle, run_id)
         _write_current_pointer(qa, run_id)
-        _write_authoritative_pointer(roots[".execforge"], run_id)
     except BaseException as original:
         restore_errors: list[BaseException] = []
         if publication_started:
@@ -581,10 +581,11 @@ def _init_run_locked(name: str, cwd: Path) -> Path:
                     _restore_pointer(root / "current.json", snapshot)
                 except BaseException as restore_error:
                     restore_errors.append(restore_error)
-        referenced_run = _authoritative_run_id(cwd)
-        for new_run in reversed(new_runs):
-            if new_run.name != referenced_run:
-                _remove_new_run(new_run)
+        if not restore_errors:
+            referenced_run = _authoritative_run_id(cwd)
+            for new_run in reversed(new_runs):
+                if new_run.name != referenced_run:
+                    _remove_new_run(new_run)
         if restore_errors:
             raise RunPublicationError(original, restore_errors) from original
         raise

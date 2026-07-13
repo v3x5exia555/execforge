@@ -54,6 +54,56 @@ git diff --check
 - Repository validation reported `ExecForge validation passed.`
 - Diff whitespace validation produced no findings.
 
+# Task 2 Authoritative-First Commit Correction Evidence
+
+Locked correction base: `c960f81cc39a05ca34f88e3bb664bb016eb26578`.
+
+This correction intentionally replaces the earlier authoritative-last design.
+The authoritative `.execforge/current.json` selector is now published first;
+Eng/QA pointers are compatibility projections. Readers prefer the authoritative
+selector, so every observable post-commit state is consistent on both fresh and
+replacement repositories.
+
+RED command:
+
+```sh
+python3 -m unittest tests.test_repository.RepositoryTests.test_authoritative_first_publication_is_observable_after_every_step tests.test_repository.RepositoryTests.test_projection_restore_failure_retains_all_new_run_targets tests.test_repository.RepositoryTests.test_authoritative_reader_rejects_symlinked_namespace_roots -v
+```
+
+- Exit status: `1`.
+- Result: `4` failures and `1` error across three tests with parameterized
+  publication and namespace cases.
+- Generic failures: replacement runs still exposed the old authoritative state
+  after compatibility projection writes; a failed projection restore deleted
+  the newly referenced run targets; and symlinked Eng/QA namespace roots were
+  accepted by the authoritative reader.
+
+GREEN command:
+
+```sh
+python3 -m unittest tests.test_repository.RepositoryTests.test_authoritative_first_publication_is_observable_after_every_step tests.test_repository.RepositoryTests.test_projection_restore_failure_retains_all_new_run_targets tests.test_repository.RepositoryTests.test_authoritative_reader_rejects_symlinked_namespace_roots tests.test_repository.RepositoryTests.test_old_selector_wins_before_authoritative_commit tests.test_repository.RepositoryTests.test_base_exceptions_restore_all_selectors_after_each_publish_boundary tests.test_repository.RepositoryTests.test_restore_failures_are_aggregated_and_all_restores_attempted tests.test_repository.RepositoryTests.test_failed_authoritative_restore_keeps_referenced_new_run -v
+```
+
+- Exit status: `0`.
+- Result: all seven focused tests passed.
+
+The accepted conservative cleanup rule is used: if any selector restoration
+fails, no newly created run directory is deleted. This prevents a surviving
+authoritative or compatibility selector from becoming dangling.
+
+Final verification:
+
+```sh
+python3 -m unittest discover -s tests -v
+python3 scripts/execforge.py validate
+python3 -m py_compile scripts/operating_state.py scripts/execforge.py tests/test_repository.py
+git diff --check
+```
+
+- The complete suite passed all `64` tests.
+- Validation, bytecode compilation, and diff whitespace validation each exited
+  `0`.
+
 # Task 2 Authoritative Selector Hardening Evidence
 
 Locked hardening base: `6cea45df639bf8b185a193243536913ef7f11515`.

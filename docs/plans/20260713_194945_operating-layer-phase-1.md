@@ -38,6 +38,14 @@
 - [ ] **Step 4: Preserve compatibility** by allowing status/resume to read legacy root `state.json` only when no valid pointer exists; never silently migrate or delete legacy artifacts.
 - [ ] **Step 5: Run focused and full tests**; expected result is zero failures.
 
+**Crash-semantics correction (Task 2 review):** `.execforge/current.json` is the
+authoritative commit point and is published before the Eng/QA compatibility
+projections. This intentionally replaces the earlier authoritative-last review
+design: because readers prefer the authoritative selector, a fresh repository
+never falls through to an uncommitted projection, while an interrupted
+projection update remains a repairable compatibility drift after a committed
+run selection.
+
 ### Task 3: Resume and next-action commands
 
 **Files:**
@@ -86,4 +94,3 @@
 - [ ] **Step 3: Run `python3 scripts/execforge.py doctor --installed --portfolio /Users/tysonchua/Desktop/project`.** Expected output: diagnostics identify real instruction/version/state issues without mutation or traceback.
 - [ ] **Step 4: Review the complete branch diff** against every upstream acceptance criterion and record P0–P3 findings and conformance statuses.
 - [ ] **Step 5: Run `git diff --check` and repeat the complete test suite after review fixes.** Expected result: clean diff and zero test failures.
-
