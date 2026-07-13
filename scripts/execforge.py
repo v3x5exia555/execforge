@@ -87,6 +87,44 @@ def parse_eval_case(path: Path) -> dict:
     }
 
 
+def build_grading_prompt(case: dict, transcript: str) -> str:
+    expected = "\n".join(f"{i}. {item}" for i, item in enumerate(case["expected"]))
+    failures = "\n".join(f"{i}. {item}" for i, item in enumerate(case["failures"]))
+    return (
+        "You are grading an agent transcript against a behavioral checklist.\n"
+        "Judge only what the transcript shows; a behavior not visible in the "
+        "transcript was not observed.\n\n"
+        f"EXPECTED BEHAVIORS:\n{expected}\n\n"
+        f"FAILURE CONDITIONS:\n{failures}\n\n"
+        f"TRANSCRIPT:\n{transcript}\n\n"
+        "Reply with ONLY a JSON object, no prose: "
+        '{"expected": [<bool per expected behavior, in order>], '
+        '"failures": [<bool per failure condition, in order>]}'
+    )
+
+
+def parse_verdict(text: str, n_expected: int, n_failures: int) -> dict:
+    """Extract the judge's checklist verdict. The pass verdict is recomputed
+    locally; the judge's own pass claim is never trusted."""
+    for match in re.finditer(r"\{.*?\}", text, re.S):
+        try:
+            data = json.loads(match.group(0))
+        except json.JSONDecodeError:
+            continue
+        expected = data.get("expected")
+        failures = data.get("failures")
+        if (isinstance(expected, list) and len(expected) == n_expected
+                and isinstance(failures, list) and len(failures) == n_failures):
+            expected = [bool(v) for v in expected]
+            failures = [bool(v) for v in failures]
+            return {
+                "expected": expected,
+                "failures": failures,
+                "passed": all(expected) and not any(failures),
+            }
+    raise ValueError("judge output contained no verdict JSON with matching list sizes")
+
+
 def validate_repo(root: Path = ROOT) -> list[str]:
     errors: list[str] = []
     skills_root = root / "skills"

@@ -63,5 +63,29 @@ class ParseEvalCaseTests(unittest.TestCase):
             self.assertTrue(case["failures"], path.name)
 
 
+class VerdictTests(unittest.TestCase):
+    def test_grading_prompt_contains_checklists_and_transcript(self):
+        case = {"id": "x", "skill": "q-level", "type": "gate",
+                "scenario": "s", "expected": ["A", "B"], "failures": ["C"]}
+        prompt = module.build_grading_prompt(case, "TRANSCRIPT BODY")
+        self.assertIn("TRANSCRIPT BODY", prompt)
+        self.assertIn("A", prompt)
+        self.assertIn("C", prompt)
+        self.assertIn('"expected"', prompt)
+
+    def test_parse_verdict_recomputes_pass(self):
+        text = 'noise {"expected": [true, true], "failures": [false], "passed": false} noise'
+        verdict = module.parse_verdict(text, 2, 1)
+        self.assertTrue(verdict["passed"])  # local recompute overrides judge claim
+
+    def test_parse_verdict_fails_on_any_failure_condition(self):
+        text = '{"expected": [true, true], "failures": [true]}'
+        self.assertFalse(module.parse_verdict(text, 2, 1)["passed"])
+
+    def test_parse_verdict_rejects_wrong_lengths(self):
+        with self.assertRaises(ValueError):
+            module.parse_verdict('{"expected": [true], "failures": [false]}', 2, 1)
+
+
 if __name__ == "__main__":
     unittest.main()
