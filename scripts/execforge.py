@@ -7,6 +7,7 @@ No third-party dependencies are required.
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -32,6 +33,16 @@ Q_LEVEL_ASSET_FILES = {
     "qa-plan.md": "qa-plan.template.md",
     "retest.md": "retest.template.md",
 }
+
+
+def _load_operating_state_module():
+    path = Path(__file__).resolve().with_name("operating_state.py")
+    spec = importlib.util.spec_from_file_location("execforge_operating_state", path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"cannot load operating-state diagnostics from {path}")
+    loaded = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(loaded)
+    return loaded
 
 
 def parse_frontmatter(path: Path) -> dict[str, str]:
@@ -370,7 +381,7 @@ def seed_q_level_artifacts(destination: Path) -> None:
         shutil.copy2(assets_root / template_name, destination / target_name)
 
 
-def doctor() -> int:
+def doctor(installed: bool = False, portfolio: Path | None = None) -> int:
     hard_failures = 0
 
     def report(label: str, ok: bool, detail: str, hard: bool = True) -> None:
@@ -406,6 +417,24 @@ def doctor() -> int:
 
     superpowers = check_superpowers() == 0
     report("superpowers", superpowers, "detected" if superpowers else "not detected; optional", hard=False)
+
+    if installed or portfolio is not None:
+        operating_state = _load_operating_state_module()
+        findings = ()
+        if installed:
+            installation_roots = tuple(
+                destination_for(target) for target in ("claude", "codex", "agents")
+            )
+            findings += operating_state.installed_skill_diagnostics(SKILLS, installation_roots)
+        if portfolio is not None:
+            findings += operating_state.portfolio_diagnostics(portfolio)
+        for finding in findings:
+            print(
+                f"[{finding.severity.upper()}] {finding.code} "
+                f"{finding.project}: {finding.detail}"
+            )
+            if finding.severity == "error":
+                hard_failures += 1
 
     if hard_failures:
         print(f"doctor found {hard_failures} blocking problem(s).")
@@ -611,7 +640,15 @@ def main() -> int:
 
     sub.add_parser("check-superpowers", help="check common Superpowers locations")
 
-    sub.add_parser("doctor", help="check installation prerequisites and dependencies")
+    doctor_parser = sub.add_parser(
+        "doctor", help="check installation prerequisites and dependencies"
+    )
+    doctor_parser.add_argument(
+        "--installed", action="store_true", help="compare bundled skills with all known install roots"
+    )
+    doctor_parser.add_argument(
+        "--portfolio", type=Path, help="scan direct-child Git repositories under PATH"
+    )
 
     init_parser = sub.add_parser("init-run", help="initialize decision and lifecycle artifacts")
     init_parser.add_argument("--name", required=True)
@@ -656,7 +693,7 @@ def main() -> int:
         return check_superpowers()
 
     if args.command == "doctor":
-        return doctor()
+        return doctor(installed=args.installed, portfolio=args.portfolio)
 
     if args.command == "init-run":
         init_run(args.name, args.root.resolve())

@@ -1,6 +1,10 @@
 from pathlib import Path
 import importlib.util
 import json
+import os
+import shutil
+import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -11,8 +15,153 @@ module = importlib.util.module_from_spec(spec)
 assert spec.loader
 spec.loader.exec_module(module)
 
+OPERATING_STATE = ROOT / "scripts" / "operating_state.py"
+operating_spec = importlib.util.spec_from_file_location("operating_state", OPERATING_STATE)
+operating_state = importlib.util.module_from_spec(operating_spec)
+assert operating_spec.loader
+operating_spec.loader.exec_module(operating_state)
+
 
 class RepositoryTests(unittest.TestCase):
+    def test_installed_skill_diagnostics(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            bundled = root / "bundled"
+            (bundled / "alpha" / "references").mkdir(parents=True)
+            (bundled / "alpha" / "SKILL.md").write_text("alpha\n", encoding="utf-8")
+            (bundled / "alpha" / "references" / "contract.md").write_text(
+                "contract\n", encoding="utf-8"
+            )
+            (bundled / "beta").mkdir()
+            (bundled / "beta" / "SKILL.md").write_text("beta\n", encoding="utf-8")
+
+            exact = root / "exact"
+            missing = root / "missing"
+            drifted = root / "drifted"
+            shutil.copytree(bundled, exact)
+            shutil.copytree(bundled, missing)
+            shutil.copytree(bundled, drifted)
+            shutil.rmtree(missing / "beta")
+            (drifted / "alpha" / "references" / "contract.md").write_text(
+                "changed\n", encoding="utf-8"
+            )
+
+            findings = operating_state.installed_skill_diagnostics(
+                bundled, (exact, missing, drifted)
+            )
+
+            self.assertIsInstance(findings, tuple)
+            self.assertEqual(
+                {
+                    ("error", "installed_skill_missing", str(missing), "beta"),
+                    ("error", "installed_skill_drift", str(drifted), "alpha"),
+                },
+                {
+                    (finding.severity, finding.code, finding.project, finding.detail)
+                    for finding in findings
+                },
+            )
+            with self.assertRaises(AttributeError):
+                findings[0].severity = "warning"
+
+    def test_portfolio_diagnostics(self):
+        def git(repo: Path, *args: str, check: bool = True):
+            return subprocess.run(
+                ["git", *args], cwd=repo, check=check, capture_output=True, text=True
+            )
+
+        def initialize(repo: Path):
+            repo.mkdir()
+            git(repo, "init", "-b", "main")
+            git(repo, "config", "user.email", "tests@example.com")
+            git(repo, "config", "user.name", "ExecForge Tests")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            portfolio = Path(tmp)
+
+            conflicted = portfolio / "conflicted"
+            initialize(conflicted)
+            (conflicted / "AGENTS.md").write_text("instructions\n", encoding="utf-8")
+            (conflicted / "CLAUDE.md").write_text("instructions\n", encoding="utf-8")
+            (conflicted / "shared.txt").write_text("base\n", encoding="utf-8")
+            git(conflicted, "add", ".")
+            git(conflicted, "commit", "-m", "base")
+            git(conflicted, "checkout", "-b", "other")
+            (conflicted / "shared.txt").write_text("other\n", encoding="utf-8")
+            git(conflicted, "commit", "-am", "other")
+            git(conflicted, "checkout", "main")
+            (conflicted / "shared.txt").write_text("main\n", encoding="utf-8")
+            git(conflicted, "commit", "-am", "main")
+            git(conflicted, "merge", "other", check=False)
+            selected = conflicted / ".eng-level" / "runs" / "current-run"
+            selected.mkdir(parents=True)
+            (selected / "state.json").write_text(
+                json.dumps({"initiative": "Conflict", "state": "REVIEW_READY", "branch": "other"})
+            )
+            (conflicted / ".eng-level" / "current.json").write_text(
+                json.dumps({"run_id": "current-run"})
+            )
+
+            malformed = portfolio / "malformed"
+            initialize(malformed)
+            (malformed / ".eng-level").mkdir()
+            (malformed / ".eng-level" / "state.json").write_text("{not json\n", encoding="utf-8")
+
+            unsafe_pointer = portfolio / "unsafe-pointer"
+            initialize(unsafe_pointer)
+            (unsafe_pointer / "AGENTS.md").write_text("instructions\n", encoding="utf-8")
+            (unsafe_pointer / "CLAUDE.md").write_text("instructions\n", encoding="utf-8")
+            (unsafe_pointer / ".eng-level").mkdir()
+            (unsafe_pointer / ".eng-level" / "current.json").write_text(
+                json.dumps({"state_path": "../../outside.json"})
+            )
+            (unsafe_pointer / ".eng-level" / "state.json").write_text(
+                json.dumps({"initiative": "Legacy", "state": "PLAN_REQUIRED", "branch": "other"})
+            )
+            (portfolio / "outside.json").write_text(
+                json.dumps({"initiative": "Secret", "state": "SHIP_READY", "branch": "main"})
+            )
+
+            ignored_nested = malformed / "nested"
+            initialize(ignored_nested)
+
+            findings = operating_state.portfolio_diagnostics(portfolio)
+            observed = {(finding.project, finding.code) for finding in findings}
+
+            self.assertIn(("conflicted", "git_conflict"), observed)
+            self.assertIn(("conflicted", "branch_mismatch"), observed)
+            self.assertIn(("malformed", "root_agents_missing"), observed)
+            self.assertIn(("malformed", "root_claude_missing"), observed)
+            self.assertIn(("malformed", "lifecycle_state_malformed"), observed)
+            self.assertIn(("unsafe-pointer", "lifecycle_pointer_malformed"), observed)
+            self.assertIn(("unsafe-pointer", "branch_mismatch"), observed)
+            self.assertNotIn(("nested", "root_agents_missing"), observed)
+            for finding in findings:
+                self.assertNotIn("instructions", finding.detail)
+                self.assertNotIn("{not json", finding.detail)
+                self.assertNotIn("Secret", finding.detail)
+
+            cli = subprocess.run(
+                [sys.executable, str(SCRIPT), "doctor", "--portfolio", str(portfolio)],
+                cwd=ROOT,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(1, cli.returncode)
+            self.assertIn("git_conflict", cli.stdout)
+            self.assertNotIn("Traceback", cli.stdout + cli.stderr)
+
+            installed_cli = subprocess.run(
+                [sys.executable, str(SCRIPT), "doctor", "--installed"],
+                cwd=ROOT,
+                env={**os.environ, "HOME": str(portfolio / "empty-home")},
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(1, installed_cli.returncode)
+            self.assertIn("installed_skill_missing", installed_cli.stdout)
+            self.assertNotIn("Traceback", installed_cli.stdout + installed_cli.stderr)
+
     def test_repository_validation(self):
         self.assertEqual([], module.validate_repo(ROOT))
 
