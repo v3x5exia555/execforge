@@ -18,6 +18,7 @@ import shutil
 import subprocess
 import sys
 import threading
+import unicodedata
 from datetime import datetime, timezone
 import uuid
 
@@ -48,6 +49,27 @@ Q_LEVEL_ASSET_FILES = {
 _RUN_NAMESPACES = (".execforge", ".eng-level", ".q-level")
 _INIT_LOCKS: dict[str, threading.Lock] = {}
 _INIT_LOCKS_GUARD = threading.Lock()
+
+
+def _terminal_safe(value: object, limit: int = 500) -> str:
+    """Render untrusted metadata without terminal controls or unbounded output."""
+    rendered: list[str] = []
+    rendered_length = 0
+    for character in str(value):
+        if unicodedata.category(character).startswith("C"):
+            codepoint = ord(character)
+            if codepoint <= 0xFF:
+                rendered.append(f"\\x{codepoint:02x}")
+            elif codepoint <= 0xFFFF:
+                rendered.append(f"\\u{codepoint:04x}")
+            else:
+                rendered.append(f"\\U{codepoint:08x}")
+        else:
+            rendered.append(character)
+        rendered_length += len(rendered[-1])
+        if rendered_length >= limit:
+            break
+    return "".join(rendered)[:limit]
 
 
 class RunPublicationError(RuntimeError):
@@ -455,8 +477,9 @@ def doctor(installed: bool = False, portfolio: Path | None = None) -> int:
             findings += operating_state.portfolio_diagnostics(portfolio)
         for finding in findings:
             print(
-                f"[{finding.severity.upper()}] {finding.code} "
-                f"{finding.project}: {finding.detail}"
+                f"[{_terminal_safe(finding.severity).upper()}] "
+                f"{_terminal_safe(finding.code)} "
+                f"{_terminal_safe(finding.project)}: {_terminal_safe(finding.detail)}"
             )
             if finding.severity == "error":
                 hard_failures += 1
@@ -827,6 +850,7 @@ def _write_authoritative_pointer(execforge_root: Path, run_id: str) -> None:
 def _is_canonical_run_id(run_id: object) -> bool:
     return bool(
         isinstance(run_id, str)
+        and len(run_id) <= 255
         and run_id not in {".", ".."}
         and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", run_id)
         and "/" not in run_id
@@ -962,7 +986,10 @@ def show_status(cwd: Path) -> int:
 
 def _print_operating_warnings(snapshot) -> None:
     for finding in snapshot.findings:
-        print(f"warning: {finding.code}: {finding.detail}")
+        print(
+            f"warning: {_terminal_safe(finding.code)}: "
+            f"{_terminal_safe(finding.detail)}"
+        )
 
 
 def resume_run(cwd: Path) -> int:
@@ -971,36 +998,37 @@ def resume_run(cwd: Path) -> int:
     snapshot = operating_state.operating_snapshot(cwd)
     state = snapshot.state or {}
 
-    def display(value: object) -> str:
-        return str(value).replace("\r", r"\r").replace("\n", r"\n")[:500]
-
     def recorded(key: str) -> str:
         if key not in state:
             return "unknown"
         value = state[key]
         if value is None:
             return "none"
-        return display(value)
+        return _terminal_safe(value)
 
     print(f"initiative: {recorded('initiative')}")
     print(f"run_id: {recorded('run_id')}")
-    print(f"git_branch: {snapshot.git_branch or 'unknown'}")
-    print(f"git_head: {snapshot.git_head or 'unknown'}")
+    print(f"git_branch: {_terminal_safe(snapshot.git_branch or 'unknown')}")
+    print(f"git_head: {_terminal_safe(snapshot.git_head or 'unknown')}")
     print(f"lifecycle_state: {recorded('state')}")
     print(f"stop_after: {recorded('stop_after')}")
-    blockers = state.get("open_blockers") if isinstance(state.get("open_blockers"), list) else None
-    print(f"blockers: {len(blockers) if blockers is not None else 'unknown'}")
+    blocker_fields = [
+        state[key] for key in ("blockers", "open_blockers") if key in state
+    ]
+    blockers = sum((len(items) for items in blocker_fields), 0) if blocker_fields else None
+    print(f"blockers: {blockers if blockers is not None else 'unknown'}")
     print(f"artifact_root: {recorded('artifact_root')}")
     evidence_root = snapshot.state_path.parent if snapshot.state_path else None
     backlog = evidence_root / "backlog.md" if evidence_root else None
-    print(f"evidence_root: {evidence_root or 'unknown'}")
-    print(f"backlog_location: {backlog or 'unknown'}")
+    print(f"evidence_root: {_terminal_safe(evidence_root or 'unknown')}")
+    print(f"backlog_location: {_terminal_safe(backlog or 'unknown')}")
     backlog_summary = (
         f"{snapshot.backlog_count} deferred action(s)"
         if snapshot.backlog_count is not None else "unknown"
     )
     print(f"backlog_summary: {backlog_summary}")
-    print(f"recorded_next_action: {recorded('next_action')}")
+    recorded_next_action = state.get("next_action")
+    print(f"recorded_next_action: {'present' if recorded_next_action else 'none'}")
     _print_operating_warnings(snapshot)
     return 0 if snapshot.state is not None else 1
 
@@ -1011,7 +1039,11 @@ def show_next(cwd: Path) -> int:
     snapshot = operating_state.operating_snapshot(cwd)
     action, returncode = operating_state.deterministic_next(snapshot)
     print(f"next_action: {action}")
-    blockers = snapshot.state.get("open_blockers") if snapshot.state else None
+    blockers = []
+    if snapshot.state:
+        blockers = (snapshot.state.get("blockers") or []) + (
+            snapshot.state.get("open_blockers") or []
+        )
     if blockers:
         print(f"warning: open_blockers: {len(blockers)}")
     _print_operating_warnings(snapshot)

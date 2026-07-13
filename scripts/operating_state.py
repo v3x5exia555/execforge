@@ -10,6 +10,7 @@ from pathlib import Path
 import re
 import stat
 import subprocess
+import threading
 from typing import Iterable, NamedTuple
 
 
@@ -52,10 +53,19 @@ _STATE_RANKS = {
     "REVIEW_PASSED": 4,
     "SHIP_READY": 5,
 }
-_STALE_CODES = {"branch_mismatch", "commit_mismatch", "implementation_head_mismatch"}
+_STALE_CODES = {
+    "branch_mismatch", "commit_mismatch", "base_commit_mismatch",
+    "implementation_head_mismatch",
+}
 _UNSAFE_CODES = {
     "selector_malformed", "lifecycle_state_malformed", "git_command_error"
 }
+_SELECTOR_MAX_BYTES = 1024 * 1024
+_STATE_MAX_BYTES = 4 * 1024 * 1024
+_GIT_OUTPUT_MAX_BYTES = 1024 * 1024
+_MAX_BLOCKERS = 100
+_MAX_BLOCKER_LENGTH = 4096
+_FROZEN_IMPLEMENTATION_STATES = {"REVIEW_READY", "REVIEW_PASSED", "SHIP_READY"}
 
 
 def _tree_digest(root: Path) -> str:
@@ -141,33 +151,79 @@ def installed_skill_diagnostics(
     return tuple(findings)
 
 
-def _run_git(project: Path, *arguments: str) -> tuple[str | None, Finding | None]:
+def _run_git_process(
+    project: Path, *arguments: str
+) -> tuple[str | None, int | None, Finding | None]:
     """Run a read-only Git query without repository fsmonitor execution.
 
     The Git executable selected by PATH and configuration unrelated to fsmonitor
     remain part of the caller's local trust boundary.
     """
+    command = ["git", "-c", "core.fsmonitor=false", *arguments]
     try:
-        result = subprocess.run(
-            ["git", "-c", "core.fsmonitor=false", *arguments],
+        process = subprocess.Popen(
+            command,
             cwd=project,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=15,
-            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
             env={**os.environ, "GIT_OPTIONAL_LOCKS": "0"},
         )
+        captured = bytearray()
+        overflow = threading.Event()
+
+        def collect_stdout() -> None:
+            assert process.stdout is not None
+            while len(captured) <= _GIT_OUTPUT_MAX_BYTES:
+                remaining = _GIT_OUTPUT_MAX_BYTES + 1 - len(captured)
+                chunk = process.stdout.read(min(64 * 1024, remaining))
+                if not chunk:
+                    return
+                captured.extend(chunk)
+            overflow.set()
+            try:
+                process.kill()
+            except OSError:
+                pass
+
+        collector = threading.Thread(target=collect_stdout, daemon=True)
+        collector.start()
+        try:
+            returncode = process.wait(timeout=15)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait()
+            collector.join()
+            if process.stdout is not None:
+                process.stdout.close()
+            return None, None, Finding(
+                "error", "git_command_error", project.name,
+                f"git {' '.join(arguments)} failed",
+            )
+        collector.join()
+        if process.stdout is not None:
+            process.stdout.close()
+        if overflow.is_set() or len(captured) > _GIT_OUTPUT_MAX_BYTES:
+            return None, None, Finding(
+                "error", "git_command_error", project.name,
+                f"git {' '.join(arguments)} exceeded safe output limit",
+            )
+        output = captured.decode("utf-8", errors="replace")
     except (OSError, subprocess.SubprocessError):
+        return None, None, Finding(
+            "error", "git_command_error", project.name, f"git {' '.join(arguments)} failed"
+        )
+    return output, returncode, None
+
+
+def _run_git(project: Path, *arguments: str) -> tuple[str | None, Finding | None]:
+    output, returncode, finding = _run_git_process(project, *arguments)
+    if finding is not None:
+        return None, finding
+    if returncode:
         return None, Finding(
             "error", "git_command_error", project.name, f"git {' '.join(arguments)} failed"
         )
-    if result.returncode:
-        return None, Finding(
-            "error", "git_command_error", project.name, f"git {' '.join(arguments)} failed"
-        )
-    return result.stdout, None
+    return output, None
 
 
 def _is_contained(path: Path, root: Path) -> bool:
@@ -178,9 +234,16 @@ def _is_contained(path: Path, root: Path) -> bool:
     return True
 
 
-def _load_json_object(path: Path) -> dict | None:
+def _load_json_object(path: Path, max_bytes: int = _SELECTOR_MAX_BYTES) -> dict | None:
     try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
+        metadata = path.lstat()
+        if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > max_bytes:
+            return None
+        with path.open("rb") as stream:
+            raw = stream.read(max_bytes + 1)
+        if len(raw) > max_bytes:
+            return None
+        payload = json.loads(raw.decode("utf-8"))
     except (OSError, UnicodeError, json.JSONDecodeError):
         return None
     return payload if isinstance(payload, dict) else None
@@ -189,6 +252,7 @@ def _load_json_object(path: Path) -> dict | None:
 def _is_canonical_run_id(run_id: object) -> bool:
     return bool(
         isinstance(run_id, str)
+        and len(run_id) <= 255
         and run_id not in {".", ".."}
         and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", run_id)
         and "/" not in run_id
@@ -245,7 +309,7 @@ def _selected_state_path(lifecycle_root: Path) -> tuple[Path | None, Finding | N
         )
 
     candidate: Path | None = None
-    if isinstance(pointer.get("state_path"), str):
+    if isinstance(pointer.get("state_path"), str) and len(pointer["state_path"]) <= 4096:
         relative = Path(pointer["state_path"])
         if not relative.is_absolute():
             candidate = (
@@ -253,7 +317,7 @@ def _selected_state_path(lifecycle_root: Path) -> tuple[Path | None, Finding | N
                 if relative.parts and relative.parts[0] == namespace
                 else lifecycle_root / relative
             )
-    elif isinstance(pointer.get("artifact_root"), str):
+    elif isinstance(pointer.get("artifact_root"), str) and len(pointer["artifact_root"]) <= 4096:
         relative = Path(pointer["artifact_root"])
         if not relative.is_absolute():
             artifact_root = (
@@ -311,7 +375,7 @@ def _authoritative_state_path(project: Path, namespace: str) -> Path | None:
         (".q-level", "qa_state_path"),
     ):
         value = pointer.get(field)
-        if not isinstance(value, str) or Path(value).is_absolute():
+        if not isinstance(value, str) or len(value) > 4096 or Path(value).is_absolute():
             return None
         candidate = project / value
         expected = project / selected_namespace / "runs" / run_id / "state.json"
@@ -337,6 +401,78 @@ def selected_or_legacy_state_path(lifecycle_root: Path) -> Path | None:
     if legacy.is_file() and not legacy.is_symlink() and _is_contained(legacy, lifecycle_root):
         return legacy
     return None
+
+
+def _is_string(value: object, maximum: int, *, allow_empty: bool = True) -> bool:
+    return bool(
+        isinstance(value, str)
+        and len(value) <= maximum
+        and (allow_empty or value)
+    )
+
+
+def _is_nullable_string(
+    value: object, maximum: int, *, allow_empty: bool = True
+) -> bool:
+    return value is None or _is_string(value, maximum, allow_empty=allow_empty)
+
+
+def _is_blocker_list(value: object) -> bool:
+    return bool(
+        isinstance(value, list)
+        and len(value) <= _MAX_BLOCKERS
+        and all(_is_string(item, _MAX_BLOCKER_LENGTH) for item in value)
+    )
+
+
+def _valid_operating_state(state: dict, state_path: Path, selected: Path | None) -> bool:
+    if not _is_string(state.get("initiative"), 512, allow_empty=False):
+        return False
+    if not _is_string(state.get("state"), 128, allow_empty=False):
+        return False
+    if "run_id" in state and not (
+        _is_string(state["run_id"], 255, allow_empty=False)
+        and _is_canonical_run_id(state["run_id"])
+    ):
+        return False
+    if selected is not None and state.get("run_id") != selected.parent.name:
+        return False
+    for key in ("branch", "base_branch"):
+        if key in state and not _is_nullable_string(
+            state[key], 1024, allow_empty=False
+        ):
+            return False
+    for key in ("commit", "base_commit", "implementation_head"):
+        if key in state and not _is_nullable_string(state[key], 128, allow_empty=False):
+            return False
+    if "stop_after" in state and state["stop_after"] not in {None, *_STOP_BOUNDARIES}:
+        return False
+    if "artifact_root" in state and not _is_string(
+        state["artifact_root"], 4096, allow_empty=False
+    ):
+        return False
+    if "next_action" in state and not _is_string(state["next_action"], 4096):
+        return False
+    if "upstream_approval_status" in state and state["upstream_approval_status"] not in {
+        "PENDING", "APPROVED", "REJECTED", "REOPENED"
+    }:
+        return False
+    for key in ("blockers", "open_blockers"):
+        if key in state and not _is_blocker_list(state[key]):
+            return False
+
+    artifact_root = state.get("artifact_root")
+    if artifact_root:
+        artifact_path = Path(artifact_root)
+        project = state_path.parents[3] if selected else state_path.parent.parent
+        artifact_candidate = project / artifact_path
+        if (
+            artifact_path.is_absolute()
+            or not _is_contained(artifact_candidate, project)
+            or artifact_candidate.resolve() != state_path.parent.resolve()
+        ):
+            return False
+    return True
 
 
 def _safe_operating_state(project: Path) -> tuple[Path | None, dict | None, list[Finding]]:
@@ -372,10 +508,8 @@ def _safe_operating_state(project: Path) -> tuple[Path | None, dict | None, list
         )
         return None, None, findings
 
-    state = _load_json_object(state_path)
-    if state is None or not isinstance(state.get("initiative"), str) or not isinstance(
-        state.get("state"), str
-    ):
+    state = _load_json_object(state_path, _STATE_MAX_BYTES)
+    if state is None or not _valid_operating_state(state, state_path, selected):
         findings.append(
             Finding(
                 "error", "lifecycle_state_malformed", project.name,
@@ -384,41 +518,6 @@ def _safe_operating_state(project: Path) -> tuple[Path | None, dict | None, list
         )
         return state_path, None, findings
 
-    nullable_strings = (
-        "run_id", "branch", "base_branch", "commit", "implementation_head",
-        "artifact_root", "next_action", "stop_after", "upstream_approval_status",
-    )
-    malformed = any(
-        key in state and state[key] is not None and not isinstance(state[key], str)
-        for key in nullable_strings
-    )
-    malformed = malformed or (
-        "open_blockers" in state and not isinstance(state["open_blockers"], list)
-    )
-    stop_after = state.get("stop_after")
-    malformed = malformed or (
-        stop_after is not None and stop_after not in _STOP_BOUNDARIES
-    )
-    if selected is not None and "run_id" in state:
-        malformed = malformed or state["run_id"] != selected.parent.name
-    artifact_root = state.get("artifact_root")
-    if artifact_root:
-        artifact_path = Path(artifact_root)
-        artifact_candidate = project / artifact_path
-        malformed = (
-            malformed
-            or artifact_path.is_absolute()
-            or not _is_contained(artifact_candidate, project)
-            or artifact_candidate.resolve() != state_path.parent.resolve()
-        )
-    if malformed:
-        findings.append(
-            Finding(
-                "error", "lifecycle_state_malformed", project.name,
-                "selected lifecycle state metadata is malformed or unsafe",
-            )
-        )
-        return state_path, None, findings
     return state_path, state, findings
 
 
@@ -472,24 +571,44 @@ def operating_snapshot(project: Path) -> OperatingSnapshot:
     git_head = head_output.strip() if head_output and head_output.strip() else None
 
     if state is not None:
-        recorded_branch = state.get("branch") if "branch" in state else state.get("base_branch")
-        if recorded_branch and recorded_branch != git_branch:
+        recorded_branch = state.get("branch")
+        if not recorded_branch:
+            findings.append(
+                Finding(
+                    "warning", "branch_lineage_unknown", project.name,
+                    "current branch lineage was not recorded",
+                )
+            )
+        elif recorded_branch != git_branch:
             findings.append(
                 Finding(
                     "error", "branch_mismatch", project.name,
                     f"recorded branch {recorded_branch!r} differs from current branch {git_branch!r}",
                 )
             )
-        recorded_commit = state.get("commit")
-        if recorded_commit and recorded_commit != git_head:
-            findings.append(
-                Finding(
-                    "error", "commit_mismatch", project.name,
-                    "recorded lifecycle commit differs from current HEAD",
-                )
-            )
+        for field, code, label in (
+            ("commit", "commit_mismatch", "lifecycle commit"),
+            ("base_commit", "base_commit_mismatch", "base commit"),
+        ):
+            revision = state.get(field)
+            if revision is not None:
+                reachable, lineage_error = _git_commit_reachable(project, revision, git_head)
+                if lineage_error is not None:
+                    findings.append(lineage_error)
+                elif not reachable:
+                    findings.append(
+                        Finding(
+                            "error", code, project.name,
+                            f"recorded {label} is not a commit reachable from current HEAD",
+                        )
+                    )
         implementation_head = state.get("implementation_head")
-        if implementation_head and implementation_head != git_head:
+        # BLOCKED is phase-ambiguous and does not inherit a frozen review snapshot.
+        if (
+            state["state"] in _FROZEN_IMPLEMENTATION_STATES
+            and implementation_head is not None
+            and implementation_head != git_head
+        ):
             findings.append(
                 Finding(
                     "error", "implementation_head_mismatch", project.name,
@@ -507,6 +626,33 @@ def operating_snapshot(project: Path) -> OperatingSnapshot:
     )
 
 
+def _git_commit_reachable(
+    project: Path, revision: str, head: str | None
+) -> tuple[bool, Finding | None]:
+    if head is None or not re.fullmatch(r"(?:[0-9a-fA-F]{40}|[0-9a-fA-F]{64})", revision):
+        return False, None
+    _, object_status, object_error = _run_git_process(
+        project, "cat-file", "-e", f"{revision}^{{commit}}"
+    )
+    if object_error is not None:
+        return False, object_error
+    if object_status != 0:
+        return False, None
+    _, ancestor_status, ancestor_error = _run_git_process(
+        project, "merge-base", "--is-ancestor", revision, head
+    )
+    if ancestor_error is not None:
+        return False, ancestor_error
+    if ancestor_status == 0:
+        return True, None
+    if ancestor_status == 1:
+        return False, None
+    return False, Finding(
+        "error", "git_command_error", project.name,
+        "git merge-base --is-ancestor failed",
+    )
+
+
 def deterministic_next(snapshot: OperatingSnapshot) -> tuple[str, int]:
     """Return one deterministic action and its CLI exit status."""
     codes = {finding.code for finding in snapshot.findings}
@@ -519,11 +665,11 @@ def deterministic_next(snapshot: OperatingSnapshot) -> tuple[str, int]:
 
     state = snapshot.state
     lifecycle_state = state["state"]
-    blockers = state.get("open_blockers") or []
+    blockers = (state.get("blockers") or []) + (state.get("open_blockers") or [])
     if blockers or lifecycle_state == "BLOCKED":
         return "resolve open blockers", 1
     if lifecycle_state not in _STATE_RANKS:
-        return "reconcile lifecycle state", 0
+        return "reconcile lifecycle state", 1
     if lifecycle_state in {"NO_CONTEXT", "UPSTREAM_INTAKE", "RETURN_TO_PRODUCT_PLAN"}:
         return "capture upstream context", 0
     if lifecycle_state == "UPSTREAM_APPROVAL_REQUIRED" or state.get(
@@ -635,10 +781,15 @@ def _project_diagnostics(project: Path) -> tuple[Finding, ...]:
     state, state_findings = _state_metadata(project)
     findings.extend(state_findings)
     if state is not None and branch_error is None:
-        recorded_branch = (
-            state["branch"] if "branch" in state else state.get("base_branch")
-        )
-        if isinstance(recorded_branch, str) and recorded_branch and recorded_branch != actual_branch:
+        recorded_branch = state.get("branch")
+        if not isinstance(recorded_branch, str) or not recorded_branch:
+            findings.append(
+                Finding(
+                    "warning", "branch_lineage_unknown", project.name,
+                    "current branch lineage was not recorded",
+                )
+            )
+        elif recorded_branch != actual_branch:
             findings.append(
                 Finding(
                     "error", "branch_mismatch", project.name,

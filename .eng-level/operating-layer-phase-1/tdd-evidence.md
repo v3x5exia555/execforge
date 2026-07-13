@@ -371,3 +371,86 @@ git diff --check
 - Exit status: `0` for each command.
 - Repository validation reported `ExecForge validation passed.`
 - Bytecode compilation and diff whitespace validation produced no findings.
+
+## Task 3 quality and security correction
+
+Correction base: `0ba152d75677329312e382189886dad733b85cd4`.
+
+### RED
+
+The quality/security review regression tests were added before production
+changes. Command:
+
+```sh
+python3 -m unittest tests.test_repository.RepositoryTests.test_portfolio_branch_compatibility_and_precedence tests.test_repository.RepositoryTests.test_lineage_accepts_descendants_and_rejects_divergent_or_invalid_commits tests.test_repository.RepositoryTests.test_implementation_head_is_frozen_only_for_review_snapshots tests.test_repository.RepositoryTests.test_operating_state_rejects_malformed_or_oversized_metadata tests.test_repository.RepositoryTests.test_terminal_output_sanitizes_controls_and_hides_recorded_next_action tests.test_repository.RepositoryTests.test_unknown_lifecycle_state_is_a_blocking_reconcile_action tests.test_repository.RepositoryTests.test_git_diagnostics_reject_oversized_output -v
+```
+
+- Exit status: `1`.
+- Result: `14` failures across `7` test methods and their parameterized
+  subcases.
+- Failures covered legacy `base_branch` misuse, descendant commit rejection,
+  non-frozen implementation snapshots, malformed/oversized metadata, raw
+  terminal controls and recorded next-action disclosure, non-blocking unknown
+  state, and unbounded Git output.
+
+### GREEN
+
+The same focused command exited `0`; all `7` methods passed. The complete suite:
+
+```sh
+python3 -m unittest discover -s tests -v
+```
+
+- Exit status: `0`.
+- Result: all `78` tests passed.
+
+Resource lifecycle verification also passed with ResourceWarnings promoted to
+errors:
+
+```sh
+python3 -W error::ResourceWarning -m unittest tests.test_repository.RepositoryTests.test_lineage_accepts_descendants_and_rejects_divergent_or_invalid_commits tests.test_repository.RepositoryTests.test_git_diagnostics_reject_oversized_output -v
+```
+
+- Exit status: `0`.
+- Result: both tests passed without an unclosed pipe warning.
+
+Lineage policy fixed by this correction:
+
+- `branch` alone records the current branch. Missing/null `branch` produces
+  `branch_lineage_unknown`; `base_branch` is never compared with the current
+  branch.
+- `commit` and `base_commit` must resolve to Git commit objects that are
+  ancestors of current HEAD, so normal descendant work remains valid while
+  invalid or divergent lineage blocks.
+- `implementation_head` is exact only in `REVIEW_READY`, `REVIEW_PASSED`, and
+  `SHIP_READY`. `BLOCKED` is phase-ambiguous and does not inherit a frozen
+  implementation snapshot.
+
+### Security delta review
+
+- Mode: `sec-level review` against the real diff from `0ba152d`.
+- AI-generated-code hot spots / A05 injection / A08 data integrity / A10
+  exceptional conditions: examined. Selector/state reads are byte-bounded,
+  state consumed by the commands is type/count/length validated, Git arguments
+  used for lineage are restricted commit hashes, Git output and runtime are
+  bounded, errors fail closed, terminal C0/C1/format/bidi/surrogate characters
+  are escaped, and recorded `next_action` content is not emitted.
+- A01 access control, A02 configuration, A03 supply chain, A04 cryptography,
+  A06 abuse controls, A07 authentication, and A09 security logging: not
+  applicable; the diff adds no endpoint, identity boundary, dependency,
+  cryptography, or logging sink.
+- Secret scan found only the deliberate fake `TOP_SECRET` test fixture used to
+  prove output suppression; no credential or token was added.
+- Unresolved S0/S1: none.
+- Verdict: `SEC PASS`.
+
+Final repository/source checks:
+
+```sh
+python3 scripts/execforge.py validate
+python3 -m py_compile scripts/operating_state.py scripts/execforge.py tests/test_repository.py
+git diff --check
+```
+
+- Exit status: `0` for each command.
+- Validation reported `ExecForge validation passed.`

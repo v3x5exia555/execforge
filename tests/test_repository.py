@@ -64,6 +64,12 @@ class RepositoryTests(unittest.TestCase):
         payload.update(updates)
         state_file.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
+    def _commit_tracked(self, repo: Path, content: str, message: str = "advance") -> str:
+        (repo / "tracked.txt").write_text(content, encoding="utf-8")
+        self._git(repo, "add", "tracked.txt")
+        self._git(repo, "commit", "-m", message)
+        return self._git(repo, "rev-parse", "HEAD").stdout.strip()
+
     def test_installed_skill_diagnostics(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -238,7 +244,13 @@ class RepositoryTests(unittest.TestCase):
             mismatch_projects = {
                 finding.project for finding in findings if finding.code == "branch_mismatch"
             }
-            self.assertIn("legacy", mismatch_projects)
+            unknown_projects = {
+                finding.project
+                for finding in findings
+                if finding.code == "branch_lineage_unknown"
+            }
+            self.assertNotIn("legacy", mismatch_projects)
+            self.assertIn("legacy", unknown_projects)
             self.assertNotIn("precedence", mismatch_projects)
 
     def test_portfolio_git_status_disables_configured_fsmonitor(self):
@@ -437,7 +449,7 @@ class RepositoryTests(unittest.TestCase):
             self.assertIn(f"evidence_root: {state_file.parent}", output)
             self.assertIn(f"backlog_location: {state_file.parent / 'backlog.md'}", output)
             self.assertIn("backlog_summary: 0 deferred action(s)", output)
-            self.assertIn("recorded_next_action: Complete upstream intake and secure approval.", output)
+            self.assertIn("recorded_next_action: present", output)
             self.assertIn("warning: dirty_worktree", output)
 
     def test_next_pending_approval_and_open_blocker_are_safety_stops(self):
@@ -530,7 +542,12 @@ class RepositoryTests(unittest.TestCase):
                 "branch": ({"branch": "other"}, "branch_mismatch"),
                 "commit": ({"commit": "0" * 40}, "commit_mismatch"),
                 "implementation": (
-                    {"implementation_head": "1" * 40}, "implementation_head_mismatch"
+                    {
+                        "implementation_head": "1" * 40,
+                        "state": "REVIEW_READY",
+                        "upstream_approval_status": "APPROVED",
+                    },
+                    "implementation_head_mismatch",
                 ),
             }
             for name, (updates, warning) in cases.items():
@@ -622,7 +639,7 @@ class RepositoryTests(unittest.TestCase):
                         )
                     )
                     returncode, output = self._run_operating_command("next", repo)
-                    self.assertEqual(0, returncode)
+                    self.assertEqual(1 if name == "unknown" else 0, returncode)
                     self.assertIn(f"next_action: {action}", output)
                     self.assertEqual(1, len([line for line in output.splitlines() if line.startswith("next_action:")]))
 
@@ -645,6 +662,188 @@ class RepositoryTests(unittest.TestCase):
                 ["next_action: capture upstream context"],
                 [line for line in next_result.stdout.splitlines() if line.startswith("next_action:")],
             )
+
+    def test_lineage_accepts_descendants_and_rejects_divergent_or_invalid_commits(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            descendant = root / "descendant"
+            state_file, state = self._initialize_operating_repo(descendant)
+            base = state["commit"]
+            self._commit_tracked(descendant, "descendant\n")
+            self._write_state(
+                state_file, state, commit=base, base_commit=base,
+                state="WAITING_FOR_IMPLEMENTATION", upstream_approval_status="APPROVED",
+            )
+            returncode, output = self._run_operating_command("next", descendant)
+            self.assertEqual(0, returncode)
+            self.assertIn("next_action: implement approved plan", output)
+            self.assertNotIn("commit_mismatch", output)
+            self.assertNotIn("base_commit_mismatch", output)
+
+            divergent = root / "divergent"
+            state_file, state = self._initialize_operating_repo(divergent)
+            base = state["commit"]
+            self._git(divergent, "checkout", "-b", "side", base)
+            side = self._commit_tracked(divergent, "side\n", "side")
+            self._git(divergent, "checkout", "main")
+            self._commit_tracked(divergent, "main\n", "main descendant")
+            for field, value, warning in (
+                ("commit", side, "commit_mismatch"),
+                ("base_commit", side, "base_commit_mismatch"),
+                ("commit", "not-a-commit", "commit_mismatch"),
+            ):
+                with self.subTest(field=field, value=value):
+                    candidate = dict(state)
+                    candidate["commit"] = base
+                    candidate["base_commit"] = base
+                    candidate[field] = value
+                    self._write_state(state_file, candidate)
+                    returncode, output = self._run_operating_command("next", divergent)
+                    self.assertEqual(1, returncode)
+                    self.assertIn("next_action: reconcile stale lifecycle state", output)
+                    self.assertIn(f"warning: {warning}", output)
+
+    def test_implementation_head_is_frozen_only_for_review_snapshots(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for lifecycle_state, frozen in (
+                ("IMPLEMENTATION_IN_PROGRESS", False),
+                ("BLOCKED", False),
+                ("REVIEW_READY", True),
+                ("REVIEW_PASSED", True),
+                ("SHIP_READY", True),
+            ):
+                with self.subTest(state=lifecycle_state):
+                    repo = root / lifecycle_state.casefold()
+                    state_file, state = self._initialize_operating_repo(repo)
+                    implementation_head = state["commit"]
+                    new_head = self._commit_tracked(repo, f"{lifecycle_state}\n")
+                    self.assertNotEqual(implementation_head, new_head)
+                    self._write_state(
+                        state_file, state, state=lifecycle_state,
+                        commit=implementation_head, implementation_head=implementation_head,
+                        upstream_approval_status="APPROVED", open_blockers=[],
+                    )
+                    returncode, output = self._run_operating_command("next", repo)
+                    if frozen:
+                        self.assertEqual(1, returncode)
+                        self.assertIn("warning: implementation_head_mismatch", output)
+                    elif lifecycle_state == "BLOCKED":
+                        self.assertEqual(1, returncode)
+                        self.assertIn("next_action: resolve open blockers", output)
+                        self.assertNotIn("implementation_head_mismatch", output)
+                    else:
+                        self.assertEqual(0, returncode)
+                        self.assertNotIn("implementation_head_mismatch", output)
+
+    def test_operating_state_rejects_malformed_or_oversized_metadata(self):
+        malformed_cases = (
+            ("initiative", None),
+            ("initiative", "x" * 513),
+            ("run_id", None),
+            ("branch", True),
+            ("commit", []),
+            ("base_commit", {}),
+            ("implementation_head", 9),
+            ("state", None),
+            ("stop_after", False),
+            ("artifact_root", None),
+            ("next_action", []),
+            ("next_action", "x" * 4097),
+            ("blockers", {}),
+            ("open_blockers", None),
+            ("open_blockers", ["x"] * 101),
+            ("open_blockers", ["x" * 4097]),
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for index, (field, value) in enumerate(malformed_cases):
+                with self.subTest(field=field, value_type=type(value).__name__):
+                    repo = root / f"case-{index}"
+                    state_file, state = self._initialize_operating_repo(repo)
+                    self._write_state(state_file, state, **{field: value})
+                    resume_code, resume_output = self._run_operating_command("resume", repo)
+                    next_code, next_output = self._run_operating_command("next", repo)
+                    self.assertEqual(1, resume_code)
+                    self.assertEqual(1, next_code)
+                    self.assertIn("warning: lifecycle_state_malformed", resume_output)
+                    self.assertIn(
+                        "next_action: reconcile unreadable or unsafe lifecycle state",
+                        next_output,
+                    )
+                    self.assertNotIn("Traceback", resume_output + next_output)
+
+            oversized_state = root / "oversized-state"
+            state_file, _ = self._initialize_operating_repo(oversized_state)
+            state_file.write_bytes(b"{" + b" " * (4 * 1024 * 1024) + b"}")
+            with mock.patch.object(Path, "open", side_effect=AssertionError("must not read")):
+                self.assertIsNone(
+                    operating_state._load_json_object(
+                        state_file, operating_state._STATE_MAX_BYTES
+                    )
+                )
+            resume_code, output = self._run_operating_command("resume", oversized_state)
+            self.assertEqual(1, resume_code)
+            self.assertIn("warning: lifecycle_state_malformed", output)
+
+            oversized_selector = root / "oversized-selector"
+            self._initialize_repo(oversized_selector)
+            (oversized_selector / ".execforge").mkdir()
+            (oversized_selector / ".execforge" / "current.json").write_bytes(
+                b"{" + b" " * (1024 * 1024) + b"}"
+            )
+            resume_code, output = self._run_operating_command("resume", oversized_selector)
+            self.assertEqual(1, resume_code)
+            self.assertIn("warning: selector_malformed", output)
+
+    def test_terminal_output_sanitizes_controls_and_hides_recorded_next_action(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp) / "repo\x1b]8;;https-secret\x07\u202e"
+            state_file, state = self._initialize_operating_repo(repo)
+            injected = "name\nnext_action: forged\t\x1b[31m\x9b\u202e\ud800"
+            secret_action = "token=TOP_SECRET\x1b]52;c;clipboard\x07"
+            self._write_state(
+                state_file, state, initiative=injected, next_action=secret_action,
+            )
+            returncode, output = self._run_operating_command("resume", repo)
+
+            self.assertEqual(0, returncode)
+            self.assertIn("recorded_next_action: present", output)
+            self.assertNotIn("TOP_SECRET", output)
+            self.assertNotIn("clipboard", output)
+            for unsafe in ("\x1b", "\x07", "\x9b", "\u202e", "\ud800", "\t"):
+                self.assertNotIn(unsafe, output)
+            self.assertEqual(1, len([line for line in output.splitlines() if line.startswith("initiative:")]))
+            self.assertNotIn("next_action: forged", output.splitlines())
+
+    def test_unknown_lifecycle_state_is_a_blocking_reconcile_action(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp) / "repo"
+            state_file, state = self._initialize_operating_repo(repo)
+            self._write_state(
+                state_file, state, state="FUTURE_STATE", upstream_approval_status="APPROVED"
+            )
+            returncode, output = self._run_operating_command("next", repo)
+            self.assertEqual(1, returncode)
+            self.assertEqual(
+                ["next_action: reconcile lifecycle state"],
+                [line for line in output.splitlines() if line.startswith("next_action:")],
+            )
+
+    def test_git_diagnostics_reject_oversized_output(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            fake_git = root / "git"
+            fake_git.write_text(
+                f"#!{sys.executable}\nimport sys\nsys.stdout.write('x' * (2 * 1024 * 1024))\n",
+                encoding="utf-8",
+            )
+            fake_git.chmod(0o755)
+            with mock.patch.dict(os.environ, {"PATH": str(root)}):
+                output, finding = operating_state._run_git(root, "version")
+            self.assertIsNone(output)
+            self.assertIsNotNone(finding)
+            self.assertEqual("git_command_error", finding.code)
 
     def test_codex_manifest_uses_path_string_not_name_array(self):
         """A name array does not load as a Codex plugin; skills must be a './' path."""
@@ -1277,7 +1476,7 @@ class RepositoryTests(unittest.TestCase):
             (safe / "state.json").write_text("{}\n", encoding="utf-8")
             pointer = lifecycle / "current.json"
 
-            for run_id in (".", "..", "runs/other", r"runs\\other"):
+            for run_id in (".", "..", "runs/other", r"runs\\other", "x" * 256):
                 with self.subTest(run_id=run_id):
                     pointer.write_text(json.dumps({"run_id": run_id}), encoding="utf-8")
                     selected, finding = operating_state._selected_state_path(lifecycle)
@@ -1318,7 +1517,7 @@ class RepositoryTests(unittest.TestCase):
             actual.mkdir(parents=True)
             (actual / "state.json").write_text("{}\n", encoding="utf-8")
 
-            for run_id in (".", "..", "runs/other", r"runs\\other"):
+            for run_id in (".", "..", "runs/other", r"runs\\other", "x" * 256):
                 with self.subTest(run_id=run_id):
                     with self.assertRaises(ValueError):
                         module._write_current_pointer(lifecycle, run_id)
