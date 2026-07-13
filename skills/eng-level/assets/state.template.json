@@ -1,6 +1,13 @@
 {
   "version": "1",
   "initiative": "",
+  "run_id": "",
+  "created_at": "",
+  "updated_at": "",
+  "branch": null,
+  "commit": null,
+  "artifact_root": "",
+  "next_action": "",
   "state": "UPSTREAM_INTAKE",
   "upstream_source": "",
   "upstream_approval_status": "PENDING",

@@ -17,6 +17,7 @@ import shutil
 import subprocess
 import sys
 from datetime import datetime, timezone
+import uuid
 
 ROOT = Path(__file__).resolve().parents[1]
 SKILLS = ROOT / "skills"
@@ -464,12 +465,14 @@ def check_superpowers() -> int:
 
 
 def init_run(name: str, cwd: Path) -> Path:
-    safe = re.sub(r"[^a-zA-Z0-9._-]+", "-", name).strip("-") or "initiative"
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    run = cwd / ".execforge" / "runs" / f"{timestamp}-{safe}"
+    safe = re.sub(r"[^a-z0-9]+", "-", name.casefold()).strip("-") or "initiative"
+    now = datetime.now(timezone.utc)
+    timestamp = now.strftime("%Y%m%dT%H%M%S%fZ")
+    run_id = f"{timestamp}-{uuid.uuid4().hex[:8]}-{safe}"
+    run = cwd / ".execforge" / "runs" / run_id
     run.mkdir(parents=True, exist_ok=False)
     (run / "shared-context.md").write_text(
-        f"# Shared Context\n\n- Initiative: {name}\n- Created: {timestamp}\n\n"
+        f"# Shared Context\n\n- Initiative: {name}\n- Created: {now.isoformat()}\n\n"
         "## Facts\n\n## Assumptions\n\n## Inferences\n\n## Unknowns\n",
         encoding="utf-8",
     )
@@ -478,29 +481,112 @@ def init_run(name: str, cwd: Path) -> Path:
         "|---|---|---|---|---|\n",
         encoding="utf-8",
     )
+    branch, commit = _git_metadata(cwd)
+    created_at = now.isoformat()
+
     lifecycle = cwd / ".eng-level"
-    lifecycle.mkdir(exist_ok=True)
+    lifecycle_run = lifecycle / "runs" / run_id
+    lifecycle_run.mkdir(parents=True, exist_ok=False)
     state_source = SKILLS / "eng-level" / "assets" / "state.template.json"
     state = json.loads(state_source.read_text(encoding="utf-8"))
-    state["initiative"] = name
-    (lifecycle / "state.json").write_text(json.dumps(state, indent=2) + "\n", encoding="utf-8")
+    state.update(
+        initiative=name,
+        run_id=run_id,
+        created_at=created_at,
+        updated_at=created_at,
+        branch=branch,
+        commit=commit,
+        artifact_root=f".eng-level/runs/{run_id}",
+        next_action="Complete upstream intake and secure approval.",
+    )
+    (lifecycle_run / "state.json").write_text(
+        json.dumps(state, indent=2) + "\n", encoding="utf-8"
+    )
     upstream_source = SKILLS / "eng-level" / "assets" / "upstream-requirements.template.md"
-    shutil.copy2(upstream_source, lifecycle / "upstream-requirements.md")
+    shutil.copy2(upstream_source, lifecycle_run / "upstream-requirements.md")
     backlog_source = SKILLS / "eng-level" / "assets" / "backlog.template.md"
-    shutil.copy2(backlog_source, lifecycle / "backlog.md")
+    shutil.copy2(backlog_source, lifecycle_run / "backlog.md")
 
     qa = cwd / ".q-level"
-    qa.mkdir(exist_ok=True)
+    qa_run = qa / "runs" / run_id
+    qa_run.mkdir(parents=True, exist_ok=False)
     qa_state_source = SKILLS / "q-level" / "assets" / "state.template.json"
     qa_state = json.loads(qa_state_source.read_text(encoding="utf-8"))
-    qa_state["initiative"] = name
-    (qa / "state.json").write_text(json.dumps(qa_state, indent=2) + "\n", encoding="utf-8")
-    seed_q_level_artifacts(qa)
+    qa_state.update(
+        initiative=name,
+        run_id=run_id,
+        created_at=created_at,
+        updated_at=created_at,
+        branch=branch,
+        commit=commit,
+        artifact_root=f".q-level/runs/{run_id}",
+        next_action="Complete QA context after engineering handoff.",
+    )
+    (qa_run / "state.json").write_text(
+        json.dumps(qa_state, indent=2) + "\n", encoding="utf-8"
+    )
+    seed_q_level_artifacts(qa_run)
+
+    _write_current_pointer(lifecycle, run_id)
+    _write_current_pointer(qa, run_id)
 
     print(f"created run: {run}")
-    print(f"created lifecycle state: {lifecycle / 'state.json'}")
-    print(f"created Q Level state: {qa / 'state.json'}")
+    print(f"created lifecycle state: {lifecycle_run / 'state.json'}")
+    print(f"created Q Level state: {qa_run / 'state.json'}")
     return run
+
+
+def _git_metadata(cwd: Path) -> tuple[str | None, str | None]:
+    def query(*arguments: str) -> str | None:
+        try:
+            result = subprocess.run(
+                ["git", "-c", "core.fsmonitor=false", *arguments],
+                cwd=cwd,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=15,
+                check=False,
+                env={**os.environ, "GIT_OPTIONAL_LOCKS": "0"},
+            )
+        except (OSError, subprocess.SubprocessError):
+            return None
+        value = result.stdout.strip()
+        return value if result.returncode == 0 and value else None
+
+    return query("branch", "--show-current"), query("rev-parse", "HEAD")
+
+
+def _write_current_pointer(lifecycle_root: Path, run_id: str) -> None:
+    """Atomically select a contained initiative run."""
+    if not run_id or Path(run_id).name != run_id:
+        raise ValueError("run_id must be a single contained path component")
+    lifecycle_root.mkdir(parents=True, exist_ok=True)
+    state_path = lifecycle_root / "runs" / run_id / "state.json"
+    try:
+        state_path.resolve().relative_to(lifecycle_root.resolve())
+    except (OSError, ValueError) as exc:
+        raise ValueError("current pointer must select a contained initiative state") from exc
+    if not state_path.is_file() or state_path.is_symlink():
+        raise ValueError("current pointer must select a contained initiative state")
+    pointer = lifecycle_root / "current.json"
+    temporary = pointer.with_name(f".{pointer.name}.{uuid.uuid4().hex}.tmp")
+    payload = {
+        "version": "1",
+        "run_id": run_id,
+        "state_path": state_path.relative_to(lifecycle_root.parent).as_posix(),
+    }
+    try:
+        with temporary.open("x", encoding="utf-8") as stream:
+            json.dump(payload, stream, indent=2)
+            stream.write("\n")
+            stream.flush()
+            os.fsync(stream.fileno())
+        temporary.replace(pointer)
+    finally:
+        if temporary.exists():
+            temporary.unlink()
 
 
 def print_backlog(backlog_file: Path) -> None:
@@ -576,8 +662,10 @@ def cmd_release_check(args) -> int:
 def show_status(cwd: Path) -> int:
     found = False
 
-    state_file = cwd / ".eng-level" / "state.json"
-    if state_file.exists():
+    operating_state = _load_operating_state_module()
+
+    state_file = operating_state.selected_or_legacy_state_path(cwd / ".eng-level")
+    if state_file is not None:
         found = True
         state = json.loads(state_file.read_text(encoding="utf-8"))
         print("[engineering]")
@@ -604,10 +692,10 @@ def show_status(cwd: Path) -> int:
         for blocker in blockers:
             print(f"  - {blocker}")
 
-        print_backlog(cwd / ".eng-level" / "backlog.md")
+        print_backlog(state_file.parent / "backlog.md")
 
-    qa_file = cwd / ".q-level" / "state.json"
-    if qa_file.exists():
+    qa_file = operating_state.selected_or_legacy_state_path(cwd / ".q-level")
+    if qa_file is not None:
         found = True
         state = json.loads(qa_file.read_text(encoding="utf-8"))
         print("[qa]")

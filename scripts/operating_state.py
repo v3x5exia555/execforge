@@ -153,41 +153,86 @@ def _load_json_object(path: Path) -> dict | None:
     return payload if isinstance(payload, dict) else None
 
 
-def _selected_state_path(engineering_root: Path) -> tuple[Path | None, Finding | None]:
-    pointer_path = engineering_root / "current.json"
+def _selected_state_path(lifecycle_root: Path) -> tuple[Path | None, Finding | None]:
+    """Resolve a current pointer without permitting paths outside the repository.
+
+    New pointers use repository-relative paths. The older run_id-only and
+    lifecycle-root-relative selector forms remain readable for diagnostics.
+    """
+    pointer_path = lifecycle_root / "current.json"
+    namespace = lifecycle_root.name
+    project = lifecycle_root.parent
     if pointer_path.is_symlink():
         return None, Finding(
-            "error", "lifecycle_pointer_malformed", engineering_root.parent.name,
-            ".eng-level/current.json must be a contained regular file",
+            "error", "lifecycle_pointer_malformed", project.name,
+            f"{namespace}/current.json must be a contained regular file",
         )
     if not pointer_path.exists():
         return None, None
-    if not _is_contained(pointer_path, engineering_root):
+    if not _is_contained(pointer_path, lifecycle_root):
         return None, Finding(
-            "error", "lifecycle_pointer_malformed", engineering_root.parent.name,
-            ".eng-level/current.json must be a contained regular file",
+            "error", "lifecycle_pointer_malformed", project.name,
+            f"{namespace}/current.json must be a contained regular file",
         )
     pointer = _load_json_object(pointer_path)
     if pointer is None:
         return None, Finding(
-            "error", "lifecycle_pointer_malformed", engineering_root.parent.name,
-            ".eng-level/current.json is not valid JSON metadata",
+            "error", "lifecycle_pointer_malformed", project.name,
+            f"{namespace}/current.json is not valid JSON metadata",
         )
 
     candidate: Path | None = None
     if isinstance(pointer.get("state_path"), str):
-        candidate = engineering_root / pointer["state_path"]
+        relative = Path(pointer["state_path"])
+        if not relative.is_absolute():
+            candidate = (
+                project / relative
+                if relative.parts and relative.parts[0] == namespace
+                else lifecycle_root / relative
+            )
     elif isinstance(pointer.get("artifact_root"), str):
-        candidate = engineering_root / pointer["artifact_root"] / "state.json"
+        relative = Path(pointer["artifact_root"])
+        if not relative.is_absolute():
+            artifact_root = (
+                project / relative
+                if relative.parts and relative.parts[0] == namespace
+                else lifecycle_root / relative
+            )
+            candidate = artifact_root / "state.json"
     elif isinstance(pointer.get("run_id"), str):
-        candidate = engineering_root / "runs" / pointer["run_id"] / "state.json"
+        run_id = pointer["run_id"]
+        if run_id and Path(run_id).name == run_id:
+            candidate = lifecycle_root / "runs" / run_id / "state.json"
 
-    if candidate is None or not _is_contained(candidate, engineering_root) or not candidate.is_file():
+    run_id = pointer.get("run_id")
+    expected = (
+        lifecycle_root / "runs" / run_id / "state.json"
+        if isinstance(run_id, str) and run_id and Path(run_id).name == run_id
+        else None
+    )
+    selectors_disagree = expected is not None and candidate is not None and candidate != expected
+    if (
+        candidate is None
+        or selectors_disagree
+        or not _is_contained(candidate, lifecycle_root)
+        or not candidate.is_file()
+    ):
         return None, Finding(
-            "error", "lifecycle_pointer_malformed", engineering_root.parent.name,
-            ".eng-level/current.json does not select a contained state file",
+            "error", "lifecycle_pointer_malformed", project.name,
+            f"{namespace}/current.json does not select a contained state file",
         )
     return candidate, None
+
+
+def selected_or_legacy_state_path(lifecycle_root: Path) -> Path | None:
+    """Select current state, falling back only when its pointer is absent or invalid."""
+    selected, _ = _selected_state_path(lifecycle_root)
+    if selected is not None:
+        return selected
+    legacy = lifecycle_root / "state.json"
+    if legacy.is_file() and not legacy.is_symlink() and _is_contained(legacy, lifecycle_root):
+        return legacy
+    return None
 
 
 def _state_metadata(project: Path) -> tuple[dict | None, tuple[Finding, ...]]:

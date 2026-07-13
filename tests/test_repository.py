@@ -351,14 +351,15 @@ class RepositoryTests(unittest.TestCase):
             cwd = Path(tmp)
             module.init_run("Braked Initiative", cwd)
 
-            state_file = cwd / ".eng-level" / "state.json"
+            pointer = json.loads((cwd / ".eng-level" / "current.json").read_text())
+            state_file = cwd / pointer["state_path"]
             state = json.loads(state_file.read_text())
             state["stop_after"] = "plan"
             state["routed_roles"] = ["architect", "backend-engineer"]
             state["adversarial_pair"] = True
             state_file.write_text(json.dumps(state, indent=2))
 
-            backlog = cwd / ".eng-level" / "backlog.md"
+            backlog = state_file.parent / "backlog.md"
             backlog.write_text(
                 "# Deferred Backlog\n\n"
                 "| # | Action | Cycle | Provenance | Why deferred | What unblocks it |\n"
@@ -426,17 +427,24 @@ class RepositoryTests(unittest.TestCase):
         self.assertIsInstance(payload.get("skills"), list)
         self.assertEqual(module.BUNDLED_SKILLS, set(payload["skills"]))
 
-    def test_state_schema_accepts_template_state(self):
-        """The template must validate against the repo's own schema."""
-        schema = json.loads((ROOT / "schemas" / "eng-level-state.schema.json").read_text())
-        template = json.loads(
-            (ROOT / "skills" / "eng-level" / "assets" / "state.template.json").read_text()
-        )
-        props = schema["properties"]
-        for key, value in template.items():
-            self.assertIn(key, props, f"state template key {key!r} is absent from the schema")
-            if "enum" in props[key]:
-                self.assertIn(value, props[key]["enum"], f"{key}={value!r} is not a schema-valid value")
+    def test_state_schemas_accept_template_state(self):
+        """Each template must validate against the repository's corresponding schema."""
+        for level in ("eng-level", "q-level"):
+            schema = json.loads((ROOT / "schemas" / f"{level}-state.schema.json").read_text())
+            template = json.loads(
+                (ROOT / "skills" / level / "assets" / "state.template.json").read_text()
+            )
+            props = schema["properties"]
+            for key, value in template.items():
+                self.assertIn(
+                    key, props, f"{level} state template key {key!r} is absent from the schema"
+                )
+                if "enum" in props[key]:
+                    self.assertIn(
+                        value,
+                        props[key]["enum"],
+                        f"{level} {key}={value!r} is not a schema-valid value",
+                    )
 
     def test_schema_allows_ungated_post_hoc_verdict(self):
         schema = json.loads((ROOT / "schemas" / "eng-level-state.schema.json").read_text())
@@ -448,16 +456,32 @@ class RepositoryTests(unittest.TestCase):
     def test_init_run_creates_state(self):
         with tempfile.TemporaryDirectory() as tmp:
             cwd = Path(tmp)
-            module.init_run("Example Initiative", cwd)
-            state = json.loads((cwd / ".eng-level" / "state.json").read_text())
+            product_run = module.init_run("Example Initiative", cwd)
+            eng_pointer = json.loads((cwd / ".eng-level" / "current.json").read_text())
+            qa_pointer = json.loads((cwd / ".q-level" / "current.json").read_text())
+            eng_run = cwd / ".eng-level" / "runs" / eng_pointer["run_id"]
+            qa_run = cwd / ".q-level" / "runs" / qa_pointer["run_id"]
+            state = json.loads((eng_run / "state.json").read_text())
             self.assertEqual("Example Initiative", state["initiative"])
             self.assertEqual("UPSTREAM_INTAKE", state["state"])
             self.assertEqual([], state["routed_roles"])
             self.assertIsNone(state["stop_after"])
-            self.assertTrue((cwd / ".eng-level" / "backlog.md").exists())
-            qa_state = json.loads((cwd / ".q-level" / "state.json").read_text())
+            self.assertTrue((eng_run / "backlog.md").exists())
+            self.assertTrue((eng_run / "upstream-requirements.md").exists())
+            qa_state = json.loads((qa_run / "state.json").read_text())
             self.assertEqual("Example Initiative", qa_state["initiative"])
             self.assertEqual("QA_INPUT_REQUIRED", qa_state["state"])
+            self.assertEqual(eng_pointer["run_id"], qa_pointer["run_id"])
+            self.assertEqual(eng_pointer["run_id"], product_run.name)
+            self.assertEqual("1", eng_pointer["version"])
+            self.assertEqual(
+                f".eng-level/runs/{eng_pointer['run_id']}/state.json",
+                eng_pointer["state_path"],
+            )
+            self.assertEqual(
+                f".q-level/runs/{qa_pointer['run_id']}/state.json",
+                qa_pointer["state_path"],
+            )
             self.assertEqual(
                 {
                     "coverage-matrix.md",
@@ -470,8 +494,99 @@ class RepositoryTests(unittest.TestCase):
                     "retest.md",
                     "state.json",
                 },
-                {path.name for path in (cwd / ".q-level").iterdir()},
+                {path.name for path in qa_run.iterdir()},
             )
+
+            for generated_state, artifact_root in (
+                (state, f".eng-level/runs/{eng_pointer['run_id']}"),
+                (qa_state, f".q-level/runs/{qa_pointer['run_id']}"),
+            ):
+                self.assertEqual(eng_pointer["run_id"], generated_state["run_id"])
+                self.assertEqual(artifact_root, generated_state["artifact_root"])
+                self.assertEqual(generated_state["created_at"], generated_state["updated_at"])
+                self.assertIn("T", generated_state["created_at"])
+                self.assertIn("next_action", generated_state)
+                self.assertIn("branch", generated_state)
+                self.assertIn("commit", generated_state)
+
+    def test_rapid_init_runs_are_distinct_and_preserve_prior_artifacts(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cwd = Path(tmp)
+            first_product = module.init_run("Collision Safe Initiative", cwd)
+            first_eng_pointer = json.loads((cwd / ".eng-level" / "current.json").read_text())
+            first_qa_pointer = json.loads((cwd / ".q-level" / "current.json").read_text())
+            first_eng = cwd / ".eng-level" / "runs" / first_eng_pointer["run_id"]
+            first_qa = cwd / ".q-level" / "runs" / first_qa_pointer["run_id"]
+            (first_eng / "backlog.md").write_text("first run marker\n", encoding="utf-8")
+
+            second_product = module.init_run("Collision Safe Initiative", cwd)
+            second_eng_pointer = json.loads((cwd / ".eng-level" / "current.json").read_text())
+            second_qa_pointer = json.loads((cwd / ".q-level" / "current.json").read_text())
+            second_eng = cwd / ".eng-level" / "runs" / second_eng_pointer["run_id"]
+            second_qa = cwd / ".q-level" / "runs" / second_qa_pointer["run_id"]
+
+            self.assertNotEqual(first_product, second_product)
+            self.assertNotEqual(first_eng, second_eng)
+            self.assertNotEqual(first_qa, second_qa)
+            self.assertEqual("first run marker\n", (first_eng / "backlog.md").read_text())
+            self.assertTrue((first_qa / "state.json").is_file())
+            self.assertEqual(second_product.name, second_eng_pointer["run_id"])
+            self.assertEqual(second_product.name, second_qa_pointer["run_id"])
+            self.assertRegex(
+                second_product.name,
+                r"^\d{8}T\d{12}Z-[0-9a-f]{8}-collision-safe-initiative$",
+            )
+            self.assertEqual([], list((cwd / ".eng-level").glob(".current.json.*.tmp")))
+            self.assertEqual([], list((cwd / ".q-level").glob(".current.json.*.tmp")))
+
+    def test_pointer_replace_failure_preserves_current_pointer(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            lifecycle = Path(tmp) / ".eng-level"
+            selected = lifecycle / "runs" / "selected"
+            replacement = lifecycle / "runs" / "replacement"
+            selected.mkdir(parents=True)
+            replacement.mkdir(parents=True)
+            (selected / "state.json").write_text("{}\n", encoding="utf-8")
+            (replacement / "state.json").write_text("{}\n", encoding="utf-8")
+            original = {"version": "1", "run_id": "selected"}
+            (lifecycle / "current.json").write_text(json.dumps(original), encoding="utf-8")
+
+            with mock.patch.object(Path, "replace", side_effect=OSError("replace failed")):
+                with self.assertRaises(OSError):
+                    module._write_current_pointer(lifecycle, "replacement")
+
+            self.assertEqual(original, json.loads((lifecycle / "current.json").read_text()))
+            self.assertEqual([], list(lifecycle.glob(".current.json.*.tmp")))
+
+    def test_status_uses_current_pointer_and_falls_back_only_when_invalid(self):
+        import contextlib
+        import io
+
+        with tempfile.TemporaryDirectory() as tmp:
+            cwd = Path(tmp)
+            legacy_root = cwd / ".eng-level"
+            legacy_root.mkdir()
+            (legacy_root / "state.json").write_text(
+                json.dumps({"initiative": "Legacy", "state": "PLAN_REQUIRED"}),
+                encoding="utf-8",
+            )
+            (legacy_root / "backlog.md").write_text("# Legacy backlog\n", encoding="utf-8")
+
+            module.init_run("Selected", cwd)
+            selected = io.StringIO()
+            with contextlib.redirect_stdout(selected):
+                module.show_status(cwd)
+            self.assertIn("initiative: Selected", selected.getvalue())
+            self.assertNotIn("initiative: Legacy", selected.getvalue())
+
+            (legacy_root / "current.json").write_text(
+                json.dumps({"version": "1", "state_path": "../../outside.json"}),
+                encoding="utf-8",
+            )
+            fallback = io.StringIO()
+            with contextlib.redirect_stdout(fallback):
+                module.show_status(cwd)
+            self.assertIn("initiative: Legacy", fallback.getvalue())
 
 
 if __name__ == "__main__":

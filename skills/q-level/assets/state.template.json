@@ -1,6 +1,13 @@
 {
   "version": "2",
   "initiative": "",
+  "run_id": "",
+  "created_at": "",
+  "updated_at": "",
+  "branch": null,
+  "commit": null,
+  "artifact_root": "",
+  "next_action": "",
   "state": "QA_INPUT_REQUIRED",
   "plan_status": "NOT_CREATED",
   "plan_version": null,
