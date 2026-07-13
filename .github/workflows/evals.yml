@@ -1,0 +1,42 @@
+name: Behavioral Evals (advisory)
+
+on:
+  pull_request:
+    paths:
+      - "skills/**"
+      - "evaluations/**"
+      - "scripts/execforge.py"
+  workflow_dispatch:
+
+jobs:
+  evals:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Check for API key
+        id: key
+        run: |
+          if [ -n "${{ secrets.ANTHROPIC_API_KEY }}" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "ANTHROPIC_API_KEY not set; skipping evals (advisory)."
+          fi
+      - name: Install Claude Code
+        if: steps.key.outputs.present == 'true'
+        run: npm install -g @anthropic-ai/claude-code
+      - name: Install bundled skills
+        if: steps.key.outputs.present == 'true'
+        run: python3 scripts/execforge.py install --target claude
+      - name: Run capped eval set
+        if: steps.key.outputs.present == 'true'
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          python3 scripts/execforge.py eval --limit 4 \
+            --agent-cmd 'claude -p --max-turns 20' \
+            --judge-cmd 'claude -p --max-turns 1'
