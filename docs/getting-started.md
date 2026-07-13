@@ -116,6 +116,18 @@ ancestors of current HEAD, and frozen review states (`REVIEW_READY`,
 `implementation_head` exactly equal to current HEAD. Missing, invalid,
 divergent, or mismatched frozen lineage requires reconciliation.
 
+An absent `branch` key is unknown lineage and fails closed. An explicit null
+records a detached HEAD and is valid only while Git also reports no current
+branch; it does not mean “branch not checked.” Planning or any later state also
+requires `upstream_approval_status` to be exactly `APPROVED`.
+
+Frozen review states also fail closed with `material_worktree_changes` when any
+tracked or untracked path outside the governance namespaces differs from HEAD.
+`.execforge/`, `.eng-level/`, `.q-level/`, and the stable
+`.execforge-init-run.lock` are exempt so run artifacts and lock coordination
+can remain untracked or modified. The warning reports no file paths; inspect
+`git status` before returning to review or ship readiness.
+
 ## Output safety boundary
 
 For `doctor --portfolio`, `resume`, and `next` only, output is allowlisted,

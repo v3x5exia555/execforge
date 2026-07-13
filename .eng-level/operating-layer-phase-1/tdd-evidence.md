@@ -606,3 +606,64 @@ git diff --check
   errors.
 - Validation reported `ExecForge validation passed.`
 - Compilation and working-tree diff whitespace checks produced no findings.
+
+## Production fail-open correction
+
+Correction base: `4c80c255b330f9cf44cadf43297a6f0a443ea624`.
+
+Reviewer regression tests were added before the production changes for three
+fail-open paths: missing upstream approval after the product boundary, absent
+versus explicit-null branch lineage, and material worktree changes in frozen
+review states. The first test invocation did not reach behavior because a new
+method was initially inserted before an existing `else` clause and caused a
+test-module `SyntaxError`. After correcting that test-only placement error, the
+valid RED command was:
+
+```sh
+python3 -W error::ResourceWarning -m unittest tests.test_repository.RepositoryTests.test_missing_upstream_approval_never_advances_planning_or_later_states tests.test_repository.RepositoryTests.test_branch_lineage_distinguishes_missing_key_from_detached_head tests.test_repository.RepositoryTests.test_frozen_states_reject_material_worktree_changes -v
+```
+
+- Exit status: `1`.
+- Result: `14` behavioral failures across three methods and their parameterized
+  subcases.
+- Missing approval advanced planning and later states; a missing branch key was
+  treated like detached HEAD; and tracked or untracked source changes did not
+  invalidate frozen review states.
+
+The documentation-contract additions were also run before editing the operator
+and Eng Level references. That RED run exited `1` with `12` failing subcases for
+the missing branch-lineage, approval, and frozen-worktree contracts.
+
+GREEN focused command:
+
+```sh
+python3 -W error::ResourceWarning -m unittest tests.test_repository.RepositoryTests.test_missing_upstream_approval_never_advances_planning_or_later_states tests.test_repository.RepositoryTests.test_branch_lineage_distinguishes_missing_key_from_detached_head tests.test_repository.RepositoryTests.test_frozen_states_reject_material_worktree_changes tests.test_repository.RepositoryTests.test_operating_layer_documentation_contract -v
+```
+
+- Exit status: `0`.
+- Result: all four focused methods passed.
+- The untracked-source case uses a filename containing a newline to exercise the
+  bounded NUL-delimited porcelain parser without exposing paths in warnings.
+- Governance-only changes under `.execforge/`, `.eng-level/`, and `.q-level/`,
+  plus the root `.execforge-init-run.lock`, remain exempt.
+
+The first full-suite run then found two legacy fixture failures: the lifecycle
+dispatch test omitted branch lineage, so the new stale-lineage precedence
+correctly superseded that test's intended lifecycle action. Adding its known
+`main` branch kept the fixture scoped to lifecycle dispatch; no production
+behavior was relaxed.
+
+Final verification:
+
+```sh
+python3 -W error::ResourceWarning -m unittest discover -s tests -v
+python3 scripts/execforge.py validate
+python3 -m py_compile scripts/operating_state.py scripts/execforge.py tests/test_repository.py
+git diff --check
+```
+
+- Exit status: `0` for every verification command.
+- The complete suite passed all `83` tests with ResourceWarnings promoted to
+  errors.
+- Validation reported `ExecForge validation passed.`
+- Compilation and working-tree diff whitespace checks produced no findings.

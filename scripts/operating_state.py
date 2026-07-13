@@ -56,7 +56,8 @@ _STATE_RANKS = {
 _STALE_CODES = {
     "branch_mismatch", "commit_mismatch", "base_commit_mismatch",
     "base_commit_missing", "implementation_head_mismatch",
-    "implementation_head_missing",
+    "implementation_head_missing", "branch_lineage_unknown",
+    "material_worktree_changes",
 }
 _UNSAFE_CODES = {
     "selector_malformed", "lifecycle_state_malformed", "git_command_error"
@@ -540,28 +541,85 @@ def _backlog_count(backlog: Path) -> int | None:
     return count
 
 
+def _parse_porcelain_v1_z(output: str) -> tuple[tuple[str, tuple[str, ...]], ...] | None:
+    """Parse bounded `git status --porcelain=v1 -z` output without line splitting."""
+    records = output.split("\0")
+    if not records or records[-1] != "":
+        return None
+    records.pop()
+    parsed: list[tuple[str, tuple[str, ...]]] = []
+    index = 0
+    while index < len(records):
+        record = records[index]
+        index += 1
+        if len(record) < 4 or record[2] != " " or not record[3:]:
+            return None
+        status = record[:2]
+        paths = [record[3:]]
+        if "R" in status or "C" in status:
+            if index >= len(records) or not records[index]:
+                return None
+            paths.append(records[index])
+            index += 1
+        parsed.append((status, tuple(paths)))
+    return tuple(parsed)
+
+
+def _is_governance_path(path: str) -> bool:
+    return path == ".execforge-init-run.lock" or any(
+        path == namespace or path.startswith(f"{namespace}/")
+        for namespace in (".execforge", ".eng-level", ".q-level")
+    )
+
+
 def operating_snapshot(project: Path) -> OperatingSnapshot:
     """Read the selected lifecycle state and reconcile it with read-only Git queries."""
     project = Path(project)
     state_path, state, findings = _safe_operating_state(project)
 
-    porcelain, status_error = _run_git(project, "status", "--porcelain", "--untracked-files=all")
+    porcelain, status_error = _run_git(
+        project, "status", "--porcelain=v1", "-z", "--untracked-files=all"
+    )
     if status_error is not None:
         findings.append(status_error)
-    elif porcelain:
-        conflicts = sorted(
-            {line[:2] for line in porcelain.splitlines() if line[:2] in _CONFLICT_CODES}
-        )
-        if conflicts:
+    elif porcelain is not None:
+        status_entries = _parse_porcelain_v1_z(porcelain)
+        if status_entries is None:
             findings.append(
                 Finding(
-                    "error", "git_conflict", project.name,
-                    f"unresolved Git index status: {', '.join(conflicts)}",
+                    "error", "git_command_error", project.name,
+                    "git status --porcelain=v1 returned malformed output",
                 )
             )
-        findings.append(
-            Finding("warning", "dirty_worktree", project.name, "Git worktree has changes")
-        )
+        elif status_entries:
+            conflicts = sorted(
+                {status for status, _ in status_entries if status in _CONFLICT_CODES}
+            )
+            if conflicts:
+                findings.append(
+                    Finding(
+                        "error", "git_conflict", project.name,
+                        f"unresolved Git index status: {', '.join(conflicts)}",
+                    )
+                )
+            findings.append(
+                Finding("warning", "dirty_worktree", project.name, "Git worktree has changes")
+            )
+            if (
+                state is not None
+                and state["state"] in _FROZEN_IMPLEMENTATION_STATES
+                and any(
+                    not _is_governance_path(path)
+                    for _, paths in status_entries
+                    for path in paths
+                )
+            ):
+                findings.append(
+                    Finding(
+                        "error", "material_worktree_changes", project.name,
+                        "frozen review state has material worktree changes",
+                    )
+                )
 
     branch_output, branch_error = _run_git(project, "branch", "--show-current")
     head_output, head_error = _run_git(project, "rev-parse", "HEAD")
@@ -573,19 +631,18 @@ def operating_snapshot(project: Path) -> OperatingSnapshot:
 
     if state is not None:
         frozen_implementation = state["state"] in _FROZEN_IMPLEMENTATION_STATES
-        recorded_branch = state.get("branch")
-        if not recorded_branch:
+        if "branch" not in state:
             findings.append(
                 Finding(
                     "warning", "branch_lineage_unknown", project.name,
                     "current branch lineage was not recorded",
                 )
             )
-        elif recorded_branch != git_branch:
+        elif state["branch"] != git_branch:
             findings.append(
                 Finding(
                     "error", "branch_mismatch", project.name,
-                    f"recorded branch {recorded_branch!r} differs from current branch {git_branch!r}",
+                    f"recorded branch {state['branch']!r} differs from current branch {git_branch!r}",
                 )
             )
         for field, code, label in (
@@ -688,12 +745,14 @@ def deterministic_next(snapshot: OperatingSnapshot) -> tuple[str, int]:
         return "reconcile lifecycle state", 1
     if lifecycle_state in {"NO_CONTEXT", "UPSTREAM_INTAKE", "RETURN_TO_PRODUCT_PLAN"}:
         return "capture upstream context", 0
-    if lifecycle_state == "UPSTREAM_APPROVAL_REQUIRED" or state.get(
-        "upstream_approval_status"
-    ) not in {None, "APPROVED"}:
+    rank = _STATE_RANKS.get(lifecycle_state)
+    if lifecycle_state == "UPSTREAM_APPROVAL_REQUIRED" or (
+        rank is not None
+        and rank >= _STOP_BOUNDARIES["product"]
+        and state.get("upstream_approval_status") != "APPROVED"
+    ):
         return "request upstream approval", 0
 
-    rank = _STATE_RANKS.get(lifecycle_state)
     stop_after = state.get("stop_after")
     if stop_after is not None and rank is not None and rank >= _STOP_BOUNDARIES[stop_after]:
         return f"await explicit user instruction (stop_after: {stop_after} reached)", 0

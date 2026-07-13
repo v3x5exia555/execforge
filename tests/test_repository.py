@@ -644,6 +644,7 @@ class RepositoryTests(unittest.TestCase):
                         json.dumps(
                             {
                                 "initiative": name, "state": lifecycle_state,
+                                "branch": "main",
                                 "upstream_approval_status": (
                                     "PENDING" if name == "unknown" else "APPROVED"
                                 ),
@@ -748,6 +749,206 @@ class RepositoryTests(unittest.TestCase):
                     else:
                         self.assertEqual(0, returncode)
                         self.assertNotIn("implementation_head_mismatch", output)
+
+    def test_missing_upstream_approval_never_advances_planning_or_later_states(self):
+        later_states = (
+            "PLAN_REQUIRED",
+            "RETURN_TO_PLAN",
+            "PLAN_APPROVED",
+            "WAITING_FOR_IMPLEMENTATION",
+            "IMPLEMENTATION_IN_PROGRESS",
+            "RETURN_TO_IMPLEMENTATION",
+            "REVIEW_READY",
+            "REVIEW_PASSED",
+            "SHIP_READY",
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for lifecycle_state in later_states:
+                with self.subTest(state=lifecycle_state, approval="absent"):
+                    repo = root / lifecycle_state.casefold()
+                    state_file, state = self._initialize_operating_repo(repo)
+                    updates = {
+                        "state": lifecycle_state,
+                        "open_blockers": [],
+                    }
+                    if lifecycle_state in {"REVIEW_READY", "REVIEW_PASSED", "SHIP_READY"}:
+                        updates.update(
+                            base_commit=state["commit"],
+                            implementation_head=state["commit"],
+                        )
+                    state.pop("upstream_approval_status", None)
+                    self._write_state(state_file, state, **updates)
+
+                    returncode, output = self._run_operating_command("next", repo)
+
+                    self.assertEqual(0, returncode)
+                    self.assertEqual(
+                        ["next_action: request upstream approval"],
+                        [line for line in output.splitlines() if line.startswith("next_action:")],
+                    )
+
+            for approval_status in ("PENDING", "REJECTED", "REOPENED"):
+                with self.subTest(state="SHIP_READY", approval=approval_status):
+                    repo = root / f"ship-{approval_status.casefold()}"
+                    state_file, state = self._initialize_operating_repo(repo)
+                    self._write_state(
+                        state_file,
+                        state,
+                        state="SHIP_READY",
+                        upstream_approval_status=approval_status,
+                        base_commit=state["commit"],
+                        implementation_head=state["commit"],
+                        open_blockers=[],
+                    )
+                    returncode, output = self._run_operating_command("next", repo)
+                    self.assertEqual(0, returncode)
+                    self.assertIn("next_action: request upstream approval", output)
+
+            blocker_repo = root / "approval-blocker"
+            state_file, state = self._initialize_operating_repo(blocker_repo)
+            state.pop("upstream_approval_status", None)
+            self._write_state(
+                state_file,
+                state,
+                state="SHIP_READY",
+                base_commit=state["commit"],
+                implementation_head=state["commit"],
+                open_blockers=["do-not-print"],
+            )
+            returncode, output = self._run_operating_command("next", blocker_repo)
+            self.assertEqual(1, returncode)
+            self.assertEqual(
+                ["next_action: resolve open blockers"],
+                [line for line in output.splitlines() if line.startswith("next_action:")],
+            )
+            self.assertNotIn("do-not-print", output)
+
+    def test_branch_lineage_distinguishes_missing_key_from_detached_head(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+
+            missing = root / "missing"
+            state_file, state = self._initialize_operating_repo(missing)
+            state.pop("branch", None)
+            self._write_state(
+                state_file,
+                state,
+                state="PLAN_REQUIRED",
+                upstream_approval_status="APPROVED",
+                open_blockers=[],
+            )
+            returncode, output = self._run_operating_command("next", missing)
+            self.assertEqual(1, returncode)
+            self.assertIn("warning: branch_lineage_unknown", output)
+            self.assertIn("next_action: reconcile stale lifecycle state", output)
+
+            explicit_null = root / "explicit-null"
+            state_file, state = self._initialize_operating_repo(explicit_null)
+            self._write_state(
+                state_file,
+                state,
+                branch=None,
+                state="PLAN_REQUIRED",
+                upstream_approval_status="APPROVED",
+                open_blockers=[],
+            )
+            returncode, output = self._run_operating_command("next", explicit_null)
+            self.assertEqual(1, returncode)
+            self.assertIn("warning: branch_mismatch", output)
+            self.assertNotIn("branch_lineage_unknown", output)
+
+            detached = root / "detached"
+            self._initialize_repo(detached)
+            (detached / "tracked.txt").write_text("base\n", encoding="utf-8")
+            self._git(detached, "add", ".")
+            self._git(detached, "commit", "-m", "base")
+            self._git(detached, "checkout", "--detach")
+            module.init_run("Detached Initiative", detached)
+            pointer = json.loads((detached / ".eng-level" / "current.json").read_text())
+            state_file = detached / pointer["state_path"]
+            state = json.loads(state_file.read_text())
+            self.assertIsNone(state["branch"])
+            self._write_state(
+                state_file,
+                state,
+                state="PLAN_REQUIRED",
+                upstream_approval_status="APPROVED",
+                open_blockers=[],
+            )
+            returncode, output = self._run_operating_command("next", detached)
+            self.assertEqual(0, returncode)
+            self.assertIn("next_action: create or revise engineering plan", output)
+            self.assertNotIn("branch_lineage_unknown", output)
+            self.assertNotIn("branch_mismatch", output)
+
+    def test_frozen_states_reject_material_worktree_changes(self):
+        expected_actions = {
+            "REVIEW_READY": "run Staff Engineer review",
+            "REVIEW_PASSED": "run q-level --mode=auto",
+            "SHIP_READY": "prepare ship-ready handoff",
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for lifecycle_state in expected_actions:
+                with self.subTest(state=lifecycle_state, change="tracked"):
+                    repo = root / f"{lifecycle_state.casefold()}-tracked"
+                    state_file, state = self._initialize_operating_repo(repo)
+                    self._write_state(
+                        state_file,
+                        state,
+                        state=lifecycle_state,
+                        upstream_approval_status="APPROVED",
+                        base_commit=state["commit"],
+                        implementation_head=state["commit"],
+                        open_blockers=[],
+                    )
+                    (repo / "tracked.txt").write_text("modified\n", encoding="utf-8")
+                    returncode, output = self._run_operating_command("next", repo)
+                    self.assertEqual(1, returncode)
+                    self.assertIn("warning: material_worktree_changes", output)
+                    self.assertIn("next_action: reconcile stale lifecycle state", output)
+                    self.assertNotIn("tracked.txt", output)
+
+            untracked = root / "untracked"
+            state_file, state = self._initialize_operating_repo(untracked)
+            self._write_state(
+                state_file,
+                state,
+                state="SHIP_READY",
+                upstream_approval_status="APPROVED",
+                base_commit=state["commit"],
+                implementation_head=state["commit"],
+                open_blockers=[],
+            )
+            (untracked / "new\nsource.py").write_text("secret = 'not printed'\n", encoding="utf-8")
+            returncode, output = self._run_operating_command("next", untracked)
+            self.assertEqual(1, returncode)
+            self.assertIn("warning: material_worktree_changes", output)
+            self.assertNotIn("new\nsource.py", output)
+            self.assertNotIn("not printed", output)
+
+            for lifecycle_state, action in expected_actions.items():
+                with self.subTest(state=lifecycle_state, change="governance-only"):
+                    repo = root / f"{lifecycle_state.casefold()}-governance"
+                    state_file, state = self._initialize_operating_repo(repo)
+                    self._write_state(
+                        state_file,
+                        state,
+                        state=lifecycle_state,
+                        upstream_approval_status="APPROVED",
+                        base_commit=state["commit"],
+                        implementation_head=state["commit"],
+                        open_blockers=[],
+                    )
+                    for namespace in (".execforge", ".eng-level", ".q-level"):
+                        (repo / namespace / "operator-note.md").write_text(
+                            "governance only\n", encoding="utf-8"
+                        )
+                    returncode, output = self._run_operating_command("next", repo)
+                    self.assertEqual(0, returncode)
+                    self.assertIn(f"next_action: {action}", output)
+                    self.assertNotIn("material_worktree_changes", output)
 
     def test_frozen_states_require_complete_valid_lineage(self):
         actions = {
@@ -1095,6 +1296,20 @@ class RepositoryTests(unittest.TestCase):
             ):
                 with self.subTest(document=document_name, prohibited=prohibited):
                     self.assertNotIn(normalized(prohibited), output_section)
+
+            for invariant in (
+                "absent `branch` key",
+                "explicit null",
+                "detached HEAD",
+                "`material_worktree_changes`",
+                "tracked or untracked",
+                "`.execforge/`",
+                "`.eng-level/`",
+                "`.q-level/`",
+                "`.execforge-init-run.lock`",
+            ):
+                with self.subTest(document=document_name, frozen_safety=invariant):
+                    self.assertIn(normalized(invariant), normalized(document))
 
         for token in (
             "initiative-scoped",

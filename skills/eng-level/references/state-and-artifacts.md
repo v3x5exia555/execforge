@@ -88,7 +88,10 @@ presence is evidence that may be needed for recovery or comparison.
 Re-entry reconciles the state record with read-only Git queries:
 
 - Branch equality is exact: `branch` must equal the current branch. Missing
-  branch metadata is unknown lineage; `base_branch` is not a substitute.
+  branch metadata is unknown lineage; `base_branch` is not a substitute. An
+  absent `branch` key fails closed as `branch_lineage_unknown`. An explicit
+  null represents a detached HEAD and is valid only when Git also reports no
+  current branch.
 - Recorded `commit` and `base_commit`, when present, must resolve to commit
   objects that are ancestors of current HEAD. Descendant work is therefore
   fresh; invalid or divergent commits are stale.
@@ -98,6 +101,15 @@ Re-entry reconciles the state record with read-only Git queries:
   invalid, divergent, or mismatched values require reconciliation.
 - `BLOCKED` is phase-ambiguous and does not by itself freeze the implementation
   snapshot.
+- Frozen review states fail closed with `material_worktree_changes` when a
+  tracked or untracked path differs from HEAD. `.execforge/`, `.eng-level/`,
+  `.q-level/`, and the stable `.execforge-init-run.lock` are exempt so
+  governance artifacts and lock coordination can remain modified or
+  untracked. The diagnostic reports only the finding code, never the path.
+
+At `PLAN_REQUIRED` or any later-ranked state, `upstream_approval_status` must
+be exactly `APPROVED`. A missing, pending, rejected, or reopened approval
+returns to the approval request before planning, review, QA, or ship handoff.
 
 Runtime behavior, tests, code, Git, and artifacts outrank any stale machine
 selector or state field.
