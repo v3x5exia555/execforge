@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.9.0 — 2026-07-13
+
+Evidence release: the skills' behavioral evals now execute, and governed verdicts can
+route through installed gstack tooling.
+
+- Added `execforge eval`: parses `evaluations/*.eval.md`, replays the scenario through a
+  headless agent, grades the transcript with an LLM judge, and recomputes the verdict
+  locally (the judge's own pass claim is never trusted). Advisory CI job
+  (`evals.yml`) runs a capped set on skill changes; skips without an API key.
+- The parser's first run caught a real drift: `eng-level-post-hoc-and-stop.eval.md`
+  used a two-scenario `## Scenario A/B` layout the evaluations README never allowed.
+  Split into `eng-level-post-hoc-review` and `eng-level-stop-after`, one behavior each.
+- Added `execforge release-check` and a tag-push Release Gate workflow: both plugin
+  manifests, the CHANGELOG head entry, and the tag must agree; malformed tags (the
+  historic `v.1.0.0` form) are rejected. The stray `v.1.0.0` tag has been deleted
+  locally and on origin.
+- Wired release consistency into the lifecycle: `eng-level` now requires
+  release-consistency evidence before a `SHIP` on a release-bound branch —
+  `release-check` output in this repository, a recorded manual manifest check
+  elsewhere. A failing check is a P1.
+- Added conditional gstack bridges: q-level tool routing prefers installed `/browse` +
+  `/qa` for logged-in portal evidence; eng-level records a post-`SHIP` handoff to
+  `/land-and-deploy`; sec-level lists `/cso` as an optional runtime-evidence tool.
+  All bridges require gstack to be installed; every fallback contract is unchanged.
+
 ## 0.8.0 — 2026-07-12
 
 Derived from a review of 469 real prompts across five projects. Every change below answers a

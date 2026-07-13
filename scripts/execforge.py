@@ -11,7 +11,9 @@ import json
 import os
 from pathlib import Path
 import re
+import shlex
 import shutil
+import subprocess
 import sys
 from datetime import datetime, timezone
 
@@ -58,6 +60,123 @@ def parse_frontmatter(path: Path) -> dict[str, str]:
 def markdown_links(path: Path) -> list[str]:
     text = path.read_text(encoding="utf-8")
     return re.findall(r"\[[^\]]+\]\(([^)]+)\)", text)
+
+
+def parse_eval_case(path: Path) -> dict:
+    """Parse an evaluations/*.eval.md case into scenario + graded checklists."""
+    meta = parse_frontmatter(path)
+    text = path.read_text(encoding="utf-8")
+
+    def section(name: str) -> str:
+        match = re.search(rf"^## {re.escape(name)}\n(.*?)(?=^## |\Z)", text, re.M | re.S)
+        if not match:
+            raise ValueError(f"{path.name}: missing required section '## {name}'")
+        return match.group(1).strip()
+
+    def checklist(name: str) -> list[str]:
+        items = re.findall(r"^- \[ \] (.+)$", section(name), re.M)
+        if not items:
+            raise ValueError(f"{path.name}: section '## {name}' has no checklist items")
+        return items
+
+    return {
+        "id": meta.get("id", path.stem),
+        "skill": meta.get("skill", ""),
+        "type": meta.get("type", ""),
+        "scenario": section("Scenario"),
+        "expected": checklist("Expected behavior"),
+        "failures": checklist("Failure conditions"),
+    }
+
+
+def build_grading_prompt(case: dict, transcript: str) -> str:
+    expected = "\n".join(f"{i}. {item}" for i, item in enumerate(case["expected"]))
+    failures = "\n".join(f"{i}. {item}" for i, item in enumerate(case["failures"]))
+    return (
+        "You are grading an agent transcript against a behavioral checklist.\n"
+        "Judge only what the transcript shows; a behavior not visible in the "
+        "transcript was not observed.\n\n"
+        f"EXPECTED BEHAVIORS:\n{expected}\n\n"
+        f"FAILURE CONDITIONS:\n{failures}\n\n"
+        f"TRANSCRIPT:\n{transcript}\n\n"
+        "Reply with ONLY a JSON object, no prose: "
+        '{"expected": [<bool per expected behavior, in order>], '
+        '"failures": [<bool per failure condition, in order>]}'
+    )
+
+
+def parse_verdict(text: str, n_expected: int, n_failures: int) -> dict:
+    """Extract the judge's checklist verdict. The pass verdict is recomputed
+    locally; the judge's own pass claim is never trusted."""
+    for match in re.finditer(r"\{.*?\}", text, re.S):
+        try:
+            data = json.loads(match.group(0))
+        except json.JSONDecodeError:
+            continue
+        expected = data.get("expected")
+        failures = data.get("failures")
+        if (isinstance(expected, list) and len(expected) == n_expected
+                and isinstance(failures, list) and len(failures) == n_failures):
+            expected = [bool(v) for v in expected]
+            failures = [bool(v) for v in failures]
+            return {
+                "expected": expected,
+                "failures": failures,
+                "passed": all(expected) and not any(failures),
+            }
+    raise ValueError("judge output contained no verdict JSON with matching list sizes")
+
+
+def run_eval_case(path: Path, agent_cmd: list[str], judge_cmd: list[str],
+                  timeout: int = 600) -> dict:
+    """Replay a case's scenario through a headless agent, then grade the transcript."""
+    case = parse_eval_case(path)
+    agent = subprocess.run(agent_cmd + [case["scenario"]], capture_output=True,
+                           text=True, timeout=timeout)
+    transcript = agent.stdout + agent.stderr
+    judge = subprocess.run(judge_cmd + [build_grading_prompt(case, transcript)],
+                           capture_output=True, text=True, timeout=timeout)
+    verdict = parse_verdict(judge.stdout, len(case["expected"]), len(case["failures"]))
+    return {"id": case["id"], "transcript": transcript, **verdict}
+
+
+def cmd_eval(args) -> int:
+    failed = 0
+    cases: list[tuple[Path, str]] = []
+    for path in sorted((ROOT / "evaluations").glob("*.eval.md")):
+        try:
+            cases.append((path, parse_eval_case(path)["id"]))
+        except ValueError as exc:
+            print(f"ERROR {path.name}: {exc}")
+            failed += 1
+    if args.list:
+        for _, case_id in cases:
+            print(case_id)
+        return 1 if failed else 0
+    if args.case != "all":
+        cases = [(p, cid) for p, cid in cases if cid == args.case]
+        if not cases:
+            print(f"no eval case with id '{args.case}'")
+            return 1
+    if args.limit:
+        cases = cases[: args.limit]
+    agent_cmd = shlex.split(args.agent_cmd)
+    judge_cmd = shlex.split(args.judge_cmd)
+    passed = 0
+    for path, _ in cases:
+        try:
+            result = run_eval_case(path, agent_cmd, judge_cmd)
+        except (ValueError, OSError, subprocess.TimeoutExpired) as exc:
+            print(f"ERROR {path.name}: {exc}")
+            failed += 1
+            continue
+        print(f"{'PASS' if result['passed'] else 'FAIL'} {result['id']}")
+        if result["passed"]:
+            passed += 1
+        else:
+            failed += 1
+    print(f"eval: {passed}/{len(cases)} passed")
+    return 1 if failed else 0
 
 
 def validate_repo(root: Path = ROOT) -> list[str]:
@@ -386,6 +505,45 @@ def print_backlog(backlog_file: Path) -> None:
         print(f"  - [{cycle}] {num} {action}{suffix}")
 
 
+def release_check(root: Path = ROOT, tag: str | None = None) -> list[str]:
+    """A release where the manifests, the CHANGELOG, and the tag disagree is not a release."""
+    problems: list[str] = []
+    versions: dict[str, str] = {}
+    for manifest in PLUGIN_MANIFESTS:
+        try:
+            versions[manifest] = json.loads((root / manifest).read_text())["version"]
+        except (OSError, KeyError, json.JSONDecodeError) as exc:
+            problems.append(f"{manifest}: unreadable version ({exc})")
+    try:
+        changelog = (root / "CHANGELOG.md").read_text()
+    except OSError as exc:
+        problems.append(f"CHANGELOG.md: unreadable ({exc})")
+    else:
+        match = re.search(r"^## (\d+\.\d+\.\d+)", changelog, re.M)
+        if not match:
+            problems.append("CHANGELOG.md: no '## X.Y.Z' release heading found")
+        else:
+            versions["CHANGELOG.md"] = match.group(1)
+    if len(set(versions.values())) > 1:
+        problems.append(f"version mismatch: {versions}")
+    if tag is not None and not problems:
+        version = next(iter(versions.values()))
+        if not re.fullmatch(r"v\d+\.\d+\.\d+", tag):
+            problems.append(f"tag '{tag}' is not of the form vX.Y.Z")
+        elif tag != f"v{version}":
+            problems.append(f"tag '{tag}' does not match version {version}")
+    return problems
+
+
+def cmd_release_check(args) -> int:
+    problems = release_check(tag=args.tag)
+    for problem in problems:
+        print(f"release-check: {problem}")
+    if not problems:
+        print("release-check: consistent")
+    return 1 if problems else 0
+
+
 def show_status(cwd: Path) -> int:
     found = False
 
@@ -462,6 +620,16 @@ def main() -> int:
     status_parser = sub.add_parser("status", help="show lifecycle state")
     status_parser.add_argument("--root", type=Path, default=Path.cwd())
 
+    eval_parser = sub.add_parser("eval", help="run behavioral eval cases via a headless agent")
+    eval_parser.add_argument("case", nargs="?", default="all", help="case id or 'all'")
+    eval_parser.add_argument("--list", action="store_true", help="list case ids")
+    eval_parser.add_argument("--limit", type=int, default=0, help="cap number of cases")
+    eval_parser.add_argument("--agent-cmd", default="claude -p")
+    eval_parser.add_argument("--judge-cmd", default="claude -p")
+
+    release_parser = sub.add_parser("release-check", help="verify manifests, CHANGELOG, and tag agree")
+    release_parser.add_argument("--tag", default=None)
+
     args = parser.parse_args()
 
     if args.command == "validate":
@@ -496,6 +664,12 @@ def main() -> int:
 
     if args.command == "status":
         return show_status(args.root.resolve())
+
+    if args.command == "eval":
+        return cmd_eval(args)
+
+    if args.command == "release-check":
+        return cmd_release_check(args)
 
     return 2
 

@@ -1,128 +1,137 @@
-# ExecForge Product Decision — Skill-System Improvements from OrbixShield Retrospective
+# ExecForge Product Decision — Evidence Bridges & Executable Evals (v0.9.0 candidate)
 
-Run date: 2026-07-08
-Execution mode: Single isolated review (small, reversible, evidence-backed change to
-governance skill text). CEO and COO lenses applied inline by the orchestrator; no
-production architecture, data store, or vendor is introduced. Rollback = `git revert`
-of Markdown edits.
+Run date: 2026-07-13
+Execution mode: Single isolated review (Markdown + CI-workflow changes, reversible per
+file via `git revert`; no production architecture, data store, or hard vendor). CEO and
+COO lenses applied inline by the orchestrator, per the v0.7.0 precedent. The one new
+operational surface — API spend for CI evals — is carried as a COO control below.
+
+Initiative flags: `offensive-security` NOT SET · `legally-gated` NOT SET ·
+`regulated-impersonation` NOT SET · `user-prescribed-mechanism` NOT SET (mechanism was
+agent-proposed from a repo comparison and operator-endorsed; goal and mechanism align).
+No authorization gate applies.
 
 ## 1. Initiative
 
-Fold the six improvement areas from `skill-usage-feedback.md` into the ExecForge skill
-system so the fixes are enforced by default rather than left to operator discipline.
+Close the gap between what ExecForge's skills claim and what they can prove, using two
+levers: (a) execute the existing behavioral evals instead of only documenting them, and
+(b) bridge the QA / ship / security stages to the operator's installed gstack tooling so
+verdicts are backed by driven evidence instead of code-reading.
 
-Target user: the operator (and future agents) running ExecForge governance on real
-builds — concretely, teams building security/regulated products like the phishing-
-awareness platform (OrbixShield) that generated this retrospective.
+Target user: the operator running ExecForge governance over real client deliverables —
+concretely the login-gated portals (DataRex/PDPA, security-awareness reporting platform,
+portal-template) and the hotel-webscrap dashboard, all deployed to Hostinger. gstack
+v1.60.x is already vendored in DPO_senthion, so the bridge targets an installed tool.
 
 ## 2. Gatekeeper verdict — PARTIAL → reduce scope
 
-Does the end user need all six fixes built? No. Diagnosis of the **current** skill
-versions (evidence: direct file reads, 2026-07-08) shows most are already implemented:
+Does the operator need everything from the gstack gap analysis? No. Item by item:
 
-| Retro fix | Already in current skills? | Evidence |
+| Candidate | Pain evidence | Verdict |
 |---|---|---|
-| 1. Review before building | **YES** | `full-cycle` Stage 1 upstream user gate; strict stage ordering; `eng-level` mandatory upstream stop check |
-| 2. State goal, not mechanism | **NO (gap)** | No prescribed-solution guard in `execforge`; "ideal is a discovery mechanism" is close but not a guard against user-prescribed mechanisms |
-| 3. Define "done"/acceptance up front | **PARTIAL** | Present in `eng-level` plan review + `q-level`, but not a required *upstream* artifact field |
-| 4. Scope + non-goals up front | **YES** | `execforge` MVP/non-goals; `eng-level` upstream translation (in scope/deferred/skipped/non-goals) |
-| 5a. Security review on security product | **YES (mechanism exists)** | `sec-level` threat-model + review modes, triggers, S0–S3, verdicts; `full-cycle` rule 6 attaches it |
-| 5b. Authorization / legal gate for phishing/pentest | **NO (gap)** | Only data-privacy "consent/purpose limitation" exists; no rules-of-engagement / written-authorization gate anywhere |
-| 6a. Use full-cycle to orchestrate | **YES** | `full-cycle` exists and orchestrates the chain |
-| 6b. Diagnose before fixing | **YES** | `full-cycle` feedback routing + `eng-level` three-cycle cap before replan |
-
-Building the "YES" rows again would repeat the retrospective's own #1 mistake
-(build-then-review). Gatekeeper therefore reduces scope to the genuine deltas.
+| Executable eval harness in CI | **Fact** (2026-07-13 file reads): 11 `.eval.md` cases exist; CI runs structure checks only. Commit 98db516 hand-fixed a doc-vs-code drift bug — the exact class a harness catches. Roadmap already lists this near-term. | IN |
+| q-level → gstack `/qa`+`/browse` routing | **Fact**: q-level demands cross-layer evidence with no mechanism; all four governed projects are login-gated web UIs; `references/tool-routing.md` is the designed extension point. | IN |
+| eng-level SHIP → gstack deploy handoff | **Inference**: three divergent `deploy-hostinger.sh` copies exist; lifecycle currently ends at a SHIP verdict with no handoff. Light doc bridge only. | IN (light) |
+| sec-level → gstack `/cso` as evidence tool | sec-level already reviews code; `/cso` adds runtime probing. Cheap one-line routing note. | IN (light) |
+| Version gate + `v.1.0.0` tag cleanup | **Fact**: typo tag `v.1.0.0` exists; nothing checks tag ↔ CHANGELOG consistency. | IN (light) |
+| Repo hygiene: gitignore `__pycache__`, `site/` | **Fact**: build output and bytecode are committed. | IN (light) |
+| Retro/learn skill, decision-log/gbrain cross-project memory | Pain is real but diffuse; gstack provides these directly when installed. | DEFER |
+| Rebuilding any gstack runtime (browser daemon, deploy scripts, analytics) | Negative value: duplicates a maintained upstream. | SKIP |
 
 ## 3. CEO finding (product lens)
 
-- Job-to-be-done: the operator wants the governance system to *catch* the failure
-  classes the retro hit, without adding ceremony to low-risk work.
-- 10× value is concentrated in one place: an **authorization/compliance gate** for
-  legally-gated work. On a phishing/offensive-security product, shipping without written
-  authorization is a legal/reputational failure a technical appsec review does not catch.
-  This is the single highest-leverage addition.
-- Secondary, cheap wins: a goal-vs-mechanism guard (prevents the "fix the HTML" class of
-  wasted cycles) and making acceptance criteria a required upstream field.
-- Non-goal: rebuilding security review, scope/non-goals capture, or orchestration —
-  already shipped. Adding them again is negative value (maintenance + false novelty).
+- Job-to-be-done: the operator wants a QA PASS / SHIP / SEC verdict he can show a client,
+  backed by evidence the agent actually produced.
+- The 10× item is the **executable eval harness**: it converts the whole skill system from
+  "documented behavior" to "pinned behavior," enforcing the repo's own core principle
+  ("plan intent is not implementation evidence") on itself. Every future skill edit gets
+  regression coverage for free.
+- The bridges are cheap distribution wins: ExecForge stays the governance front door
+  (its authorization gate has no gstack equivalent) while gstack supplies the hands.
+  Positioning: govern with ExecForge, execute with gstack — complementary, not competing.
+- Non-goal: making gstack a hard dependency. Every bridge must degrade to the current
+  fallback contract when gstack is absent, or ExecForge loses its zero-dependency
+  install story (its main differentiator).
 
 ## 4. COO finding (operations lens)
 
-- Cost: Markdown-only edits to existing skills; no runtime, no infra, no vendor. Near-zero
-  operating cost; maintenance cost is the risk of gate fatigue if over-scoped.
-- Compliance/legal: the authorization gate is a genuine control that reduces real legal
-  exposure for offensive-security engagements. Worth a hard STOP.
-- Reliability risk of over-gating: if the authorization gate fires on all work it becomes
-  noise and gets ignored. Must be **conditional** on offensive-security / legally-gated /
-  regulated-impersonation scope, mirroring how `sec-level` triggers conditionally.
-- Ownership: changes live in `skills/`; versioned; reversible per-file. Kill/sunset: if a
-  new gate proves noisy, revert that gate's block without touching the rest.
+- Cost: Markdown edits ≈ zero. The eval harness adds CI API spend — bounded by: run the
+  gate tier only when `skills/**` or `evaluations/**` change; use the cheapest capable
+  model; cap cases per run; full matrix behind `workflow_dispatch`. Requires an
+  `ANTHROPIC_API_KEY` repo secret (least-privilege, spend-capped key).
+- Reliability: agent-driven evals can flake. Control: land the harness as **advisory
+  (non-blocking)** first; promote to a required check only after a quiet week.
+- Bridge risk: gstack moves fast (v1.60.x, near-daily commits). Pin the bridge contract
+  to skill *names* (`/qa`, `/browse`, `/land-and-deploy`, `/cso`) not internals, and keep
+  the fallback path authoritative.
+- Tag cleanup: deleting/re-pushing a remote tag is history-visible; do it once,
+  deliberately, with the operator watching.
+- Ownership: solo maintainer; per-file rollback; no new data or service of record.
 
 ## 5. Contradiction register
 
-- Apparent contradiction: user said "go thru the improve[ments]" (all six) vs diagnosis
-  showing three-plus already exist. Resolution (factual, verified by file reads): honor
-  intent (close the gaps the retro cares about) by implementing the genuine deltas and
-  explicitly recording the already-satisfied items, rather than rebuilding them. This is
-  the retro's own lesson applied to itself.
+- None factual. One tension resolved strategically: "bridge to gstack" vs "zero
+  dependencies" — resolved by making every bridge conditional on gstack being installed,
+  with the existing fallback contracts unchanged (CEO non-goal, COO control).
 
 ## 6. Final scope ledger
 
-- **ADD** — Authorization / Rules-of-Engagement gate for offensive-security & legally-gated
-  work (written authorization, scope of engagement, consent basis, no unapproved third-
-  party impersonation, data-handling & retention for captured credentials). Wire as: a
-  conditional trigger + hard STOP in `full-cycle`, a required control in `execforge`, and a
-  required field in the `eng-level` upstream stop check. New `sec-level` attention or a
-  short shared reference.
-- **ADD (light)** — Goal-vs-mechanism guard in `execforge`: capture outcome + constraints;
-  when the user prescribed a mechanism, flag it and allow the review to redirect to the
-  cause. One rule + one output field.
-- **ADD (light)** — Acceptance-criteria-before-build: make "definition of done /
-  acceptance test" a required field in the `eng-level` upstream requirements artifact.
-- **SKIP (already shipped)** — security review rebuild; scope/non-goals capture;
-  full-cycle orchestration; diagnose-before-fix routing. Record as satisfied; reaffirm in
-  docs only where a one-line pointer helps.
-- **DEFER** — none.
+- **ADD** — Executable eval harness: a runner that executes `evaluations/*.eval.md`
+  cases headlessly and asserts required behaviors; CI job (advisory at first) triggered
+  on skill/eval changes. Pulls forward two roadmap near-term items.
+- **ADD (light)** — gstack bridge routing: q-level `tool-routing.md` gains `/browse`+`/qa`
+  as preferred evidence tools when installed; eng-level gains a post-SHIP handoff note to
+  `/land-and-deploy`; sec-level review lists `/cso` as an optional runtime-evidence tool.
+- **ADD (light)** — Version gate in CI (release tag must match CHANGELOG head entry) and
+  one-time cleanup of the `v.1.0.0` typo tag.
+- **ADD (light)** — Hygiene: gitignore `__pycache__/` and `site/`; remove them from
+  tracking.
+- **DEFER** — Retro/learn skill; cross-project decision search (roadmap "Later": visual
+  decision ledger). Revisit after the harness proves itself.
+- **SKIP** — Rebuilding gstack runtime capabilities inside ExecForge.
 - **KILL** — none.
 
 ## 7. Product hypothesis and objective
 
-If ExecForge adds a conditional authorization gate and a goal-vs-mechanism guard, then
-governed builds of legally-gated/security products will stop before unauthorized
-operation and waste fewer cycles on prescribed-but-wrong mechanisms — without adding
-ceremony to ordinary changes.
+If ExecForge executes its evals in CI and routes QA/ship/security evidence through
+installed gstack tooling, then skill regressions are caught before merge and governed
+verdicts on the operator's portals are backed by driven evidence — without ExecForge
+losing its zero-dependency install.
 
-## 8. Measurable KRs (provisional — no historical baseline instrumented)
+## 8. Measurable KRs (provisional — no baseline instrumented)
 
-- KR1: 100% of initiatives flagged offensive-security/legally-gated reach an explicit
-  authorization decision (AUTHORIZED / NOT AUTHORIZED / N-A-justified) before Stage 4.
-  Baseline today: 0% (no gate exists).
-- KR2: Every `eng-level` upstream-requirements artifact contains a populated acceptance-
-  criteria field. Baseline: not required today.
-- KR3: Authorization gate fires only on qualifying scope (0 false-positive hard stops on
-  non-gated changes in the validation examples). Guards against gate fatigue.
+- KR1: 100% of bundled skills have ≥1 eval case executed in CI on skill-file changes.
+  Baseline: 0 executed (11 cases documented).
+- KR2: A seeded doc-vs-code drift (like the one fixed in 98db516) is caught by the
+  harness in a dry run. Baseline: caught only by manual recheck.
+- KR3: One governed QA run on a real portal (DataRex UAT) produces browser-driven
+  evidence artifacts via the bridge. Baseline: 0 (q-level evidence is prose today).
+- KR4: CI eval spend ≤ agreed cap per month; 0 required-check flake blocks in week one
+  (advisory period).
 
 ## 9. Non-negotiable controls
 
-- The authorization gate is **conditional** (must not block ordinary non-gated work).
-- The gate is a real STOP with a recorded user decision, not a checkbox the agent
-  self-answers — consistent with existing "never claim a gate that did not happen."
-- No rebuild of already-shipped mechanisms.
+- Every gstack bridge is conditional on gstack being installed; fallback contracts remain
+  authoritative and unchanged.
+- Eval CI job lands advisory; promotion to required is a separate, recorded decision.
+- API key is least-privilege with a spend cap; never committed.
+- No rebuild of gstack runtime tooling.
 
 ## 10. Roadmap / owners / rollback / kill criteria
 
 - Owner: this engagement (skill-system maintainer).
-- Sequence: this is a doc/skill change → `eng-level --mode=plan` (Stage 3) will detail the
-  exact files/edits; `sec-level` NOT the primary actor here but the change *defines* a
-  security/compliance control so a light threat-model note applies.
-- Rollback: per-file `git revert`.
-- Kill criteria: if the authorization gate generates false hard-stops on ordinary work in
-  validation, revert that gate and re-scope to a softer prompt.
+- Sequencing precondition: merge or explicitly stack on the unpushed
+  `feat/v0.8.0-role-architecture` branch before starting v0.9.0 work.
+- Sequence: `eng-level --mode=plan` details exact files/edits; `sec-level` light pass on
+  the CI workflow (new secret surface); q-level dry run per KR3.
+- Rollback: per-file `git revert`; delete the CI job to kill the harness.
+- Kill criteria: eval harness flakes >2×/week during advisory period → keep runner
+  local-only, drop the CI job. Bridge confuses agents in dry runs → revert to fallback
+  text.
 
 ## 11. Final verdict
 
-**GO WITH CONDITIONS** — Implement the three genuine deltas (authorization/RoE gate;
-goal-vs-mechanism guard; acceptance-criteria-as-required-upstream-field). Do **not**
-rebuild already-shipped mechanisms. Condition: the authorization gate must be conditional
-on qualifying scope to avoid gate fatigue.
+**GO WITH CONDITIONS** — Build the eval harness plus the three light bridges and hygiene
+fixes. Conditions: bridges stay conditional (no hard gstack dependency); the CI eval job
+is advisory until proven quiet; spend is capped; v0.8.0 branch is merged or stacked
+first.

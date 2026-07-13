@@ -257,6 +257,17 @@ Rules:
 - Missing critical evidence or unsafe rollback blocks.
 - A post-hoc review cannot return `SHIP`.
 - A stop-after boundary ends the run at that stage; no verdict beyond it is issued.
+- A `SHIP` verdict ends the lifecycle; ExecForge does not deploy. When the
+  installed gstack `/land-and-deploy` or `/ship` skill is present, hand the
+  approved branch to it and record the handoff in `decision.md`. When it is
+  not, deployment stays with the operator's own release process.
+- A `SHIP` on a release-bound branch (version bump, changelog entry, or tag)
+  requires release-consistency evidence: version metadata, the changelog head
+  entry, and the intended tag must agree. In the ExecForge repository, run
+  `python3 scripts/execforge.py release-check` (add `--tag vX.Y.Z` when
+  tagging) and record the output in `decision.md`; a failing check is a P1.
+  In other repositories, verify the equivalent manifests manually and record
+  what was checked.
 - Maximum three automatic fix/review cycles before replan or block.
 
 Read [state and artifact contracts](references/state-and-artifacts.md). For a full run, follow [the step-by-step lifecycle protocol](references/lifecycle-protocol.md) and produce [the final output contract](references/fallback-review-contracts.md).

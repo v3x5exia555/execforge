@@ -1,74 +1,85 @@
-# Upstream Requirements — ExecForge Skill Improvements
+# Upstream Requirements — Evidence Bridges & Executable Evals (v0.9.0 candidate)
 
-Source: `.execforge/decision.md` (GO WITH CONDITIONS, 2026-07-08)
-Status: APPROVED WITH CHANGES (2026-07-08)
-
-## Gate response
-
-User decision: "maybe we can create a flags — will need more scope."
-Interpretation (APPROVE WITH CHANGES): build the three deltas, but implement them as an
-explicit **Initiative Flags** mechanism — named flags set at the product/upstream stage
-that drive the conditional gates downstream — and allow scope to widen to a small shared
-flag definition rather than inline one-liners. Direction confirmed at Stage 1; exact
-files/edits defined in Stage 3 plan review.
+Source: `.execforge/decision.md` (GO WITH CONDITIONS, 2026-07-13)
+Status: UPSTREAM_APPROVAL_REQUIRED — awaiting operator response
 
 ## What / why / for whom
 
-Enforce the OrbixShield retrospective's fixes inside the ExecForge skills so they hold by
-default. For the operator and future agents running governed builds of security/regulated
-products.
+Execute the bundled skills' behavioral evals in CI and bridge q-level / eng-level ship /
+sec-level to installed gstack tooling, so ExecForge's verdicts are backed by executed
+evidence. For the operator governing real client portals (DataRex, security-awareness
+platform, portal-template, hotel-webscrap) where gstack is already in use.
 
-## In scope (the three genuine deltas)
+## In scope
 
-1. **Authorization / Rules-of-Engagement gate** — conditional trigger + hard STOP for
-   offensive-security / legally-gated / regulated-impersonation work. Requires: written
-   authorization, scope of engagement, consent/legal basis, no unapproved third-party
-   impersonation, handling & retention rules for any captured credentials. Wired into
-   `full-cycle`, `execforge` (control), and `eng-level` upstream stop check.
-2. **Goal-vs-mechanism guard** — `execforge` captures outcome + constraints, flags a
-   user-prescribed mechanism, and lets the review redirect to root cause.
-3. **Acceptance-criteria-before-build** — required field in the `eng-level` upstream
-   requirements artifact.
+1. **Executable eval harness** — a runner (extend `scripts/execforge.py` or a sibling
+   script) that executes `evaluations/*.eval.md` cases against a headless agent and
+   asserts the required behaviors; plus an advisory CI job triggered only by changes to
+   `skills/**` or `evaluations/**`, model and case-count capped.
+2. **gstack bridge routing (docs-only)** —
+   - `skills/q-level/references/tool-routing.md`: prefer gstack `/browse` + `/qa` for
+     portal evidence when installed; fallback unchanged.
+   - `skills/eng-level` (SKILL.md or lifecycle-protocol.md): post-SHIP handoff note to
+     gstack `/land-and-deploy` when installed.
+   - `skills/sec-level`: list gstack `/cso` as an optional runtime-evidence tool.
+3. **Version gate** — CI check that a release tag matches the CHANGELOG head entry;
+   one-time cleanup of the `v.1.0.0` typo tag (operator-supervised).
+4. **Hygiene** — gitignore and untrack `__pycache__/` and `site/`.
 
-## Deferred / skipped (already shipped — do NOT rebuild)
+## Deferred / skipped / non-goals
 
-- Security review (sec-level exists), scope/non-goals capture, full-cycle orchestration,
-  diagnose-before-fix routing, review-before-build gate. Recorded as satisfied.
-
-## Non-goals
-
-- No runtime code, infra, vendor, or data store. Markdown/skill edits only.
-- No unconditional gating of ordinary changes.
+- DEFER: retro/learn skill; cross-project decision search.
+- SKIP: rebuilding gstack runtime tooling (browser daemon, deploy scripts, analytics).
+- Non-goals: no hard gstack dependency; no new runtime service or data store; no
+  unconditional CI cost growth (eval job is path-filtered and capped).
 
 ## Product success metrics
 
-- Authorization decision recorded for 100% of qualifying initiatives before build.
-- Acceptance-criteria field populated in every upstream artifact.
-- Zero false hard-stops on non-gated work in validation.
+- KR1: every bundled skill has ≥1 eval executed in CI on skill-file changes (baseline 0).
+- KR2: harness catches a seeded doc-vs-code drift in a dry run.
+- KR3: one governed QA run on DataRex UAT yields browser-driven evidence via the bridge.
+- KR4: CI eval spend within cap; zero flake-blocks during the advisory period.
+
+## Acceptance criteria (definition of done)
+
+- `python3 scripts/execforge.py eval <case>` (or equivalent) runs a real eval case
+  locally and reports pass/fail per required behavior.
+- CI shows the advisory eval job green on a skill-touching PR and skipped on a
+  docs-only PR.
+- Version-gate job fails a deliberately mismatched tag/CHANGELOG pair in a dry run.
+- The three bridge texts name gstack skills, state the installed-only condition, and
+  leave fallback contracts unchanged (verified by reading the diffs).
+- `git status` shows no tracked `__pycache__`/`site` files; CHANGELOG and version bumped
+  per repo convention.
+
+## Initiative flags and authorization status
+
+`offensive-security` NOT SET · `legally-gated` NOT SET · `regulated-impersonation`
+NOT SET · `user-prescribed-mechanism` NOT SET. Authorization gate: N-A (justified — no
+gating flag set).
 
 ## Non-negotiable CEO decisions
 
-- Reduce scope to genuine deltas; do not rebuild shipped mechanisms.
+- Bridges are conditional; zero-dependency install story is preserved.
+- No rebuild of gstack capabilities.
 
 ## Non-negotiable COO controls
 
-- Authorization gate is conditional; it is a real recorded STOP, not agent self-answer.
+- Eval CI job lands advisory; promotion to required is a separate recorded decision.
+- `ANTHROPIC_API_KEY` repo secret is least-privilege and spend-capped; never committed.
+- Remote tag cleanup happens once, operator-supervised.
 
 ## Assumptions / unknowns
 
-- Assumption: skill text changes propagate to `~/.claude/skills` via the repo's existing
-  sync/install path (to confirm in Stage 3).
-- Unknown: whether a shared reference file or per-skill inline text is the cleaner wiring
-  (Stage 3 plan decision).
+- Assumption: a headless agent invocation (e.g. `claude -p`) is available in CI with the
+  repo secret; to confirm in Stage 3 plan.
+- Assumption: `feat/v0.8.0-role-architecture` merges before or under v0.9.0 work.
+- Unknown: exact eval assertion format (grep-style required phrases vs structured
+  rubric) — Stage 3 plan decision.
+- Unknown: whether the eval runner lives in `execforge.py` or a sibling script —
+  Stage 3 plan decision.
 
 ## Kill criteria
 
-- Authorization gate produces false hard-stops on ordinary work → revert that gate.
-
-## Acceptance criteria (definition of done for THIS initiative)
-
-- The three deltas are present in the skill files with conditional triggering.
-- A dry-run walkthrough shows: (a) a phishing/pentest-style initiative hits the
-  authorization STOP; (b) an ordinary refactor does NOT; (c) a prescribed-mechanism
-  request surfaces the goal-vs-mechanism flag.
-- CHANGELOG/version updated per repo convention.
+- Harness flakes >2×/week in advisory period → keep runner local-only, drop CI job.
+- Bridge text confuses agents in dry runs → revert to fallback-only text.

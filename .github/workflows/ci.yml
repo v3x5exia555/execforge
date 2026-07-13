@@ -19,6 +19,8 @@ jobs:
         run: python3 scripts/execforge.py doctor
       - name: Run tests
         run: python3 -m unittest discover -s tests -v
+      - name: Version consistency
+        run: python3 scripts/execforge.py release-check
       - name: Build docs strictly
         run: |
           python3 -m pip install -r requirements-docs.txt
