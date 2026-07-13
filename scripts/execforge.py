@@ -141,21 +141,29 @@ def run_eval_case(path: Path, agent_cmd: list[str], judge_cmd: list[str],
 
 
 def cmd_eval(args) -> int:
-    cases = sorted((ROOT / "evaluations").glob("*.eval.md"))
+    failed = 0
+    cases: list[tuple[Path, str]] = []
+    for path in sorted((ROOT / "evaluations").glob("*.eval.md")):
+        try:
+            cases.append((path, parse_eval_case(path)["id"]))
+        except ValueError as exc:
+            print(f"ERROR {path.name}: {exc}")
+            failed += 1
     if args.list:
-        for path in cases:
-            print(parse_eval_case(path)["id"])
-        return 0
+        for _, case_id in cases:
+            print(case_id)
+        return 1 if failed else 0
     if args.case != "all":
-        cases = [p for p in cases if parse_eval_case(p)["id"] == args.case]
+        cases = [(p, cid) for p, cid in cases if cid == args.case]
         if not cases:
             print(f"no eval case with id '{args.case}'")
             return 1
-    cases = cases[: args.limit] if args.limit else cases
+    if args.limit:
+        cases = cases[: args.limit]
     agent_cmd = shlex.split(args.agent_cmd)
     judge_cmd = shlex.split(args.judge_cmd)
-    failed = 0
-    for path in cases:
+    passed = 0
+    for path, _ in cases:
         try:
             result = run_eval_case(path, agent_cmd, judge_cmd)
         except (ValueError, OSError, subprocess.TimeoutExpired) as exc:
@@ -163,9 +171,11 @@ def cmd_eval(args) -> int:
             failed += 1
             continue
         print(f"{'PASS' if result['passed'] else 'FAIL'} {result['id']}")
-        if not result["passed"]:
+        if result["passed"]:
+            passed += 1
+        else:
             failed += 1
-    print(f"eval: {len(cases) - failed}/{len(cases)} passed")
+    print(f"eval: {passed}/{len(cases)} passed")
     return 1 if failed else 0
 
 
@@ -504,11 +514,16 @@ def release_check(root: Path = ROOT, tag: str | None = None) -> list[str]:
             versions[manifest] = json.loads((root / manifest).read_text())["version"]
         except (OSError, KeyError, json.JSONDecodeError) as exc:
             problems.append(f"{manifest}: unreadable version ({exc})")
-    match = re.search(r"^## (\d+\.\d+\.\d+)", (root / "CHANGELOG.md").read_text(), re.M)
-    if not match:
-        problems.append("CHANGELOG.md: no '## X.Y.Z' release heading found")
+    try:
+        changelog = (root / "CHANGELOG.md").read_text()
+    except OSError as exc:
+        problems.append(f"CHANGELOG.md: unreadable ({exc})")
     else:
-        versions["CHANGELOG.md"] = match.group(1)
+        match = re.search(r"^## (\d+\.\d+\.\d+)", changelog, re.M)
+        if not match:
+            problems.append("CHANGELOG.md: no '## X.Y.Z' release heading found")
+        else:
+            versions["CHANGELOG.md"] = match.group(1)
     if len(set(versions.values())) > 1:
         problems.append(f"version mismatch: {versions}")
     if tag is not None and not problems:

@@ -134,6 +134,15 @@ class ReleaseCheckTests(unittest.TestCase):
             self.assertEqual([], module.release_check(root))
             self.assertEqual([], module.release_check(root, tag="v0.9.0"))
 
+    def test_missing_changelog_is_a_problem_not_a_crash(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for sub in (".claude-plugin", ".codex-plugin"):
+                (root / sub).mkdir()
+                (root / sub / "plugin.json").write_text(_json.dumps({"version": "0.9.0"}))
+            problems = module.release_check(root)
+            self.assertTrue(any("CHANGELOG.md" in p for p in problems))
+
     def test_mismatch_and_malformed_tag_fail(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = self._root(tmp, "0.9.0", "0.8.0", "0.9.0")
@@ -142,6 +151,35 @@ class ReleaseCheckTests(unittest.TestCase):
             root = self._root(tmp, "0.9.0", "0.9.0", "0.9.0")
             self.assertTrue(module.release_check(root, tag="v.9.0.0"))
             self.assertTrue(module.release_check(root, tag="v0.8.0"))
+
+
+class CmdEvalRobustnessTests(unittest.TestCase):
+    def test_list_survives_a_malformed_case_and_names_it(self):
+        import argparse
+        import contextlib
+        import io
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "evaluations").mkdir()
+            (root / "evaluations" / "good.eval.md").write_text(CASE)
+            (root / "evaluations" / "bad.eval.md").write_text(
+                "---\nskill: x\nid: bad\ntype: gate\n---\n\n## Scenario\n\ns\n"
+            )
+            args = argparse.Namespace(case="all", list=True, limit=0,
+                                      agent_cmd="true", judge_cmd="true")
+            old_root = module.ROOT
+            module.ROOT = root
+            try:
+                buf = io.StringIO()
+                with contextlib.redirect_stdout(buf):
+                    rc = module.cmd_eval(args)
+            finally:
+                module.ROOT = old_root
+            out = buf.getvalue()
+            self.assertIn("q-level-demo", out)
+            self.assertIn("ERROR bad.eval.md", out)
+            self.assertEqual(1, rc)
 
 
 if __name__ == "__main__":
