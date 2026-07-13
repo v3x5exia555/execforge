@@ -495,6 +495,40 @@ def print_backlog(backlog_file: Path) -> None:
         print(f"  - [{cycle}] {num} {action}{suffix}")
 
 
+def release_check(root: Path = ROOT, tag: str | None = None) -> list[str]:
+    """A release where the manifests, the CHANGELOG, and the tag disagree is not a release."""
+    problems: list[str] = []
+    versions: dict[str, str] = {}
+    for manifest in PLUGIN_MANIFESTS:
+        try:
+            versions[manifest] = json.loads((root / manifest).read_text())["version"]
+        except (OSError, KeyError, json.JSONDecodeError) as exc:
+            problems.append(f"{manifest}: unreadable version ({exc})")
+    match = re.search(r"^## (\d+\.\d+\.\d+)", (root / "CHANGELOG.md").read_text(), re.M)
+    if not match:
+        problems.append("CHANGELOG.md: no '## X.Y.Z' release heading found")
+    else:
+        versions["CHANGELOG.md"] = match.group(1)
+    if len(set(versions.values())) > 1:
+        problems.append(f"version mismatch: {versions}")
+    if tag is not None and not problems:
+        version = next(iter(versions.values()))
+        if not re.fullmatch(r"v\d+\.\d+\.\d+", tag):
+            problems.append(f"tag '{tag}' is not of the form vX.Y.Z")
+        elif tag != f"v{version}":
+            problems.append(f"tag '{tag}' does not match version {version}")
+    return problems
+
+
+def cmd_release_check(args) -> int:
+    problems = release_check(tag=args.tag)
+    for problem in problems:
+        print(f"release-check: {problem}")
+    if not problems:
+        print("release-check: consistent")
+    return 1 if problems else 0
+
+
 def show_status(cwd: Path) -> int:
     found = False
 
@@ -578,6 +612,9 @@ def main() -> int:
     eval_parser.add_argument("--agent-cmd", default="claude -p")
     eval_parser.add_argument("--judge-cmd", default="claude -p")
 
+    release_parser = sub.add_parser("release-check", help="verify manifests, CHANGELOG, and tag agree")
+    release_parser.add_argument("--tag", default=None)
+
     args = parser.parse_args()
 
     if args.command == "validate":
@@ -615,6 +652,9 @@ def main() -> int:
 
     if args.command == "eval":
         return cmd_eval(args)
+
+    if args.command == "release-check":
+        return cmd_release_check(args)
 
     return 2
 

@@ -119,5 +119,30 @@ class RunEvalCaseTests(unittest.TestCase):
             self.assertFalse(module.run_eval_case(case_path, agent, judge)["passed"])
 
 
+class ReleaseCheckTests(unittest.TestCase):
+    def _root(self, tmp: str, claude_v: str, codex_v: str, changelog_v: str) -> Path:
+        root = Path(tmp)
+        for sub, v in ((".claude-plugin", claude_v), (".codex-plugin", codex_v)):
+            (root / sub).mkdir()
+            (root / sub / "plugin.json").write_text(_json.dumps({"version": v}))
+        (root / "CHANGELOG.md").write_text(f"# Changelog\n\n## {changelog_v} — 2026-07-13\n")
+        return root
+
+    def test_consistent_versions_pass(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = self._root(tmp, "0.9.0", "0.9.0", "0.9.0")
+            self.assertEqual([], module.release_check(root))
+            self.assertEqual([], module.release_check(root, tag="v0.9.0"))
+
+    def test_mismatch_and_malformed_tag_fail(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = self._root(tmp, "0.9.0", "0.8.0", "0.9.0")
+            self.assertTrue(module.release_check(root))
+        with tempfile.TemporaryDirectory() as tmp:
+            root = self._root(tmp, "0.9.0", "0.9.0", "0.9.0")
+            self.assertTrue(module.release_check(root, tag="v.9.0.0"))
+            self.assertTrue(module.release_check(root, tag="v0.8.0"))
+
+
 if __name__ == "__main__":
     unittest.main()
