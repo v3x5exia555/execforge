@@ -70,8 +70,14 @@ python3 scripts/execforge.py doctor
 ```bash
 python3 scripts/execforge.py validate
 python3 scripts/execforge.py doctor
+python3 scripts/execforge.py doctor --installed
+python3 scripts/execforge.py doctor --portfolio ~/Desktop/project
 python3 -m unittest discover -s tests -v
 ```
+
+`doctor --installed` compares the bundled skills with known user installations.
+`doctor --portfolio` scans only direct-child Git repositories for instruction,
+Git, selector, and lifecycle-state problems; diagnostics are read-only.
 
 ### 2. Install the skills
 
@@ -225,10 +231,47 @@ All commands run through `scripts/execforge.py` (or `scripts/install.sh` as a th
 | `doctor` | Check Python version, repository integrity, Git/MkDocs availability, install-target writability, and Superpowers presence |
 | `install --target claude\|codex\|agents` or `--destination <dir>` | Validate, copy, and verify the skill bundle (`--force` to overwrite) |
 | `check-superpowers` | Detect a separately installed Superpowers setup |
-| `init-run --name <initiative>` | Seed `.execforge/`, `.eng-level/`, and `.q-level/` run artifacts |
-| `status` | Report current engineering and QA lifecycle state, the stop-after brake, and the deferred backlog |
+| `doctor --installed` | Compare bundled skills with every known install root and report missing or drifted files |
+| `doctor --portfolio <path>` | Read-only scan of direct-child Git repositories for instruction, Git, selector, and lifecycle-state findings |
+| `init-run --name <initiative> [--root <repo>]` | Seed a new initiative-scoped product, engineering, and QA run and select it |
+| `status [--root <repo>]` | Report current engineering and QA lifecycle state and backlog |
+| `resume [--root <repo>]` | Reconcile selected lifecycle metadata with the repository's current Git branch and HEAD |
+| `next [--root <repo>]` | Print exactly one safe next lifecycle action; unsafe or stale state exits nonzero |
 | `eval [case-id\|all] [--list] [--limit N]` | Execute behavioral eval cases: replay the scenario through a headless agent (`--agent-cmd`, default `claude -p`), grade the transcript with an LLM judge (`--judge-cmd`), and recompute the verdict locally |
-| `release-check [--tag vX.Y.Z]` | Verify both plugin manifests, the CHANGELOG head entry, and (optionally) a release tag agree |
+| `release-check [--tag vX.Y.Z]` | Verify plugin manifests, changelog version, and optional release tag agree |
+
+Typical operating checks and re-entry commands are:
+
+```bash
+python3 scripts/execforge.py doctor --installed
+python3 scripts/execforge.py doctor --portfolio ~/Desktop/project
+python3 scripts/execforge.py resume --root <repo>
+python3 scripts/execforge.py next --root <repo>
+```
+
+## Initiative-scoped operating state
+
+`init-run` creates matching run IDs under `.execforge/runs/<run-id>`,
+`.eng-level/runs/<run-id>`, and `.q-level/runs/<run-id>`. The authoritative
+selector is `.execforge/current.json`; `.eng-level/current.json` and
+`.q-level/current.json` are compatibility projections for existing readers.
+The selector is a rebuildable index, not stronger evidence than runtime
+behavior, tests, code, Git history, or the run artifacts themselves.
+
+Legacy root state remains readable only when no safe current selector can be
+used. ExecForge never silently migrates or deletes those legacy artifacts.
+The stable, Git-ignored `.execforge-init-run.lock` coordinates concurrent
+initialization; retaining the same file keeps its lock inode stable between
+runs.
+
+`resume` reports bounded metadata, evidence/backlog locations, and safe warning
+codes. `next` prints one derived action. Neither command prints the raw recorded
+`next_action`, blocker contents, or unescaped terminal control characters.
+Conflicts, unreadable state, stale branch/commit lineage, or blockers stop
+progress; reaching a `stop_after` boundary waits for an explicit user
+instruction. See [Getting Started](docs/getting-started.md) and the
+[Eng Level state contract](skills/eng-level/references/state-and-artifacts.md)
+for lineage, exit-status, privacy, and rollback details.
 
 ## Evaluations
 

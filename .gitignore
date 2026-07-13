@@ -2,6 +2,9 @@ __pycache__/
 *.pyc
 .DS_Store
 site/
+.worktrees/
+# Stable inode for cross-process init-run serialization; lock state is released after each run.
+.execforge-init-run.lock
 
 # Extracted prompt transcripts — contain plaintext credentials. Never commit.
 prompt-history/

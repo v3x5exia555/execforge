@@ -7,15 +7,30 @@ No third-party dependencies are required.
 from __future__ import annotations
 
 import argparse
+from contextlib import contextmanager
+import importlib.util
 import json
 import os
 from pathlib import Path
 import re
 import shlex
 import shutil
+import stat
 import subprocess
 import sys
+import threading
+import unicodedata
 from datetime import datetime, timezone
+import uuid
+
+try:
+    import fcntl as _fcntl
+except ImportError:  # pragma: no cover - exercised by the portability subprocess test
+    _fcntl = None
+try:
+    import msvcrt as _msvcrt
+except ImportError:  # pragma: no cover - unavailable on POSIX
+    _msvcrt = None
 
 ROOT = Path(__file__).resolve().parents[1]
 SKILLS = ROOT / "skills"
@@ -32,6 +47,51 @@ Q_LEVEL_ASSET_FILES = {
     "qa-plan.md": "qa-plan.template.md",
     "retest.md": "retest.template.md",
 }
+_RUN_NAMESPACES = (".execforge", ".eng-level", ".q-level")
+_SELECTOR_MAX_BYTES = 1024 * 1024
+_INIT_LOCKS: dict[str, threading.Lock] = {}
+_INIT_LOCKS_GUARD = threading.Lock()
+
+
+def _terminal_safe(value: object, limit: int = 500) -> str:
+    """Render untrusted metadata without terminal controls or unbounded output."""
+    rendered: list[str] = []
+    rendered_length = 0
+    for character in str(value):
+        if unicodedata.category(character).startswith("C"):
+            codepoint = ord(character)
+            if codepoint <= 0xFF:
+                rendered.append(f"\\x{codepoint:02x}")
+            elif codepoint <= 0xFFFF:
+                rendered.append(f"\\u{codepoint:04x}")
+            else:
+                rendered.append(f"\\U{codepoint:08x}")
+        else:
+            rendered.append(character)
+        rendered_length += len(rendered[-1])
+        if rendered_length >= limit:
+            break
+    return "".join(rendered)[:limit]
+
+
+class RunPublicationError(RuntimeError):
+    def __init__(self, original: BaseException, restore_errors: list[BaseException]):
+        super().__init__(
+            f"run publication failed ({type(original).__name__}); "
+            f"{len(restore_errors)} selector restore(s) also failed"
+        )
+        self.original = original
+        self.restore_errors = tuple(restore_errors)
+
+
+def _load_operating_state_module():
+    path = Path(__file__).resolve().with_name("operating_state.py")
+    spec = importlib.util.spec_from_file_location("execforge_operating_state", path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"cannot load operating-state diagnostics from {path}")
+    loaded = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(loaded)
+    return loaded
 
 
 def parse_frontmatter(path: Path) -> dict[str, str]:
@@ -370,7 +430,7 @@ def seed_q_level_artifacts(destination: Path) -> None:
         shutil.copy2(assets_root / template_name, destination / target_name)
 
 
-def doctor() -> int:
+def doctor(installed: bool = False, portfolio: Path | None = None) -> int:
     hard_failures = 0
 
     def report(label: str, ok: bool, detail: str, hard: bool = True) -> None:
@@ -407,6 +467,25 @@ def doctor() -> int:
     superpowers = check_superpowers() == 0
     report("superpowers", superpowers, "detected" if superpowers else "not detected; optional", hard=False)
 
+    if installed or portfolio is not None:
+        operating_state = _load_operating_state_module()
+        findings = ()
+        if installed:
+            installation_roots = tuple(
+                destination_for(target) for target in ("claude", "codex", "agents")
+            )
+            findings += operating_state.installed_skill_diagnostics(SKILLS, installation_roots)
+        if portfolio is not None:
+            findings += operating_state.portfolio_diagnostics(portfolio)
+        for finding in findings:
+            print(
+                f"[{_terminal_safe(finding.severity).upper()}] "
+                f"{_terminal_safe(finding.code)} "
+                f"{_terminal_safe(finding.project)}: {_terminal_safe(finding.detail)}"
+            )
+            if finding.severity == "error":
+                hard_failures += 1
+
     if hard_failures:
         print(f"doctor found {hard_failures} blocking problem(s).")
         return 1
@@ -435,43 +514,402 @@ def check_superpowers() -> int:
 
 
 def init_run(name: str, cwd: Path) -> Path:
-    safe = re.sub(r"[^a-zA-Z0-9._-]+", "-", name).strip("-") or "initiative"
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    run = cwd / ".execforge" / "runs" / f"{timestamp}-{safe}"
-    run.mkdir(parents=True, exist_ok=False)
-    (run / "shared-context.md").write_text(
-        f"# Shared Context\n\n- Initiative: {name}\n- Created: {timestamp}\n\n"
-        "## Facts\n\n## Assumptions\n\n## Inferences\n\n## Unknowns\n",
-        encoding="utf-8",
-    )
-    (run / "scope-ledger.md").write_text(
-        "# Scope Ledger\n\n| Item | Decision | Evidence | Reason | Owner |\n"
-        "|---|---|---|---|---|\n",
-        encoding="utf-8",
-    )
-    lifecycle = cwd / ".eng-level"
-    lifecycle.mkdir(exist_ok=True)
-    state_source = SKILLS / "eng-level" / "assets" / "state.template.json"
-    state = json.loads(state_source.read_text(encoding="utf-8"))
-    state["initiative"] = name
-    (lifecycle / "state.json").write_text(json.dumps(state, indent=2) + "\n", encoding="utf-8")
-    upstream_source = SKILLS / "eng-level" / "assets" / "upstream-requirements.template.md"
-    shutil.copy2(upstream_source, lifecycle / "upstream-requirements.md")
-    backlog_source = SKILLS / "eng-level" / "assets" / "backlog.template.md"
-    shutil.copy2(backlog_source, lifecycle / "backlog.md")
+    cwd = Path(cwd)
+    _validate_run_storage(cwd)
+    with _repository_init_lock(cwd):
+        _validate_run_storage(cwd)
+        return _init_run_locked(name, cwd)
 
-    qa = cwd / ".q-level"
-    qa.mkdir(exist_ok=True)
-    qa_state_source = SKILLS / "q-level" / "assets" / "state.template.json"
-    qa_state = json.loads(qa_state_source.read_text(encoding="utf-8"))
-    qa_state["initiative"] = name
-    (qa / "state.json").write_text(json.dumps(qa_state, indent=2) + "\n", encoding="utf-8")
-    seed_q_level_artifacts(qa)
 
-    print(f"created run: {run}")
-    print(f"created lifecycle state: {lifecycle / 'state.json'}")
-    print(f"created Q Level state: {qa / 'state.json'}")
+def _init_run_locked(name: str, cwd: Path) -> Path:
+    safe = re.sub(r"[^a-z0-9]+", "-", name.casefold()).strip("-") or "initiative"
+    now = datetime.now(timezone.utc)
+    timestamp = now.strftime("%Y%m%dT%H%M%S%fZ")
+    run_id = f"{timestamp}-{uuid.uuid4().hex[:8]}-{safe}"
+    roots = {namespace: cwd / namespace for namespace in _RUN_NAMESPACES}
+    for root in roots.values():
+        root.mkdir(exist_ok=True)
+        (root / "runs").mkdir(exist_ok=True)
+    _validate_run_storage(cwd)
+
+    run = roots[".execforge"] / "runs" / run_id
+    lifecycle = roots[".eng-level"]
+    lifecycle_run = lifecycle / "runs" / run_id
+    qa = roots[".q-level"]
+    qa_run = qa / "runs" / run_id
+    new_runs = (run, lifecycle_run, qa_run)
+    pointer_snapshots = {
+        root: _snapshot_pointer(root / "current.json")
+        for root in (lifecycle, qa, roots[".execforge"])
+    }
+    branch, commit = _git_metadata(cwd)
+    created_at = now.isoformat()
+    publication_started = False
+    try:
+        for new_run in new_runs:
+            new_run.mkdir(exist_ok=False)
+
+        (run / "shared-context.md").write_text(
+            f"# Shared Context\n\n- Initiative: {name}\n- Created: {now.isoformat()}\n\n"
+            "## Facts\n\n## Assumptions\n\n## Inferences\n\n## Unknowns\n",
+            encoding="utf-8",
+        )
+        (run / "scope-ledger.md").write_text(
+            "# Scope Ledger\n\n| Item | Decision | Evidence | Reason | Owner |\n"
+            "|---|---|---|---|---|\n",
+            encoding="utf-8",
+        )
+
+        state_source = SKILLS / "eng-level" / "assets" / "state.template.json"
+        state = json.loads(state_source.read_text(encoding="utf-8"))
+        state.update(
+            initiative=name, run_id=run_id, created_at=created_at, updated_at=created_at,
+            branch=branch, commit=commit, artifact_root=f".eng-level/runs/{run_id}",
+            next_action="Complete upstream intake and secure approval.",
+        )
+        (lifecycle_run / "state.json").write_text(
+            json.dumps(state, indent=2) + "\n", encoding="utf-8"
+        )
+        shutil.copy2(
+            SKILLS / "eng-level" / "assets" / "upstream-requirements.template.md",
+            lifecycle_run / "upstream-requirements.md",
+        )
+        shutil.copy2(
+            SKILLS / "eng-level" / "assets" / "backlog.template.md",
+            lifecycle_run / "backlog.md",
+        )
+
+        qa_state = json.loads(
+            (SKILLS / "q-level" / "assets" / "state.template.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        qa_state.update(
+            initiative=name, run_id=run_id, created_at=created_at, updated_at=created_at,
+            branch=branch, commit=commit, artifact_root=f".q-level/runs/{run_id}",
+            next_action="Complete QA context after engineering handoff.",
+        )
+        (qa_run / "state.json").write_text(
+            json.dumps(qa_state, indent=2) + "\n", encoding="utf-8"
+        )
+        seed_q_level_artifacts(qa_run)
+
+        publication_started = True
+        _write_authoritative_pointer(roots[".execforge"], run_id)
+        _write_current_pointer(lifecycle, run_id)
+        _write_current_pointer(qa, run_id)
+    except BaseException as original:
+        restore_errors: list[BaseException] = []
+        if publication_started:
+            for root, snapshot in pointer_snapshots.items():
+                try:
+                    _restore_pointer(root / "current.json", snapshot)
+                except BaseException as restore_error:
+                    restore_errors.append(restore_error)
+        if not restore_errors:
+            referenced_run = _authoritative_run_id(cwd)
+            for new_run in reversed(new_runs):
+                if new_run.name != referenced_run:
+                    _remove_new_run(new_run)
+        if restore_errors:
+            raise RunPublicationError(original, restore_errors) from original
+        raise
+
+    print(f"created run: {_terminal_safe(run)}")
+    print(f"created lifecycle state: {_terminal_safe(lifecycle_run / 'state.json')}")
+    print(f"created Q Level state: {_terminal_safe(qa_run / 'state.json')}")
     return run
+
+
+def _validate_run_storage(cwd: Path) -> None:
+    if cwd.is_symlink() or not cwd.is_dir():
+        raise ValueError("repository root must be a real directory")
+    repository = cwd.resolve()
+    for namespace in _RUN_NAMESPACES:
+        root = cwd / namespace
+        if root.is_symlink():
+            raise ValueError(f"{namespace} must not be a symlink")
+        if root.exists():
+            if not root.is_dir() or root.resolve() != repository / namespace:
+                raise ValueError(f"{namespace} must be a contained directory")
+            runs = root / "runs"
+            if runs.is_symlink():
+                raise ValueError(f"{namespace}/runs must not be a symlink")
+            if runs.exists() and (
+                not runs.is_dir() or runs.resolve() != repository / namespace / "runs"
+            ):
+                raise ValueError(f"{namespace}/runs must be a contained directory")
+
+
+@contextmanager
+def _repository_init_lock(cwd: Path):
+    key = str(cwd.resolve())
+    with _INIT_LOCKS_GUARD:
+        thread_lock = _INIT_LOCKS.setdefault(key, threading.Lock())
+    with thread_lock:
+        lock_path = cwd / ".execforge-init-run.lock"
+        if lock_path.is_symlink():
+            raise ValueError("repository init lock must not be a symlink")
+        flags = os.O_CREAT | os.O_RDWR
+        if hasattr(os, "O_NOFOLLOW"):
+            flags |= os.O_NOFOLLOW
+        descriptor = os.open(lock_path, flags, 0o600)
+        acquired = False
+        try:
+            _lock_descriptor(descriptor)
+            acquired = True
+            yield
+        finally:
+            active_error = sys.exc_info()[1]
+            release_errors: list[BaseException] = []
+            try:
+                if acquired:
+                    _unlock_descriptor(descriptor)
+            except BaseException as error:
+                release_errors.append(error)
+            try:
+                os.close(descriptor)
+            except BaseException as error:
+                release_errors.append(error)
+            if release_errors:
+                if active_error is not None:
+                    setattr(active_error, "lock_cleanup_errors", tuple(release_errors))
+                else:
+                    raise RuntimeError(
+                        f"repository lock cleanup failed ({len(release_errors)} error(s))"
+                    ) from release_errors[0]
+
+
+def _lock_descriptor(descriptor: int) -> None:
+    if os.name == "nt":
+        if _msvcrt is None:
+            raise RuntimeError("Windows file locking backend is unavailable")
+        if os.fstat(descriptor).st_size == 0:
+            os.write(descriptor, b"\0")
+        os.lseek(descriptor, 0, os.SEEK_SET)
+        _msvcrt.locking(descriptor, _msvcrt.LK_LOCK, 1)
+    else:
+        if _fcntl is None:
+            raise RuntimeError("POSIX file locking backend is unavailable")
+        _fcntl.flock(descriptor, _fcntl.LOCK_EX)
+
+
+def _unlock_descriptor(descriptor: int) -> None:
+    if os.name == "nt":
+        os.lseek(descriptor, 0, os.SEEK_SET)
+        _msvcrt.locking(descriptor, _msvcrt.LK_UNLCK, 1)
+    else:
+        _fcntl.flock(descriptor, _fcntl.LOCK_UN)
+
+
+def _read_bounded_regular_file(path: Path, max_bytes: int) -> bytes | None:
+    """Read a regular file through a bounded, non-following descriptor."""
+    try:
+        path_metadata = os.lstat(path)
+    except FileNotFoundError:
+        return None
+    except OSError as exc:
+        raise ValueError("file must be a readable regular file") from exc
+    if not stat.S_ISREG(path_metadata.st_mode):
+        raise ValueError("file must be a real regular file")
+
+    flags = os.O_RDONLY
+    if hasattr(os, "O_NONBLOCK"):
+        flags |= os.O_NONBLOCK
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    try:
+        descriptor = os.open(path, flags)
+    except FileNotFoundError:
+        return None
+    except OSError as exc:
+        raise ValueError("file must be a readable regular file") from exc
+    try:
+        metadata = os.fstat(descriptor)
+        current_metadata = os.lstat(path)
+        identity = (metadata.st_dev, metadata.st_ino)
+        if (
+            not stat.S_ISREG(metadata.st_mode)
+            or not stat.S_ISREG(current_metadata.st_mode)
+            or identity != (path_metadata.st_dev, path_metadata.st_ino)
+            or identity != (current_metadata.st_dev, current_metadata.st_ino)
+            or metadata.st_size > max_bytes
+        ):
+            raise ValueError("file must be a bounded regular file")
+        chunks: list[bytes] = []
+        remaining = max_bytes + 1
+        while remaining:
+            chunk = os.read(descriptor, min(64 * 1024, remaining))
+            if not chunk:
+                break
+            chunks.append(chunk)
+            remaining -= len(chunk)
+        payload = b"".join(chunks)
+        if len(payload) > max_bytes:
+            raise ValueError("file exceeds the safe byte limit")
+        return payload
+    finally:
+        os.close(descriptor)
+
+
+def _snapshot_pointer(pointer: Path) -> bytes | None:
+    return _read_bounded_regular_file(pointer, _SELECTOR_MAX_BYTES)
+
+
+def _atomic_write(pointer: Path, payload: bytes) -> None:
+    temporary = pointer.with_name(f".{pointer.name}.{uuid.uuid4().hex}.tmp")
+    try:
+        with temporary.open("xb") as stream:
+            stream.write(payload)
+            stream.flush()
+            os.fsync(stream.fileno())
+        temporary.replace(pointer)
+        _fsync_directory(pointer.parent)
+    finally:
+        if temporary.exists():
+            temporary.unlink()
+
+
+def _fsync_directory(directory: Path) -> None:
+    if os.name == "nt":
+        return
+    descriptor = os.open(directory, os.O_RDONLY)
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+
+
+def _restore_pointer(pointer: Path, snapshot: bytes | None) -> None:
+    if snapshot is None:
+        if pointer.exists() and not pointer.is_symlink():
+            pointer.unlink()
+        return
+    _atomic_write(pointer, snapshot)
+
+
+def _remove_new_run(run: Path) -> None:
+    if not run.exists() or run.is_symlink():
+        return
+    runs_root = run.parent
+    if run.resolve().parent == runs_root.resolve():
+        shutil.rmtree(run)
+
+
+def _authoritative_run_id(cwd: Path) -> str | None:
+    pointer = cwd / ".execforge" / "current.json"
+    try:
+        raw = _read_bounded_regular_file(pointer, _SELECTOR_MAX_BYTES)
+    except (OSError, ValueError):
+        return None
+    if raw is None:
+        return None
+    try:
+        payload = json.loads(raw.decode("utf-8"))
+    except (UnicodeError, json.JSONDecodeError):
+        return None
+    run_id = payload.get("run_id") if isinstance(payload, dict) else None
+    return run_id if _is_canonical_run_id(run_id) else None
+
+
+def _git_metadata(cwd: Path) -> tuple[str | None, str | None]:
+    def query(*arguments: str) -> str | None:
+        try:
+            result = subprocess.run(
+                ["git", "-c", "core.fsmonitor=false", *arguments],
+                cwd=cwd,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=15,
+                check=False,
+                env={**os.environ, "GIT_OPTIONAL_LOCKS": "0"},
+            )
+        except (OSError, subprocess.SubprocessError):
+            return None
+        value = result.stdout.strip()
+        return value if result.returncode == 0 and value else None
+
+    return query("branch", "--show-current"), query("rev-parse", "HEAD")
+
+
+def _write_current_pointer(lifecycle_root: Path, run_id: str) -> None:
+    """Atomically select a contained initiative run."""
+    if not _is_canonical_run_id(run_id):
+        raise ValueError("run_id must be a single contained path component")
+    runs_root = lifecycle_root / "runs"
+    run_root = runs_root / run_id
+    pointer = lifecycle_root / "current.json"
+    if (
+        lifecycle_root.is_symlink()
+        or not lifecycle_root.is_dir()
+        or runs_root.is_symlink()
+        or not runs_root.is_dir()
+        or run_root.is_symlink()
+        or not run_root.is_dir()
+        or pointer.is_symlink()
+    ):
+        raise ValueError("current pointer must use real contained directories")
+    state_path = run_root / "state.json"
+    try:
+        relative = state_path.resolve().relative_to(lifecycle_root.resolve())
+    except (OSError, ValueError) as exc:
+        raise ValueError("current pointer must select a contained initiative state") from exc
+    if (
+        relative != Path("runs") / run_id / "state.json"
+        or state_path.parent.resolve() != run_root.resolve()
+        or not state_path.is_file()
+        or state_path.is_symlink()
+    ):
+        raise ValueError("current pointer must select a contained initiative state")
+    payload = {
+        "version": "1",
+        "run_id": run_id,
+        "state_path": state_path.relative_to(lifecycle_root.parent).as_posix(),
+    }
+    _atomic_write(pointer, (json.dumps(payload, indent=2) + "\n").encode("utf-8"))
+
+
+def _write_authoritative_pointer(execforge_root: Path, run_id: str) -> None:
+    if not _is_canonical_run_id(run_id):
+        raise ValueError("run_id must be canonical")
+    repository = execforge_root.parent
+    eng_state = repository / ".eng-level" / "runs" / run_id / "state.json"
+    qa_state = repository / ".q-level" / "runs" / run_id / "state.json"
+    for state, namespace in ((eng_state, ".eng-level"), (qa_state, ".q-level")):
+        run_root = state.parent
+        runs_root = run_root.parent
+        if (
+            run_root.is_symlink()
+            or runs_root.is_symlink()
+            or state.is_symlink()
+            or not state.is_file()
+            or state.resolve().relative_to(repository.resolve())
+            != Path(namespace) / "runs" / run_id / "state.json"
+        ):
+            raise ValueError("authoritative selector must reference contained real state")
+    payload = {
+        "version": "1",
+        "run_id": run_id,
+        "eng_state_path": eng_state.relative_to(repository).as_posix(),
+        "qa_state_path": qa_state.relative_to(repository).as_posix(),
+    }
+    _atomic_write(
+        execforge_root / "current.json",
+        (json.dumps(payload, indent=2) + "\n").encode("utf-8"),
+    )
+
+
+def _is_canonical_run_id(run_id: object) -> bool:
+    return bool(
+        isinstance(run_id, str)
+        and len(run_id) <= 255
+        and run_id not in {".", ".."}
+        and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", run_id)
+        and "/" not in run_id
+        and "\\" not in run_id
+    )
 
 
 def print_backlog(backlog_file: Path) -> None:
@@ -547,8 +985,10 @@ def cmd_release_check(args) -> int:
 def show_status(cwd: Path) -> int:
     found = False
 
-    state_file = cwd / ".eng-level" / "state.json"
-    if state_file.exists():
+    operating_state = _load_operating_state_module()
+
+    state_file = operating_state.selected_or_legacy_state_path(cwd / ".eng-level")
+    if state_file is not None:
         found = True
         state = json.loads(state_file.read_text(encoding="utf-8"))
         print("[engineering]")
@@ -575,10 +1015,10 @@ def show_status(cwd: Path) -> int:
         for blocker in blockers:
             print(f"  - {blocker}")
 
-        print_backlog(cwd / ".eng-level" / "backlog.md")
+        print_backlog(state_file.parent / "backlog.md")
 
-    qa_file = cwd / ".q-level" / "state.json"
-    if qa_file.exists():
+    qa_file = operating_state.selected_or_legacy_state_path(cwd / ".q-level")
+    if qa_file is not None:
         found = True
         state = json.loads(qa_file.read_text(encoding="utf-8"))
         print("[qa]")
@@ -598,6 +1038,72 @@ def show_status(cwd: Path) -> int:
     return 0
 
 
+def _print_operating_warnings(snapshot) -> None:
+    for finding in snapshot.findings:
+        print(
+            f"warning: {_terminal_safe(finding.code)}: "
+            f"{_terminal_safe(finding.detail)}"
+        )
+
+
+def resume_run(cwd: Path) -> int:
+    """Report authoritative lifecycle metadata reconciled with actual Git state."""
+    operating_state = _load_operating_state_module()
+    snapshot = operating_state.operating_snapshot(cwd)
+    state = snapshot.state or {}
+
+    def recorded(key: str) -> str:
+        if key not in state:
+            return "unknown"
+        value = state[key]
+        if value is None:
+            return "none"
+        return _terminal_safe(value)
+
+    print(f"initiative: {recorded('initiative')}")
+    print(f"run_id: {recorded('run_id')}")
+    print(f"git_branch: {_terminal_safe(snapshot.git_branch or 'unknown')}")
+    print(f"git_head: {_terminal_safe(snapshot.git_head or 'unknown')}")
+    print(f"lifecycle_state: {recorded('state')}")
+    print(f"stop_after: {recorded('stop_after')}")
+    blocker_fields = [
+        state[key] for key in ("blockers", "open_blockers") if key in state
+    ]
+    blockers = sum((len(items) for items in blocker_fields), 0) if blocker_fields else None
+    print(f"blockers: {blockers if blockers is not None else 'unknown'}")
+    print(f"artifact_root: {recorded('artifact_root')}")
+    evidence_root = snapshot.state_path.parent if snapshot.state_path else None
+    backlog = evidence_root / "backlog.md" if evidence_root else None
+    print(f"evidence_root: {_terminal_safe(evidence_root or 'unknown')}")
+    print(f"backlog_location: {_terminal_safe(backlog or 'unknown')}")
+    backlog_summary = (
+        f"{snapshot.backlog_count} deferred action(s)"
+        if snapshot.backlog_count is not None else "unknown"
+    )
+    print(f"backlog_summary: {backlog_summary}")
+    recorded_next_action = state.get("next_action")
+    print(f"recorded_next_action: {'present' if recorded_next_action else 'none'}")
+    _print_operating_warnings(snapshot)
+    return 0 if snapshot.state is not None else 1
+
+
+def show_next(cwd: Path) -> int:
+    """Print exactly one safe next action plus content-safe warnings."""
+    operating_state = _load_operating_state_module()
+    snapshot = operating_state.operating_snapshot(cwd)
+    action, returncode = operating_state.deterministic_next(snapshot)
+    print(f"next_action: {action}")
+    blockers = []
+    if snapshot.state:
+        blockers = (snapshot.state.get("blockers") or []) + (
+            snapshot.state.get("open_blockers") or []
+        )
+    if blockers:
+        print(f"warning: open_blockers: {len(blockers)}")
+    _print_operating_warnings(snapshot)
+    return returncode
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(prog="execforge")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -611,7 +1117,15 @@ def main() -> int:
 
     sub.add_parser("check-superpowers", help="check common Superpowers locations")
 
-    sub.add_parser("doctor", help="check installation prerequisites and dependencies")
+    doctor_parser = sub.add_parser(
+        "doctor", help="check installation prerequisites and dependencies"
+    )
+    doctor_parser.add_argument(
+        "--installed", action="store_true", help="compare bundled skills with all known install roots"
+    )
+    doctor_parser.add_argument(
+        "--portfolio", type=Path, help="scan direct-child Git repositories under PATH"
+    )
 
     init_parser = sub.add_parser("init-run", help="initialize decision and lifecycle artifacts")
     init_parser.add_argument("--name", required=True)
@@ -619,6 +1133,12 @@ def main() -> int:
 
     status_parser = sub.add_parser("status", help="show lifecycle state")
     status_parser.add_argument("--root", type=Path, default=Path.cwd())
+
+    resume_parser = sub.add_parser("resume", help="resume selected lifecycle context")
+    resume_parser.add_argument("--root", type=Path, default=Path.cwd())
+
+    next_parser = sub.add_parser("next", help="show the next safe lifecycle action")
+    next_parser.add_argument("--root", type=Path, default=Path.cwd())
 
     eval_parser = sub.add_parser("eval", help="run behavioral eval cases via a headless agent")
     eval_parser.add_argument("case", nargs="?", default="all", help="case id or 'all'")
@@ -656,7 +1176,7 @@ def main() -> int:
         return check_superpowers()
 
     if args.command == "doctor":
-        return doctor()
+        return doctor(installed=args.installed, portfolio=args.portfolio)
 
     if args.command == "init-run":
         init_run(args.name, args.root.resolve())
@@ -664,6 +1184,12 @@ def main() -> int:
 
     if args.command == "status":
         return show_status(args.root.resolve())
+
+    if args.command == "resume":
+        return resume_run(args.root.resolve())
+
+    if args.command == "next":
+        return show_next(args.root.resolve())
 
     if args.command == "eval":
         return cmd_eval(args)

@@ -1,47 +1,82 @@
-# Final Engineering Decision — v0.9.0 Evidence Bridges & Executable Evals
+# Final Engineering Decision — Operating Layer Phase 1
 
-Run: eng-level full lifecycle, 2026-07-13. Branch: `feat/v0.9.0-evidence-bridges`.
-Base: `feat/v0.8.0-role-architecture` @ `98db516` (locked in plan review).
-Upstream: APPROVE UPSTREAM (2026-07-13). Plan review: APPROVED WITH CONDITIONS.
+## Eng Level summary
 
-## Verdict: SHIP (committed on branch — push/PR/merge awaits operator go-ahead)
+- Initiative: ExecForge Operating Layer Phase 1
+- Upstream source: user-approved selective improvement after Citadel comparison
+- Upstream approval: APPROVED by user on 2026-07-13
+- Mode: full implementation and fallback review
+- Branch: `feat/operating-layer-phase-1`
+- Base: `feat/v0.9.0-evidence-bridges` at `aa276d09cd1a0dcac701705ac1b3e4bf0225ced4`
+- Reviewed HEAD: `bc5b9b077178e492660483f8af196bb88b12d46d`
+- Lifecycle state: SHIP_READY (engineering decision only; no merge/deploy performed)
+- Plan verdict: APPROVED WITH CONDITIONS
+- Staff review: APPROVED after whole-branch review and security-driven delta reviews
+- Security review: SEC PASS
+- QA: NOT APPLICABLE — local repository CLI/docs; no portal, API, backend, database, queue, or end-to-end service transaction
+- Confidence: High for tested POSIX behavior; Windows runtime remains explicitly unverified
 
-## Conformance to upstream requirements
+## Plan status
 
-| Requirement | Status | Evidence |
-|---|---|---|
-| Executable eval harness (runner + advisory CI) | DONE | `execforge eval` (parse → agent → judge → locally recomputed verdict); `evals.yml` advisory, path-filtered, key-gated, capped; 13 tests in `tests/test_eval_runner.py` |
-| Harness catches doc-vs-code drift (KR2) | DONE | First parser run caught the nonconforming two-scenario `eng-level-post-hoc-and-stop.eval.md`; split into two conforming cases |
-| gstack bridge: q-level `/browse`+`/qa` | DONE | `skills/q-level/references/tool-routing.md` Portal section; installed-only condition + fallback unchanged |
-| gstack bridge: post-SHIP `/land-and-deploy` handoff | DONE | `skills/eng-level/SKILL.md` Final decision rules |
-| gstack bridge: sec-level `/cso` runtime evidence | DONE | `skills/sec-level/SKILL.md` lifecycle integration |
-| Version gate (manifests ↔ CHANGELOG ↔ tag) | DONE | `execforge release-check`; `release-gate.yml` on tag push; consistency step in `ci.yml`; rejects `v.1.0.0` form (verified in dry run) |
-| Hygiene: untrack `__pycache__`/`site/` | NO LONGER NEEDED | `git ls-files` shows both already untracked and gitignored |
-| Remove stray `v.1.0.0` tag | DEFERRED (operator) | Exact commands documented in CHANGELOG 0.9.0 entry; COO control requires operator supervision |
-| No hard gstack dependency | DONE | All three bridge texts conditional; fallback contracts untouched |
-| CHANGELOG/version bump | DONE | 0.9.0 in both manifests + CHANGELOG head; `release-check: consistent` |
+Architecture remains a dependency-free local CLI operating layer. It adds
+read-only installed/portfolio diagnostics, authoritative initiative selectors,
+initiative-scoped Eng/Q artifacts, and deterministic `resume`/`next`. Evidence
+precedence, bounded metadata, path containment, approval, Git lineage, frozen
+implementation state, rollback, legacy readability, and project-specific rules
+remain non-negotiable. Telemetry, hooks, dashboards/fleets, and historical
+migration remain non-goals for this phase.
 
-## Staff Engineer review
+## Implementation conformance
 
-Whole-branch review at medium effort (harness code-review instrument; installed gstack
-`review` unavailable). Findings: 0×P0/P1, 2×P3 CONFIRMED (malformed eval file crashed
-`--list`; missing CHANGELOG crashed `release_check`), 1×PLAUSIBLE (CI eval agent's
-default headless permissions may make artifact-writing behaviors unobservable →
-systematic advisory FAILs). The two CONFIRMED items were fixed test-first in the same
-cycle; the fix pass also caught and corrected a pass/fail miscount in the summary line.
-Delta review of the fix commit: clean.
+DONE 7; PARTIAL 0; NOT DONE 0; CHANGED 0; SCOPE DRIFT 0; UNVERIFIABLE 0;
+NO LONGER NEEDED 0. Detailed evidence is in
+`.eng-level/operating-layer-phase-1/conformance.md`.
 
-## QA
+## Blocking findings
 
-`q-level` NOT APPLICABLE: the change is repository CLI tooling, docs, and CI
-configuration — no portal, API, or backend service surface. The CLI was driven end to
-end (`eval --list`, stubbed eval run with correct FAIL/exit-1, `release-check` both
-paths). 35 unit tests pass; `validate` and `doctor` clean.
+None. All reproduced P1/S1 findings were corrected test-first and independently
+delta-reviewed.
 
-## Open risks (non-blocking)
+## Non-blocking findings
 
-- The advisory CI job's real behavior on GitHub is unobserved until the branch is
-  pushed with an `ANTHROPIC_API_KEY` secret; by design it cannot block merges
-  (`continue-on-error`, key-gated skip).
-- PLAUSIBLE permission-noise finding above — evaluate during the advisory period before
-  any promotion to a required check (recorded in `.eng-level/backlog.md`).
+- P2: full run-tree fsync before selector publication, due before claiming
+  power-loss-safe or regulated evidence durability.
+- P2: versioned strict namespaced-state schemas, due before third-party artifact validation.
+- P2: initiative producer bounds, due before external/automated ingestion.
+- P2: Windows locking/runtime execution, due before cross-platform verification claims.
+- S3: active portfolio child replacement race, due before adversarial concurrent scans.
+
+Owners, rationale, and pull-forward conditions are recorded in `.eng-level/backlog.md`.
+
+## Contradictions resolved
+
+The selective scope, metadata-safety wording, stale-lineage meaning, governance
+worktree exemption, and durability guarantee were reconciled against real code
+and tests. See `.eng-level/operating-layer-phase-1/contradictions.md`.
+
+## Verification
+
+Fresh final commands after recording the decision artifacts:
+
+```text
+python3 scripts/execforge.py validate
+python3 -m py_compile scripts/execforge.py scripts/operating_state.py tests/test_repository.py
+git diff --check aa276d0..HEAD
+git diff --check
+python3 -W error::ResourceWarning -m unittest discover -s tests -v
+```
+
+Results: validation passed; compilation passed; whitespace checks passed; 89
+tests ran in 11.830 seconds and passed. Real portfolio smoke returned bounded
+findings for missing root instructions, stale branches, and missing frozen
+lineage without modifying repositories. External parity `cmp` checks returned 0
+for both eligible repositories.
+
+## Final decision
+
+> **Decision: SHIP**
+
+Phase 1 meets every approved acceptance criterion with no unresolved P0/P1 or
+S0/S1/S2. The required next action is for the operator to choose branch handling
+(local merge, PR, keep, or discard). ExecForge maintainers own the deferred
+hardening backlog; re-entry occurs when a recorded pull-forward condition is met.
