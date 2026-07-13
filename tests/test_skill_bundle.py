@@ -13,10 +13,16 @@ spec.loader.exec_module(module)
 
 class SkillBundleTests(unittest.TestCase):
     def test_plugin_manifests_match_bundled_skills(self):
-        expected = sorted(module.BUNDLED_SKILLS)
-        for rel in [".claude-plugin/plugin.json", ".codex-plugin/plugin.json"]:
-            manifest = json.loads((ROOT / rel).read_text())
-            self.assertEqual(expected, sorted(manifest["skills"]))
+        """Each host has its own manifest contract; validating both against one
+        shape is what previously hid the Codex manifest being unloadable."""
+        claude = json.loads((ROOT / ".claude-plugin" / "plugin.json").read_text())
+        self.assertEqual(sorted(module.BUNDLED_SKILLS), sorted(claude["skills"]))
+
+        codex = json.loads((ROOT / ".codex-plugin" / "plugin.json").read_text())
+        self.assertIsInstance(codex["skills"], str)
+        skills_dir = ROOT / codex["skills"].lstrip("./").rstrip("/")
+        discovered = {p.name for p in skills_dir.iterdir() if (p / "SKILL.md").exists()}
+        self.assertEqual(set(), module.BUNDLED_SKILLS - discovered)
 
     def test_every_bundled_skill_has_an_evaluation_case(self):
         evaluations = ROOT / "evaluations"

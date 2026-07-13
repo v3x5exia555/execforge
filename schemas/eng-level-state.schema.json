@@ -32,6 +32,9 @@
         "SHIP_READY"
       ]
     },
+    "upstream_source": {
+      "type": "string"
+    },
     "upstream_approval_status": {
       "enum": [
         "PENDING",
@@ -39,6 +42,40 @@
         "REJECTED",
         "REOPENED"
       ]
+    },
+    "upstream_approved_by": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "upstream_approved_at": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "implementation_head": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "plan_status": {
+      "enum": [
+        null,
+        "APPROVED",
+        "APPROVED WITH CONDITIONS",
+        "REVISE",
+        "REJECTED",
+        "UNVERIFIABLE"
+      ]
+    },
+    "required_conditions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
     },
     "base_branch": {
       "type": [
@@ -52,6 +89,41 @@
         "null"
       ]
     },
+    "routed_roles": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "architect",
+          "manager",
+          "staff-engineer",
+          "backend-engineer",
+          "platform-engineer"
+        ]
+      }
+    },
+    "temperament": {
+      "enum": [
+        null,
+        "pragmatist",
+        "purist"
+      ]
+    },
+    "adversarial_pair": {
+      "type": "boolean"
+    },
+    "stop_after": {
+      "enum": [
+        null,
+        "product",
+        "plan",
+        "implement",
+        "review",
+        "qa"
+      ]
+    },
+    "post_hoc_review": {
+      "type": "boolean"
+    },
     "final_decision": {
       "type": [
         "string",
@@ -61,6 +133,7 @@
         null,
         "SHIP",
         "SHIP WITH REQUIRED FIXES",
+        "SHIP WITH REQUIRED FIXES (UNGATED)",
         "RETURN TO IMPLEMENTATION",
         "RETURN TO PLAN",
         "BLOCK"

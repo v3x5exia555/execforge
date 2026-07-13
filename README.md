@@ -11,6 +11,8 @@ COO Subagent
              ↓
       User Approval Gate
              ↓
+  Authorization / RoE Gate   (hard STOP if the initiative is offensive-security,
+             ↓                 legally-gated, or brand-impersonation work)
    Optional UI/UX Design Bridge
              ↓
         Eng Level Orchestrator
@@ -22,6 +24,8 @@ COO Subagent
       Final Engineering Decision
 ```
 
+Product decisions set **initiative flags** (`offensive-security`, `legally-gated`, `regulated-impersonation`, `user-prescribed-mechanism`) that arm conditional gates downstream — most importantly an Authorization / Rules-of-Engagement gate that stops legally-gated or offensive-security work until the operator records an authorization decision. See [Authorization Gate](docs/authorization-gate.md).
+
 ## Bundled skills
 
 | Skill | Purpose |
@@ -29,7 +33,7 @@ COO Subagent
 | `c-level` | Bootstrap/router that selects the correct workflow and integrates installed Superpowers skills |
 | `full-cycle` | End-to-end lifecycle orchestrator: product decision → approval → design → plan → build → reviews → QA → final ship verdict in one governed run |
 | `execforge` | CEO + COO product pressure test and final `GO / MODIFY / PILOT / DEFER / KILL` decision |
-| `design-html` | Translates approved product scope into UX/interface structure and production-oriented HTML/CSS guidance for UI-facing work |
+| `design-html` | Translates approved product scope into UX/interface structure and production-oriented HTML/CSS guidance for UI-facing work, optionally binding an external design system via `--design-system` |
 | `eng-level` | Upstream approval, engineering plan review, implementation conformance, Staff Engineer review, and final ship decision |
 | `q-level` | Risk-based portal/API/backend QA planning, execution, retest, data-QA attachment, and `QA PASS / RETURN / BLOCK` decision |
 | `sec-level` | Application-security actor: threat model at plan stage, OWASP-mapped adversarial review of the real diff, and `SEC PASS / FIX REQUIRED / BLOCK` verdict |
@@ -118,6 +122,14 @@ For UI-facing initiatives with approved scope:
 /design-html
 ```
 
+`design-html` owns structure, not aesthetics. To bind a visual language, pass a design system from the [awesome-design-skills](https://github.com/bergside/awesome-design-skills) registry:
+
+```text
+/design-html --design-system=brutalism
+```
+
+The interface contract still wins: approved scope, then screens and states, then accessibility, then design system tokens. A token that fails the contrast bar is reported, never silently applied or silently overridden.
+
 ### 6. Move to engineering
 
 ```text
@@ -125,6 +137,8 @@ For UI-facing initiatives with approved scope:
 ```
 
 The lifecycle stops at `UPSTREAM_APPROVAL_REQUIRED`. Approve the interpreted requirements with `APPROVE UPSTREAM`.
+
+If the initiative carries a gating flag (`offensive-security`, `legally-gated`, or `regulated-impersonation`), it stops again at the **Authorization / Rules-of-Engagement gate** before any build. Record an `AUTHORIZED` / `NOT AUTHORIZED` / `N-A (justified)` decision with written authorization, scope of engagement, consent basis, no unapproved third-party impersonation, and captured-data handling. This is a governance gate the agent never self-answers, distinct from the `sec-level` technical review — see [Authorization Gate](docs/authorization-gate.md).
 
 ### 7. Build and review
 
@@ -158,6 +172,49 @@ For changes touching auth, user input, secrets, sensitive data, new dependencies
 
 Approve the proposed test plan and target environment with `APPROVE QA PLAN`.
 
+## Actor parameters
+
+Parameters passed when you trigger an actor. Every parameter is optional.
+
+| Actor | Parameter | Values | If omitted |
+|---|---|---|---|
+| `/c-level` | *none* | Router; selects the workflow and forwards parameters to it | — |
+| `/full-cycle` | `--design-system` | Forwarded to `design-html` at Stage 2 (see below) | Stage 2 runs aesthetic-neutral |
+| `/execforge` | *none* | Depth is chosen internally: one isolated review for small, low-risk, reversible changes; dual CEO + COO subagents otherwise | — |
+| `/design-html` | `--design-system` | `<name>` \| `auto` \| `none` | `none` |
+| `/eng-level` | `--mode` | `plan` \| `review` \| `full` \| `auto` \| `status` | Pass `auto` to detect the next valid stage |
+| `/q-level` | `--mode` | `plan` \| `execute` \| `full` \| `retest` \| `auto` \| `status` | Pass `auto` to detect the next valid stage |
+| `/sec-level` | `--mode` | `threat-model` \| `review` \| `auto` | Pass `auto` to pick from lifecycle evidence |
+
+Only `design-html` declares a default for an omitted parameter (`none`). `eng-level`, `q-level`, and `sec-level` document their modes but do not declare a default — pass `--mode=auto` explicitly, as the quick start does, rather than relying on inference.
+
+### What each value does
+
+**`design-html --design-system`** binds an external visual language to the interface contract. `none` produces aesthetic-neutral structural HTML/CSS. `<name>` resolves against the [awesome-design-skills](https://github.com/bergside/awesome-design-skills) registry and binds its tokens. `auto` proposes a system and confirms before binding. Structure, screen states, and accessibility always outrank design system tokens — a design system may restyle a state but never remove one, and it never adds scope. See [design system binding](skills/design-html/references/design-system-binding.md).
+
+**`eng-level --mode`** — `plan` approves or rejects the technical plan; `review` audits a real Git diff; `full` runs every stage possible in the session; `auto` detects and runs the next valid stage; `status` reports state without starting a review.
+
+**`q-level --mode`** — `plan` creates a risk-based QA plan and stops for approval; `execute` runs an already approved plan; `full` plans, requests approval, then executes; `retest` verifies fixes without silently reducing expectations; `auto` detects and runs the next valid stage; `status` reports state and open defects.
+
+**`sec-level --mode`** — `threat-model` runs at plan stage before implementation; `review` runs an OWASP-mapped audit once a real diff exists; `auto` picks from lifecycle evidence (no diff yet → `threat-model`; real diff exists → `review`).
+
+### Not parameters
+
+Two things look like parameters but are not passed at invocation:
+
+- **Initiative flags** (`offensive-security`, `legally-gated`, `regulated-impersonation`, `user-prescribed-mechanism`) are *set by* `execforge` as an output of the product decision. They arm conditional gates downstream; you do not pass them in.
+- **Gate responses** (`APPROVE UPSTREAM`, `APPROVE QA PLAN`, `AUTHORIZED` / `NOT AUTHORIZED` / `N-A (justified)`) are replies to a stopped lifecycle, typed when the actor asks. The agent never self-answers them.
+
+### Examples
+
+```text
+/design-html --design-system=brutalism
+/full-cycle --design-system=auto Take this from idea to ship: [problem, user, change, constraints]
+/eng-level --mode=review
+/q-level --mode=retest
+/sec-level --mode=threat-model
+```
+
 ## CLI reference
 
 All commands run through `scripts/execforge.py` (or `scripts/install.sh` as a thin wrapper around `install`).
@@ -173,7 +230,7 @@ All commands run through `scripts/execforge.py` (or `scripts/install.sh` as a th
 
 ## Evaluations
 
-`evaluations/` contains one behavioral evaluation case per bundled skill: an input scenario, an expected-behavior checklist, and explicit failure conditions. A case passes only when every expected behavior is observed and no failure condition occurs. The shared invariant across all cases: **never claim a review, test, approval, or lifecycle stage ran without evidence that it actually ran.** See [`evaluations/README.md`](evaluations/README.md).
+`evaluations/` contains at least one behavioral evaluation case per bundled skill — plus focused cases for conditional behavior such as the Authorization gate and design system binding. Each case carries an input scenario, an expected-behavior checklist, and explicit failure conditions. A case passes only when every expected behavior is observed and no failure condition occurs. The shared invariant across all cases: **never claim a review, test, approval, or lifecycle stage ran without evidence that it actually ran.** See [`evaluations/README.md`](evaluations/README.md).
 
 ## Continuous integration
 
@@ -243,6 +300,10 @@ Q Level answers:
 Sec Level answers:
 
 > Can an attacker abuse this change — proven against the actual code, configuration, and dependencies, not the plan's stated intent?
+
+The Authorization gate answers:
+
+> Are we permitted to perform this operation at all — with written authorization, a defined scope, a consent basis, and no unapproved impersonation — before any of it is built?
 
 Superpowers answers:
 

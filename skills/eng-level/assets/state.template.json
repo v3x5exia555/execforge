@@ -10,6 +10,11 @@
   "base_commit": null,
   "implementation_head": null,
   "plan_status": null,
+  "routed_roles": [],
+  "temperament": null,
+  "adversarial_pair": false,
+  "stop_after": null,
+  "post_hoc_review": false,
   "final_decision": null,
   "open_blockers": [],
   "required_conditions": []

@@ -1,5 +1,33 @@
 # Changelog
 
+## 0.8.0 — 2026-07-12
+
+Derived from a review of 469 real prompts across five projects. Every change below answers a
+failure observed in that record, not a hypothetical one.
+
+- Added **roles** to `eng-level` — `architect`, `manager`, `staff-engineer`, `backend-engineer`, `platform-engineer` — as lenses that attach to lifecycle stages rather than as new skills. `backend-engineer` and `platform-engineer` attach three times each: advising at plan, building at implement, auditing at review. Contracts in `skills/eng-level/references/role-contracts.md`. Roles are a runtime concern; `BUNDLED_SKILLS`, both plugin manifests, and the validator are unchanged.
+- Added **role auto-routing** (`references/role-routing.md`): roles are inferred from the request and the change surface, announced in one line, and run without a confirmation gate. Users are never required to name a role or type a flag. Routing is intent-level, not keyword-level, and biases to the superset when ambiguous — a missed lens ships a defect, an extra lens costs tokens.
+- Added **adversarial reviewer pairing** (`references/reviewer-briefs.md`, `references/subagent-dispatch.md`): a `pragmatist` and a `purist` review the same scope and are required to pre-rebut each other. Engages automatically when a change touches schema, migrations, money, identity resolution, or third-party evidence. Disagreements are reconciled by sequencing, not averaging; only the irreducible taste call is escalated. Actions carry `[C]` / `[R]` / `[gate]` provenance. No subagent may issue a ship verdict.
+- Added the **`POST-HOC REVIEW`** label and the `SHIP WITH REQUIRED FIXES (UNGATED)` verdict ceiling: a substantial diff with no approved upstream requirements is still reviewed, but cannot return `SHIP`. Makes the cost of building before gating visible in the output instead of hidden.
+- Added **`--stop-after=<stage>`** to `eng-level` and `full-cycle`, plus a durable deferred backlog at `.eng-level/backlog.md` (template in `assets/backlog.template.md`). A stated intent to stop — "plan it but do not deploy", "keep it for next cycle" — sets the parameter and survives later turns. Deferred work records why it was deferred, what unblocks it, and the condition that pulls it forward. `--mode=status` reads it.
+- Made **acceptance criteria enforceable**: a plan whose implementation tasks lack binary pass tests is `REVISE`. "Test until it works" is not an acceptance criterion.
+- **Gating initiative flags now attach `sec-level` automatically** (`full-cycle` rule 8). The authorization gate decides whether work is *permitted*; `sec-level` decides whether it is *safe*. Passing one never substitutes for the other.
+- Added a **trigger alias table** to `c-level`: `product plan`, `c-plan`, `QA-level`, `eng-plan`, `designer`, `eng-lifecyle` and other real-world phrasings route to the correct skill without asking the user to restate the request.
+- Added evaluations `eng-level-role-routing.eval.md` (real prompts as the ground-truth routing set) and `eng-level-post-hoc-and-stop.eval.md`.
+
+### Fixed (found by an independent Codex CLI structure review)
+
+- **The Codex plugin manifest was unloadable.** `.codex-plugin/plugin.json` declared `"skills"` as an array of skill names, copied from the Claude manifest format. The Codex plugin contract requires a plugin-root-relative **path string** (`"skills": "./skills/"`). The bundle has never been installable as a Codex plugin; `execforge.py install` masked this by copying skill directories and bypassing the manifest entirely. Manifest corrected, and `license`/`interface` metadata added.
+- **The validator was asserting the broken shape.** `validate_repo` checked both manifests against one contract (`skills == BUNDLED_SKILLS`), which is what hid the defect. Split into `_validate_claude_manifest` (name array) and `_validate_codex_manifest` (path string, resolves to a real directory containing every bundled skill), with a regression test that the name-array shape is now rejected.
+- **Roles, temperament, and the stop boundary are now persisted.** They were documented as parameters but nothing recorded them, so the claim that a stop boundary "survives a later turn" was false. Added `routed_roles`, `temperament`, `adversarial_pair`, `stop_after`, and `post_hoc_review` to `state.template.json` and the state schema. `eng-level` must write the routed set before work starts; an unrecorded role did not run and must not be claimed.
+- **`SHIP WITH REQUIRED FIXES (UNGATED)` was invalid under the repo's own schema.** Added to the `final_decision` enum.
+- **`init-run` now creates `.eng-level/backlog.md`** from the template. `--mode=status` had been documented as reading a file nothing created.
+- **The state schema was missing six keys it was supposed to govern** (`upstream_source`, `upstream_approved_by`, `upstream_approved_at`, `implementation_head`, `plan_status`, `required_conditions`). `additionalProperties: true` let the template drift from the schema unnoticed. Added, plus a test asserting the template validates against the schema.
+- **`--role` could suppress a mandatory lens.** `role-contracts.md` said an explicit role means "that lens only", which would let a user route around a required `staff-engineer` diff review. An explicit role now narrows advisory lenses only; `staff-engineer` (on any diff) and `architect` + `manager` (at plan) always attach.
+- **Added a subagent-unavailable fallback.** Dispatch is not available in every host. Roles now run sequentially in-line when parallel dispatch is unavailable, with the run explicitly labelled and a failed role recorded as `UNVERIFIABLE` rather than passing silently.
+- **Builder-audits-self independence is now stated.** When `backend-engineer` or `platform-engineer` implements a surface, its own review of that surface is a self-check, and `staff-engineer` remains the independent reviewer of record.
+- Fixed a routing example that violated its own superset rule ("cost and scale… domain and vps" routes to `architect` **and** `platform-engineer`).
+
 ## 0.7.0 — 2026-07-08
 
 - Added an **initiative-flags** mechanism to `execforge`: named flags (`offensive-security`, `legally-gated`, `regulated-impersonation`, `user-prescribed-mechanism`) set at the product/upstream stage that arm conditional downstream governance gates. Detailed catalog and contracts in `skills/execforge/references/initiative-flags.md`.
