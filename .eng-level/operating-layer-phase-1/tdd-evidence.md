@@ -53,3 +53,45 @@ git diff --check
 - Exit status: `0` for each command.
 - Repository validation reported `ExecForge validation passed.`
 - Diff whitespace validation produced no findings.
+
+## Quality-review regression cycle
+
+Five regression tests were added before production changes for branch metadata
+compatibility, fsmonitor suppression, invalid Git bytes, special-file hashing,
+and selected-state precedence.
+
+RED command:
+
+```sh
+python3 -m unittest tests.test_repository.RepositoryTests.test_portfolio_branch_compatibility_and_precedence tests.test_repository.RepositoryTests.test_portfolio_git_status_disables_configured_fsmonitor tests.test_repository.RepositoryTests.test_git_output_with_invalid_utf8_is_replaced tests.test_repository.RepositoryTests.test_installed_skill_fifo_is_hashed_without_blocking tests.test_repository.RepositoryTests.test_malformed_selected_state_does_not_fall_back_to_legacy -v
+```
+
+- Exit status: `1`
+- Result: `3` failures and `2` errors across `5` tests.
+- Observed failures: legacy `base_branch` drift was missed; configured
+  `core.fsmonitor` created its marker; invalid Git bytes raised
+  `UnicodeDecodeError`; FIFO hashing exceeded the two-second timeout; and a
+  malformed pointer-selected state incorrectly produced a legacy branch
+  mismatch.
+
+GREEN command:
+
+```sh
+python3 -m unittest tests.test_repository.RepositoryTests.test_portfolio_branch_compatibility_and_precedence tests.test_repository.RepositoryTests.test_portfolio_git_status_disables_configured_fsmonitor tests.test_repository.RepositoryTests.test_git_output_with_invalid_utf8_is_replaced tests.test_repository.RepositoryTests.test_installed_skill_fifo_is_hashed_without_blocking tests.test_repository.RepositoryTests.test_malformed_selected_state_does_not_fall_back_to_legacy -v
+```
+
+- Exit status: `0`
+- Result: all `5` regression tests passed.
+
+Post-fix verification commands:
+
+```sh
+python3 -m unittest discover -s tests -v
+python3 scripts/execforge.py validate
+python3 -m py_compile scripts/operating_state.py scripts/execforge.py tests/test_repository.py
+git diff --check
+```
+
+- The complete suite passed all `42` tests.
+- Repository validation and bytecode compilation exited `0`.
+- Final diff whitespace validation exited `0` with no findings.

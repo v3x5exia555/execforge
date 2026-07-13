@@ -2,11 +2,13 @@ from pathlib import Path
 import importlib.util
 import json
 import os
+import shlex
 import shutil
 import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "execforge.py"
@@ -23,6 +25,19 @@ operating_spec.loader.exec_module(operating_state)
 
 
 class RepositoryTests(unittest.TestCase):
+    def _git(self, repo: Path, *args: str, check: bool = True):
+        return subprocess.run(
+            ["git", *args], cwd=repo, check=check, capture_output=True, text=True
+        )
+
+    def _initialize_repo(self, repo: Path):
+        repo.mkdir()
+        self._git(repo, "init", "-b", "main")
+        self._git(repo, "config", "user.email", "tests@example.com")
+        self._git(repo, "config", "user.name", "ExecForge Tests")
+        (repo / "AGENTS.md").write_text("instructions\n", encoding="utf-8")
+        (repo / "CLAUDE.md").write_text("instructions\n", encoding="utf-8")
+
     def test_installed_skill_diagnostics(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -161,6 +176,129 @@ class RepositoryTests(unittest.TestCase):
             self.assertEqual(1, installed_cli.returncode)
             self.assertIn("installed_skill_missing", installed_cli.stdout)
             self.assertNotIn("Traceback", installed_cli.stdout + installed_cli.stderr)
+
+    def test_portfolio_branch_compatibility_and_precedence(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            portfolio = Path(tmp)
+
+            legacy = portfolio / "legacy"
+            self._initialize_repo(legacy)
+            (legacy / ".eng-level").mkdir()
+            (legacy / ".eng-level" / "state.json").write_text(
+                json.dumps(
+                    {
+                        "initiative": "Legacy",
+                        "state": "REVIEW_READY",
+                        "base_branch": "other",
+                    }
+                )
+            )
+
+            precedence = portfolio / "precedence"
+            self._initialize_repo(precedence)
+            (precedence / ".eng-level").mkdir()
+            (precedence / ".eng-level" / "state.json").write_text(
+                json.dumps(
+                    {
+                        "initiative": "Current",
+                        "state": "REVIEW_READY",
+                        "branch": "main",
+                        "base_branch": "other",
+                    }
+                )
+            )
+
+            findings = operating_state.portfolio_diagnostics(portfolio)
+            mismatch_projects = {
+                finding.project for finding in findings if finding.code == "branch_mismatch"
+            }
+            self.assertIn("legacy", mismatch_projects)
+            self.assertNotIn("precedence", mismatch_projects)
+
+    def test_portfolio_git_status_disables_configured_fsmonitor(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            portfolio = Path(tmp)
+            repo = portfolio / "repo"
+            self._initialize_repo(repo)
+            marker = portfolio / "fsmonitor-ran"
+            hook = portfolio / "fsmonitor-hook"
+            hook.write_text(
+                f"#!/bin/sh\ntouch {shlex.quote(str(marker))}\n",
+                encoding="utf-8",
+            )
+            hook.chmod(0o755)
+            self._git(repo, "config", "core.fsmonitor", str(hook))
+
+            operating_state.portfolio_diagnostics(portfolio)
+
+            self.assertFalse(marker.exists(), "portfolio diagnostics executed core.fsmonitor")
+
+    def test_git_output_with_invalid_utf8_is_replaced(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            fake_git = root / "git"
+            fake_git.write_text("#!/bin/sh\nprintf '\\377'\n", encoding="utf-8")
+            fake_git.chmod(0o755)
+            with mock.patch.dict(os.environ, {"PATH": str(root)}):
+                output, finding = operating_state._run_git(root, "version")
+
+            self.assertIsNone(finding)
+            self.assertEqual("\ufffd", output)
+
+    def test_installed_skill_fifo_is_hashed_without_blocking(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            bundled = root / "bundled"
+            installed = root / "installed"
+            (bundled / "alpha").mkdir(parents=True)
+            (bundled / "alpha" / "SKILL.md").write_text("alpha\n", encoding="utf-8")
+            shutil.copytree(bundled, installed)
+            os.mkfifo(installed / "alpha" / "special")
+            code = (
+                "import sys; "
+                f"sys.path.insert(0, {str(OPERATING_STATE.parent)!r}); "
+                "import operating_state; "
+                "print([finding.code for finding in "
+                "operating_state.installed_skill_diagnostics("
+                "sys.argv[1], (sys.argv[2],))])"
+            )
+
+            result = subprocess.run(
+                [sys.executable, "-c", code, str(bundled), str(installed)],
+                cwd=ROOT,
+                capture_output=True,
+                text=True,
+                timeout=2,
+                check=True,
+            )
+
+            self.assertEqual("['installed_skill_drift']", result.stdout.strip())
+
+    def test_malformed_selected_state_does_not_fall_back_to_legacy(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            portfolio = Path(tmp)
+            repo = portfolio / "repo"
+            self._initialize_repo(repo)
+            selected = repo / ".eng-level" / "runs" / "selected"
+            selected.mkdir(parents=True)
+            (selected / "state.json").write_text("{not json\n", encoding="utf-8")
+            (repo / ".eng-level" / "current.json").write_text(
+                json.dumps({"run_id": "selected"})
+            )
+            (repo / ".eng-level" / "state.json").write_text(
+                json.dumps(
+                    {
+                        "initiative": "Legacy",
+                        "state": "REVIEW_READY",
+                        "branch": "other",
+                    }
+                )
+            )
+
+            findings = operating_state.portfolio_diagnostics(portfolio)
+            codes = {finding.code for finding in findings}
+            self.assertIn("lifecycle_state_malformed", codes)
+            self.assertNotIn("branch_mismatch", codes)
 
     def test_repository_validation(self):
         self.assertEqual([], module.validate_repo(ROOT))

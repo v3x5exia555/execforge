@@ -7,6 +7,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import stat
 import subprocess
 from typing import Iterable, NamedTuple
 
@@ -39,7 +40,8 @@ def _tree_digest(root: Path) -> str:
         for name in directories:
             path = current_path / name
             relative = path.relative_to(root).as_posix().encode("utf-8", "surrogateescape")
-            if path.is_symlink():
+            metadata = path.lstat()
+            if stat.S_ISLNK(metadata.st_mode):
                 add(b"L")
                 add(relative)
                 add(os.readlink(path).encode("utf-8", "surrogateescape"))
@@ -49,17 +51,23 @@ def _tree_digest(root: Path) -> str:
         for name in files:
             path = current_path / name
             relative = path.relative_to(root).as_posix().encode("utf-8", "surrogateescape")
-            if path.is_symlink():
+            metadata = path.lstat()
+            if stat.S_ISLNK(metadata.st_mode):
                 add(b"L")
                 add(relative)
                 add(os.readlink(path).encode("utf-8", "surrogateescape"))
                 continue
-            add(b"F")
+            if stat.S_ISREG(metadata.st_mode):
+                add(b"F")
+                add(relative)
+                add(metadata.st_size.to_bytes(8, "big"))
+                with path.open("rb") as stream:
+                    for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                        digest.update(chunk)
+                continue
+            add(b"S")
             add(relative)
-            add(path.stat().st_size.to_bytes(8, "big"))
-            with path.open("rb") as stream:
-                for chunk in iter(lambda: stream.read(1024 * 1024), b""):
-                    digest.update(chunk)
+            add(stat.S_IFMT(metadata.st_mode).to_bytes(4, "big"))
     return digest.hexdigest()
 
 
@@ -101,12 +109,19 @@ def installed_skill_diagnostics(
 
 
 def _run_git(project: Path, *arguments: str) -> tuple[str | None, Finding | None]:
+    """Run a read-only Git query without repository fsmonitor execution.
+
+    The Git executable selected by PATH and configuration unrelated to fsmonitor
+    remain part of the caller's local trust boundary.
+    """
     try:
         result = subprocess.run(
-            ["git", *arguments],
+            ["git", "-c", "core.fsmonitor=false", *arguments],
             cwd=project,
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=15,
             check=False,
             env={**os.environ, "GIT_OPTIONAL_LOCKS": "0"},
@@ -216,17 +231,10 @@ def _state_metadata(project: Path) -> tuple[dict | None, tuple[Finding, ...]]:
                 "selected lifecycle state is not valid top-level JSON metadata",
             )
         )
-        if selected is not None and legacy_is_safe:
-            state = _load_json_object(legacy)
-            if state is None or not isinstance(state.get("initiative"), str) or not isinstance(
-                state.get("state"), str
-            ):
-                state = None
-        else:
-            state = None
+        state = None
     if state is None:
         return None, tuple(findings)
-    return {key: state.get(key) for key in _STATE_FIELDS}, tuple(findings)
+    return {key: state[key] for key in _STATE_FIELDS if key in state}, tuple(findings)
 
 
 def _project_diagnostics(project: Path) -> tuple[Finding, ...]:
@@ -267,7 +275,9 @@ def _project_diagnostics(project: Path) -> tuple[Finding, ...]:
     state, state_findings = _state_metadata(project)
     findings.extend(state_findings)
     if state is not None and branch_error is None:
-        recorded_branch = state.get("branch")
+        recorded_branch = (
+            state["branch"] if "branch" in state else state.get("base_branch")
+        )
         if isinstance(recorded_branch, str) and recorded_branch and recorded_branch != actual_branch:
             findings.append(
                 Finding(
