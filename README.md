@@ -237,6 +237,7 @@ All commands run through `scripts/execforge.py` (or `scripts/install.sh` as a th
 | `status [--root <repo>]` | Report current engineering and QA lifecycle state and backlog |
 | `resume [--root <repo>]` | Reconcile selected lifecycle metadata with the repository's current Git branch and HEAD |
 | `next [--root <repo>]` | Print exactly one safe next lifecycle action; unsafe or stale state exits nonzero |
+| `eval [case-id\|all] [--list] [--limit N]` | Execute behavioral eval cases: replay the scenario through a headless agent (`--agent-cmd`, default `claude -p`), grade the transcript with an LLM judge (`--judge-cmd`), and recompute the verdict locally |
 | `release-check [--tag vX.Y.Z]` | Verify plugin manifests, changelog version, and optional release tag agree |
 
 Typical operating checks and re-entry commands are:
@@ -276,6 +277,8 @@ for lineage, exit-status, privacy, and rollback details.
 
 `evaluations/` contains at least one behavioral evaluation case per bundled skill — plus focused cases for conditional behavior such as the Authorization gate and design system binding. Each case carries an input scenario, an expected-behavior checklist, and explicit failure conditions. A case passes only when every expected behavior is observed and no failure condition occurs. The shared invariant across all cases: **never claim a review, test, approval, or lifecycle stage ran without evidence that it actually ran.** See [`evaluations/README.md`](evaluations/README.md).
 
+Cases are executable: `python3 scripts/execforge.py eval` runs them through a headless agent and grades the transcript. An advisory CI job runs a capped set on skill changes when an `ANTHROPIC_API_KEY` repository secret is configured, and skips cleanly when it is not.
+
 ## Continuous integration
 
 GitHub Actions runs on every push and pull request ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)):
@@ -283,9 +286,14 @@ GitHub Actions runs on every push and pull request ([`.github/workflows/ci.yml`]
 1. `python3 scripts/execforge.py validate`
 2. `python3 scripts/execforge.py doctor`
 3. `python3 -m unittest discover -s tests -v`
-4. `mkdocs build --strict`
+4. `python3 scripts/execforge.py release-check`
+5. `mkdocs build --strict`
 
-A second workflow ([`.github/workflows/docs.yml`](.github/workflows/docs.yml)) deploys the MkDocs site to GitHub Pages on pushes to `main`. Enable **Settings → Pages → Source: GitHub Actions** to publish it.
+Three more workflows:
+
+- [`docs.yml`](.github/workflows/docs.yml) deploys the MkDocs site to GitHub Pages on pushes to `main`. Enable **Settings → Pages → Source: GitHub Actions** to publish it.
+- [`evals.yml`](.github/workflows/evals.yml) runs a capped behavioral-eval set on pull requests that touch `skills/`, `evaluations/`, or the CLI. Advisory: it cannot block a merge, and it skips without an `ANTHROPIC_API_KEY` secret.
+- [`release-gate.yml`](.github/workflows/release-gate.yml) runs `release-check --tag` on every pushed `v*` tag, so a tag that disagrees with the manifests or CHANGELOG fails visibly.
 
 ## Documentation
 
