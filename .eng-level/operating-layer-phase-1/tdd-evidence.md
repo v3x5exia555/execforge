@@ -54,6 +54,69 @@ git diff --check
 - Repository validation reported `ExecForge validation passed.`
 - Diff whitespace validation produced no findings.
 
+# Task 2 Quality and Security Hardening Evidence
+
+Locked hardening base: `e6d64b40916349235a7f5c0918c1539afec43fb4`.
+
+The review-hardening tests were added before the coordination and containment
+changes. The first RED command was:
+
+```sh
+python3 -m unittest tests.test_repository.RepositoryTests.test_init_run_rejects_symlinked_namespace_roots_and_runs_without_outside_writes tests.test_repository.RepositoryTests.test_failed_publication_restores_both_pointers_and_removes_new_runs tests.test_repository.RepositoryTests.test_failed_preparation_preserves_pointers_and_removes_new_runs tests.test_repository.RepositoryTests.test_concurrent_init_runs_are_serialized_and_publish_aligned_pointers tests.test_repository.RepositoryTests.test_pointer_reader_rejects_noncanonical_ids_and_symlinked_selected_state tests.test_repository.RepositoryTests.test_pointer_reader_rejects_symlinked_run_directory -v
+```
+
+- Exit status: `1`.
+- Result: `9` reported failures across the six focused tests (including
+  parameterized namespace subtests).
+- Generic failures: symlinked roots/runs were followed and could write outside
+  the repository; failed preparation left new runs behind; failed second-pointer
+  publication left Eng and QA pointers inconsistent; concurrent initializations
+  overlapped; and prior pointer bytes were not restored.
+- The initial reader fixtures that escaped the lifecycle root were already
+  rejected. They were tightened to use cross-run symlinks inside the lifecycle
+  root so the regression specifically exercised aliasing between contained runs.
+
+A supplemental writer-specific test was then added before hardening the writer
+helper itself:
+
+```sh
+python3 -m unittest tests.test_repository.RepositoryTests.test_pointer_writer_rejects_noncanonical_ids_and_symlinked_run_directory -v
+```
+
+- Exit status: `1`.
+- Result: `1` failure because a symlinked selected run directory was accepted.
+
+The expanded GREEN command was:
+
+```sh
+python3 -m unittest tests.test_repository.RepositoryTests.test_init_run_rejects_symlinked_namespace_roots_and_runs_without_outside_writes tests.test_repository.RepositoryTests.test_failed_publication_restores_both_pointers_and_removes_new_runs tests.test_repository.RepositoryTests.test_failed_preparation_preserves_pointers_and_removes_new_runs tests.test_repository.RepositoryTests.test_failed_run_directory_creation_cleans_partial_new_runs tests.test_repository.RepositoryTests.test_failed_initial_publication_restores_pointer_absence tests.test_repository.RepositoryTests.test_concurrent_init_runs_are_serialized_and_publish_aligned_pointers tests.test_repository.RepositoryTests.test_pointer_reader_rejects_noncanonical_ids_and_symlinked_selected_state tests.test_repository.RepositoryTests.test_pointer_reader_rejects_symlinked_run_directory tests.test_repository.RepositoryTests.test_state_schemas_accept_template_state tests.test_repository.RepositoryTests.test_init_run_creates_state tests.test_repository.RepositoryTests.test_init_run_records_git_and_detached_head_metadata -v
+```
+
+- Exit status: `0`.
+- Result: all `11` tests passed.
+
+Writer-specific GREEN confirmation:
+
+```sh
+python3 -m unittest tests.test_repository.RepositoryTests.test_pointer_writer_rejects_noncanonical_ids_and_symlinked_run_directory tests.test_repository.RepositoryTests.test_pointer_replace_failure_preserves_current_pointer -v
+```
+
+- Exit status: `0`.
+- Result: both tests passed.
+
+Final hardening verification:
+
+```sh
+python3 -m unittest discover -s tests -v
+python3 scripts/execforge.py validate
+python3 -m py_compile scripts/operating_state.py scripts/execforge.py tests/test_repository.py
+git diff --check
+```
+
+- The complete suite passed all `55` tests.
+- Repository validation, bytecode compilation, and diff whitespace validation
+  each exited `0`.
+
 ## Quality-review regression cycle
 
 Five regression tests were added before production changes for branch metadata

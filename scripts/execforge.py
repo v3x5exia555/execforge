@@ -7,6 +7,8 @@ No third-party dependencies are required.
 from __future__ import annotations
 
 import argparse
+from contextlib import contextmanager
+import fcntl
 import importlib.util
 import json
 import os
@@ -16,6 +18,7 @@ import shlex
 import shutil
 import subprocess
 import sys
+import threading
 from datetime import datetime, timezone
 import uuid
 
@@ -34,6 +37,9 @@ Q_LEVEL_ASSET_FILES = {
     "qa-plan.md": "qa-plan.template.md",
     "retest.md": "retest.template.md",
 }
+_RUN_NAMESPACES = (".execforge", ".eng-level", ".q-level")
+_INIT_LOCKS: dict[str, threading.Lock] = {}
+_INIT_LOCKS_GUARD = threading.Lock()
 
 
 def _load_operating_state_module():
@@ -465,75 +471,176 @@ def check_superpowers() -> int:
 
 
 def init_run(name: str, cwd: Path) -> Path:
+    cwd = Path(cwd)
+    _validate_run_storage(cwd)
+    with _repository_init_lock(cwd):
+        _validate_run_storage(cwd)
+        return _init_run_locked(name, cwd)
+
+
+def _init_run_locked(name: str, cwd: Path) -> Path:
     safe = re.sub(r"[^a-z0-9]+", "-", name.casefold()).strip("-") or "initiative"
     now = datetime.now(timezone.utc)
     timestamp = now.strftime("%Y%m%dT%H%M%S%fZ")
     run_id = f"{timestamp}-{uuid.uuid4().hex[:8]}-{safe}"
-    run = cwd / ".execforge" / "runs" / run_id
-    run.mkdir(parents=True, exist_ok=False)
-    (run / "shared-context.md").write_text(
-        f"# Shared Context\n\n- Initiative: {name}\n- Created: {now.isoformat()}\n\n"
-        "## Facts\n\n## Assumptions\n\n## Inferences\n\n## Unknowns\n",
-        encoding="utf-8",
-    )
-    (run / "scope-ledger.md").write_text(
-        "# Scope Ledger\n\n| Item | Decision | Evidence | Reason | Owner |\n"
-        "|---|---|---|---|---|\n",
-        encoding="utf-8",
-    )
+    roots = {namespace: cwd / namespace for namespace in _RUN_NAMESPACES}
+    for root in roots.values():
+        root.mkdir(exist_ok=True)
+        (root / "runs").mkdir(exist_ok=True)
+    _validate_run_storage(cwd)
+
+    run = roots[".execforge"] / "runs" / run_id
+    lifecycle = roots[".eng-level"]
+    lifecycle_run = lifecycle / "runs" / run_id
+    qa = roots[".q-level"]
+    qa_run = qa / "runs" / run_id
+    new_runs = (run, lifecycle_run, qa_run)
+    pointer_snapshots = {
+        root: _snapshot_pointer(root / "current.json") for root in (lifecycle, qa)
+    }
     branch, commit = _git_metadata(cwd)
     created_at = now.isoformat()
+    publication_started = False
+    try:
+        for new_run in new_runs:
+            new_run.mkdir(exist_ok=False)
 
-    lifecycle = cwd / ".eng-level"
-    lifecycle_run = lifecycle / "runs" / run_id
-    lifecycle_run.mkdir(parents=True, exist_ok=False)
-    state_source = SKILLS / "eng-level" / "assets" / "state.template.json"
-    state = json.loads(state_source.read_text(encoding="utf-8"))
-    state.update(
-        initiative=name,
-        run_id=run_id,
-        created_at=created_at,
-        updated_at=created_at,
-        branch=branch,
-        commit=commit,
-        artifact_root=f".eng-level/runs/{run_id}",
-        next_action="Complete upstream intake and secure approval.",
-    )
-    (lifecycle_run / "state.json").write_text(
-        json.dumps(state, indent=2) + "\n", encoding="utf-8"
-    )
-    upstream_source = SKILLS / "eng-level" / "assets" / "upstream-requirements.template.md"
-    shutil.copy2(upstream_source, lifecycle_run / "upstream-requirements.md")
-    backlog_source = SKILLS / "eng-level" / "assets" / "backlog.template.md"
-    shutil.copy2(backlog_source, lifecycle_run / "backlog.md")
+        (run / "shared-context.md").write_text(
+            f"# Shared Context\n\n- Initiative: {name}\n- Created: {now.isoformat()}\n\n"
+            "## Facts\n\n## Assumptions\n\n## Inferences\n\n## Unknowns\n",
+            encoding="utf-8",
+        )
+        (run / "scope-ledger.md").write_text(
+            "# Scope Ledger\n\n| Item | Decision | Evidence | Reason | Owner |\n"
+            "|---|---|---|---|---|\n",
+            encoding="utf-8",
+        )
 
-    qa = cwd / ".q-level"
-    qa_run = qa / "runs" / run_id
-    qa_run.mkdir(parents=True, exist_ok=False)
-    qa_state_source = SKILLS / "q-level" / "assets" / "state.template.json"
-    qa_state = json.loads(qa_state_source.read_text(encoding="utf-8"))
-    qa_state.update(
-        initiative=name,
-        run_id=run_id,
-        created_at=created_at,
-        updated_at=created_at,
-        branch=branch,
-        commit=commit,
-        artifact_root=f".q-level/runs/{run_id}",
-        next_action="Complete QA context after engineering handoff.",
-    )
-    (qa_run / "state.json").write_text(
-        json.dumps(qa_state, indent=2) + "\n", encoding="utf-8"
-    )
-    seed_q_level_artifacts(qa_run)
+        state_source = SKILLS / "eng-level" / "assets" / "state.template.json"
+        state = json.loads(state_source.read_text(encoding="utf-8"))
+        state.update(
+            initiative=name, run_id=run_id, created_at=created_at, updated_at=created_at,
+            branch=branch, commit=commit, artifact_root=f".eng-level/runs/{run_id}",
+            next_action="Complete upstream intake and secure approval.",
+        )
+        (lifecycle_run / "state.json").write_text(
+            json.dumps(state, indent=2) + "\n", encoding="utf-8"
+        )
+        shutil.copy2(
+            SKILLS / "eng-level" / "assets" / "upstream-requirements.template.md",
+            lifecycle_run / "upstream-requirements.md",
+        )
+        shutil.copy2(
+            SKILLS / "eng-level" / "assets" / "backlog.template.md",
+            lifecycle_run / "backlog.md",
+        )
 
-    _write_current_pointer(lifecycle, run_id)
-    _write_current_pointer(qa, run_id)
+        qa_state = json.loads(
+            (SKILLS / "q-level" / "assets" / "state.template.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        qa_state.update(
+            initiative=name, run_id=run_id, created_at=created_at, updated_at=created_at,
+            branch=branch, commit=commit, artifact_root=f".q-level/runs/{run_id}",
+            next_action="Complete QA context after engineering handoff.",
+        )
+        (qa_run / "state.json").write_text(
+            json.dumps(qa_state, indent=2) + "\n", encoding="utf-8"
+        )
+        seed_q_level_artifacts(qa_run)
+
+        publication_started = True
+        _write_current_pointer(lifecycle, run_id)
+        _write_current_pointer(qa, run_id)
+    except Exception:
+        if publication_started:
+            for root, snapshot in pointer_snapshots.items():
+                _restore_pointer(root / "current.json", snapshot)
+        for new_run in reversed(new_runs):
+            _remove_new_run(new_run)
+        raise
 
     print(f"created run: {run}")
     print(f"created lifecycle state: {lifecycle_run / 'state.json'}")
     print(f"created Q Level state: {qa_run / 'state.json'}")
     return run
+
+
+def _validate_run_storage(cwd: Path) -> None:
+    if cwd.is_symlink() or not cwd.is_dir():
+        raise ValueError("repository root must be a real directory")
+    repository = cwd.resolve()
+    for namespace in _RUN_NAMESPACES:
+        root = cwd / namespace
+        if root.is_symlink():
+            raise ValueError(f"{namespace} must not be a symlink")
+        if root.exists():
+            if not root.is_dir() or root.resolve() != repository / namespace:
+                raise ValueError(f"{namespace} must be a contained directory")
+            runs = root / "runs"
+            if runs.is_symlink():
+                raise ValueError(f"{namespace}/runs must not be a symlink")
+            if runs.exists() and (
+                not runs.is_dir() or runs.resolve() != repository / namespace / "runs"
+            ):
+                raise ValueError(f"{namespace}/runs must be a contained directory")
+
+
+@contextmanager
+def _repository_init_lock(cwd: Path):
+    key = str(cwd.resolve())
+    with _INIT_LOCKS_GUARD:
+        thread_lock = _INIT_LOCKS.setdefault(key, threading.Lock())
+    with thread_lock:
+        lock_path = cwd / ".execforge-init-run.lock"
+        if lock_path.is_symlink():
+            raise ValueError("repository init lock must not be a symlink")
+        flags = os.O_CREAT | os.O_RDWR
+        if hasattr(os, "O_NOFOLLOW"):
+            flags |= os.O_NOFOLLOW
+        descriptor = os.open(lock_path, flags, 0o600)
+        try:
+            fcntl.flock(descriptor, fcntl.LOCK_EX)
+            yield
+        finally:
+            fcntl.flock(descriptor, fcntl.LOCK_UN)
+            os.close(descriptor)
+
+
+def _snapshot_pointer(pointer: Path) -> bytes | None:
+    if pointer.is_symlink():
+        raise ValueError("current pointer must not be a symlink")
+    return pointer.read_bytes() if pointer.exists() else None
+
+
+def _atomic_write(pointer: Path, payload: bytes) -> None:
+    temporary = pointer.with_name(f".{pointer.name}.{uuid.uuid4().hex}.tmp")
+    try:
+        with temporary.open("xb") as stream:
+            stream.write(payload)
+            stream.flush()
+            os.fsync(stream.fileno())
+        temporary.replace(pointer)
+    finally:
+        if temporary.exists():
+            temporary.unlink()
+
+
+def _restore_pointer(pointer: Path, snapshot: bytes | None) -> None:
+    if snapshot is None:
+        if pointer.exists() and not pointer.is_symlink():
+            pointer.unlink()
+        return
+    _atomic_write(pointer, snapshot)
+
+
+def _remove_new_run(run: Path) -> None:
+    if not run.exists() or run.is_symlink():
+        return
+    runs_root = run.parent
+    if run.resolve().parent == runs_root.resolve():
+        shutil.rmtree(run)
 
 
 def _git_metadata(cwd: Path) -> tuple[str | None, str | None]:
@@ -560,33 +667,49 @@ def _git_metadata(cwd: Path) -> tuple[str | None, str | None]:
 
 def _write_current_pointer(lifecycle_root: Path, run_id: str) -> None:
     """Atomically select a contained initiative run."""
-    if not run_id or Path(run_id).name != run_id:
+    if not _is_canonical_run_id(run_id):
         raise ValueError("run_id must be a single contained path component")
-    lifecycle_root.mkdir(parents=True, exist_ok=True)
-    state_path = lifecycle_root / "runs" / run_id / "state.json"
+    runs_root = lifecycle_root / "runs"
+    run_root = runs_root / run_id
+    pointer = lifecycle_root / "current.json"
+    if (
+        lifecycle_root.is_symlink()
+        or not lifecycle_root.is_dir()
+        or runs_root.is_symlink()
+        or not runs_root.is_dir()
+        or run_root.is_symlink()
+        or not run_root.is_dir()
+        or pointer.is_symlink()
+    ):
+        raise ValueError("current pointer must use real contained directories")
+    state_path = run_root / "state.json"
     try:
-        state_path.resolve().relative_to(lifecycle_root.resolve())
+        relative = state_path.resolve().relative_to(lifecycle_root.resolve())
     except (OSError, ValueError) as exc:
         raise ValueError("current pointer must select a contained initiative state") from exc
-    if not state_path.is_file() or state_path.is_symlink():
+    if (
+        relative != Path("runs") / run_id / "state.json"
+        or state_path.parent.resolve() != run_root.resolve()
+        or not state_path.is_file()
+        or state_path.is_symlink()
+    ):
         raise ValueError("current pointer must select a contained initiative state")
-    pointer = lifecycle_root / "current.json"
-    temporary = pointer.with_name(f".{pointer.name}.{uuid.uuid4().hex}.tmp")
     payload = {
         "version": "1",
         "run_id": run_id,
         "state_path": state_path.relative_to(lifecycle_root.parent).as_posix(),
     }
-    try:
-        with temporary.open("x", encoding="utf-8") as stream:
-            json.dump(payload, stream, indent=2)
-            stream.write("\n")
-            stream.flush()
-            os.fsync(stream.fileno())
-        temporary.replace(pointer)
-    finally:
-        if temporary.exists():
-            temporary.unlink()
+    _atomic_write(pointer, (json.dumps(payload, indent=2) + "\n").encode("utf-8"))
+
+
+def _is_canonical_run_id(run_id: object) -> bool:
+    return bool(
+        isinstance(run_id, str)
+        and run_id not in {".", ".."}
+        and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", run_id)
+        and "/" not in run_id
+        and "\\" not in run_id
+    )
 
 
 def print_backlog(backlog_file: Path) -> None:

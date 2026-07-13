@@ -1,4 +1,5 @@
 from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor
 import importlib.util
 import json
 import os
@@ -7,6 +8,8 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import threading
+import time
 import unittest
 from unittest import mock
 
@@ -435,6 +438,11 @@ class RepositoryTests(unittest.TestCase):
                 (ROOT / "skills" / level / "assets" / "state.template.json").read_text()
             )
             props = schema["properties"]
+            metadata = {
+                "run_id", "created_at", "updated_at", "branch", "commit",
+                "artifact_root", "next_action",
+            }
+            self.assertTrue(metadata.issubset(schema["required"]))
             for key, value in template.items():
                 self.assertIn(
                     key, props, f"{level} state template key {key!r} is absent from the schema"
@@ -445,6 +453,10 @@ class RepositoryTests(unittest.TestCase):
                         props[key]["enum"],
                         f"{level} {key}={value!r} is not a schema-valid value",
                     )
+                self.assertTrue(
+                    self._matches_json_type(value, props[key].get("type")),
+                    f"{level} template field {key!r} has the wrong JSON type",
+                )
 
     def test_schema_allows_ungated_post_hoc_verdict(self):
         schema = json.loads((ROOT / "schemas" / "eng-level-state.schema.json").read_text())
@@ -497,9 +509,9 @@ class RepositoryTests(unittest.TestCase):
                 {path.name for path in qa_run.iterdir()},
             )
 
-            for generated_state, artifact_root in (
-                (state, f".eng-level/runs/{eng_pointer['run_id']}"),
-                (qa_state, f".q-level/runs/{qa_pointer['run_id']}"),
+            for level, generated_state, artifact_root in (
+                ("eng-level", state, f".eng-level/runs/{eng_pointer['run_id']}"),
+                ("q-level", qa_state, f".q-level/runs/{qa_pointer['run_id']}"),
             ):
                 self.assertEqual(eng_pointer["run_id"], generated_state["run_id"])
                 self.assertEqual(artifact_root, generated_state["artifact_root"])
@@ -508,6 +520,13 @@ class RepositoryTests(unittest.TestCase):
                 self.assertIn("next_action", generated_state)
                 self.assertIn("branch", generated_state)
                 self.assertIn("commit", generated_state)
+                schema = json.loads((ROOT / "schemas" / f"{level}-state.schema.json").read_text())
+                self.assertTrue(set(schema["required"]).issubset(generated_state))
+                for key, value in generated_state.items():
+                    prop = schema["properties"][key]
+                    self.assertTrue(self._matches_json_type(value, prop.get("type")))
+                    if "enum" in prop:
+                        self.assertIn(value, prop["enum"])
 
     def test_rapid_init_runs_are_distinct_and_preserve_prior_artifacts(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -558,6 +577,223 @@ class RepositoryTests(unittest.TestCase):
             self.assertEqual(original, json.loads((lifecycle / "current.json").read_text()))
             self.assertEqual([], list(lifecycle.glob(".current.json.*.tmp")))
 
+    def test_init_run_rejects_symlinked_namespace_roots_and_runs_without_outside_writes(self):
+        for namespace in (".execforge", ".eng-level", ".q-level"):
+            for attack in ("root", "runs"):
+                with self.subTest(namespace=namespace, attack=attack):
+                    with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as out:
+                        cwd = Path(tmp)
+                        outside = Path(out)
+                        if attack == "root":
+                            (cwd / namespace).symlink_to(outside, target_is_directory=True)
+                        else:
+                            (cwd / namespace).mkdir()
+                            (cwd / namespace / "runs").symlink_to(
+                                outside, target_is_directory=True
+                            )
+
+                        with self.assertRaises(ValueError):
+                            module.init_run("No Escape", cwd)
+
+                        self.assertEqual([], list(outside.iterdir()))
+
+    def test_failed_publication_restores_both_pointers_and_removes_new_runs(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cwd = Path(tmp)
+            first = module.init_run("First", cwd)
+            eng_pointer = cwd / ".eng-level" / "current.json"
+            qa_pointer = cwd / ".q-level" / "current.json"
+            original_eng = eng_pointer.read_bytes()
+            original_qa = qa_pointer.read_bytes()
+            original_writer = module._write_current_pointer
+            calls = 0
+
+            def fail_second(root, run_id):
+                nonlocal calls
+                calls += 1
+                if calls == 2:
+                    raise OSError("second publication failed")
+                return original_writer(root, run_id)
+
+            with mock.patch.object(module, "_write_current_pointer", side_effect=fail_second):
+                with self.assertRaises(OSError):
+                    module.init_run("Second", cwd)
+
+            self.assertEqual(original_eng, eng_pointer.read_bytes())
+            self.assertEqual(original_qa, qa_pointer.read_bytes())
+            self.assertEqual({first.name}, {path.name for path in (cwd / ".execforge" / "runs").iterdir()})
+            self.assertEqual({first.name}, {path.name for path in (cwd / ".eng-level" / "runs").iterdir()})
+            self.assertEqual({first.name}, {path.name for path in (cwd / ".q-level" / "runs").iterdir()})
+
+    def test_failed_preparation_preserves_pointers_and_removes_new_runs(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cwd = Path(tmp)
+            first = module.init_run("First", cwd)
+            pointers = {
+                namespace: (cwd / namespace / "current.json").read_bytes()
+                for namespace in (".eng-level", ".q-level")
+            }
+            original_copy = module.shutil.copy2
+            calls = 0
+
+            def fail_during_copy(source, destination):
+                nonlocal calls
+                calls += 1
+                if calls == 2:
+                    raise OSError("copy failed")
+                return original_copy(source, destination)
+
+            with mock.patch.object(module.shutil, "copy2", side_effect=fail_during_copy):
+                with self.assertRaises(OSError):
+                    module.init_run("Second", cwd)
+
+            for namespace, content in pointers.items():
+                self.assertEqual(content, (cwd / namespace / "current.json").read_bytes())
+            for namespace in (".execforge", ".eng-level", ".q-level"):
+                self.assertEqual(
+                    {first.name},
+                    {path.name for path in (cwd / namespace / "runs").iterdir()},
+                )
+
+    def test_failed_run_directory_creation_cleans_partial_new_runs(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cwd = Path(tmp)
+            first = module.init_run("First", cwd)
+            pointers = {
+                namespace: (cwd / namespace / "current.json").read_bytes()
+                for namespace in (".eng-level", ".q-level")
+            }
+            original_mkdir = Path.mkdir
+
+            def fail_qa_run(path, *args, **kwargs):
+                if path.parent.name == "runs" and path.parent.parent.name == ".q-level":
+                    raise OSError("run directory creation failed")
+                return original_mkdir(path, *args, **kwargs)
+
+            with mock.patch.object(Path, "mkdir", new=fail_qa_run):
+                with self.assertRaises(OSError):
+                    module.init_run("Second", cwd)
+
+            for namespace, content in pointers.items():
+                self.assertEqual(content, (cwd / namespace / "current.json").read_bytes())
+            for namespace in (".execforge", ".eng-level", ".q-level"):
+                self.assertEqual(
+                    {first.name},
+                    {path.name for path in (cwd / namespace / "runs").iterdir()},
+                )
+
+    def test_failed_initial_publication_restores_pointer_absence(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cwd = Path(tmp)
+            original_writer = module._write_current_pointer
+            calls = 0
+
+            def fail_second(root, run_id):
+                nonlocal calls
+                calls += 1
+                if calls == 2:
+                    raise OSError("second publication failed")
+                return original_writer(root, run_id)
+
+            with mock.patch.object(module, "_write_current_pointer", side_effect=fail_second):
+                with self.assertRaises(OSError):
+                    module.init_run("First", cwd)
+
+            self.assertFalse((cwd / ".eng-level" / "current.json").exists())
+            self.assertFalse((cwd / ".q-level" / "current.json").exists())
+            for namespace in (".execforge", ".eng-level", ".q-level"):
+                self.assertEqual([], list((cwd / namespace / "runs").iterdir()))
+
+    def test_concurrent_init_runs_are_serialized_and_publish_aligned_pointers(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cwd = Path(tmp)
+            original_seed = module.seed_q_level_artifacts
+            guard = threading.Lock()
+            active = 0
+            maximum_active = 0
+
+            def observed_seed(destination):
+                nonlocal active, maximum_active
+                with guard:
+                    active += 1
+                    maximum_active = max(maximum_active, active)
+                time.sleep(0.05)
+                try:
+                    return original_seed(destination)
+                finally:
+                    with guard:
+                        active -= 1
+
+            with mock.patch.object(module, "seed_q_level_artifacts", side_effect=observed_seed):
+                with ThreadPoolExecutor(max_workers=2) as pool:
+                    runs = list(pool.map(lambda name: module.init_run(name, cwd), ("One", "Two")))
+
+            self.assertEqual(1, maximum_active)
+            self.assertEqual(2, len({run.name for run in runs}))
+            eng = json.loads((cwd / ".eng-level" / "current.json").read_text())
+            qa = json.loads((cwd / ".q-level" / "current.json").read_text())
+            self.assertEqual(eng["run_id"], qa["run_id"])
+
+    def test_pointer_reader_rejects_noncanonical_ids_and_symlinked_selected_state(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            lifecycle = Path(tmp) / ".eng-level"
+            safe = lifecycle / "runs" / "safe-run"
+            safe.mkdir(parents=True)
+            (safe / "state.json").write_text("{}\n", encoding="utf-8")
+            pointer = lifecycle / "current.json"
+
+            for run_id in (".", "..", "runs/other", r"runs\\other"):
+                with self.subTest(run_id=run_id):
+                    pointer.write_text(json.dumps({"run_id": run_id}), encoding="utf-8")
+                    selected, finding = operating_state._selected_state_path(lifecycle)
+                    self.assertIsNone(selected)
+                    self.assertIsNotNone(finding)
+
+            other = lifecycle / "runs" / "other-run"
+            other.mkdir()
+            (other / "state.json").write_text("{}\n", encoding="utf-8")
+            (safe / "state.json").unlink()
+            (safe / "state.json").symlink_to(other / "state.json")
+            pointer.write_text(json.dumps({"run_id": "safe-run"}), encoding="utf-8")
+            selected, finding = operating_state._selected_state_path(lifecycle)
+            self.assertIsNone(selected)
+            self.assertIsNotNone(finding)
+
+    def test_pointer_reader_rejects_symlinked_run_directory(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            lifecycle = Path(tmp) / ".eng-level"
+            (lifecycle / "runs").mkdir(parents=True)
+            actual = lifecycle / "runs" / "actual"
+            actual.mkdir()
+            (actual / "state.json").write_text("{}\n", encoding="utf-8")
+            (lifecycle / "runs" / "selected").symlink_to(actual, target_is_directory=True)
+            (lifecycle / "current.json").write_text(
+                json.dumps({"run_id": "selected"}), encoding="utf-8"
+            )
+
+            selected, finding = operating_state._selected_state_path(lifecycle)
+
+            self.assertIsNone(selected)
+            self.assertIsNotNone(finding)
+
+    def test_pointer_writer_rejects_noncanonical_ids_and_symlinked_run_directory(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            lifecycle = Path(tmp) / ".eng-level"
+            actual = lifecycle / "runs" / "actual"
+            actual.mkdir(parents=True)
+            (actual / "state.json").write_text("{}\n", encoding="utf-8")
+
+            for run_id in (".", "..", "runs/other", r"runs\\other"):
+                with self.subTest(run_id=run_id):
+                    with self.assertRaises(ValueError):
+                        module._write_current_pointer(lifecycle, run_id)
+
+            selected = lifecycle / "runs" / "selected"
+            selected.symlink_to(actual, target_is_directory=True)
+            with self.assertRaises(ValueError):
+                module._write_current_pointer(lifecycle, "selected")
+            self.assertFalse((lifecycle / "current.json").exists())
+
     def test_status_uses_current_pointer_and_falls_back_only_when_invalid(self):
         import contextlib
         import io
@@ -587,6 +823,45 @@ class RepositoryTests(unittest.TestCase):
             with contextlib.redirect_stdout(fallback):
                 module.show_status(cwd)
             self.assertIn("initiative: Legacy", fallback.getvalue())
+
+    def test_init_run_records_git_and_detached_head_metadata(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            repo = root / "repo"
+            self._initialize_repo(repo)
+            (repo / "tracked.txt").write_text("tracked\n", encoding="utf-8")
+            self._git(repo, "add", ".")
+            self._git(repo, "commit", "-m", "base")
+            commit = self._git(repo, "rev-parse", "HEAD").stdout.strip()
+
+            module.init_run("Attached", repo)
+            attached_pointer = json.loads((repo / ".eng-level" / "current.json").read_text())
+            attached = json.loads((repo / attached_pointer["state_path"]).read_text())
+            self.assertEqual("main", attached["branch"])
+            self.assertEqual(commit, attached["commit"])
+
+            self._git(repo, "checkout", "--detach")
+            module.init_run("Detached", repo)
+            detached_pointer = json.loads((repo / ".eng-level" / "current.json").read_text())
+            detached = json.loads((repo / detached_pointer["state_path"]).read_text())
+            self.assertIsNone(detached["branch"])
+            self.assertEqual(commit, detached["commit"])
+
+    @staticmethod
+    def _matches_json_type(value, expected):
+        if expected is None:
+            return True
+        expected_types = expected if isinstance(expected, list) else [expected]
+        checks = {
+            "null": value is None,
+            "string": isinstance(value, str),
+            "array": isinstance(value, list),
+            "object": isinstance(value, dict),
+            "boolean": isinstance(value, bool),
+            "integer": isinstance(value, int) and not isinstance(value, bool),
+            "number": isinstance(value, (int, float)) and not isinstance(value, bool),
+        }
+        return any(checks.get(item, False) for item in expected_types)
 
 
 if __name__ == "__main__":

@@ -7,6 +7,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import stat
 import subprocess
 from typing import Iterable, NamedTuple
@@ -153,6 +154,16 @@ def _load_json_object(path: Path) -> dict | None:
     return payload if isinstance(payload, dict) else None
 
 
+def _is_canonical_run_id(run_id: object) -> bool:
+    return bool(
+        isinstance(run_id, str)
+        and run_id not in {".", ".."}
+        and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", run_id)
+        and "/" not in run_id
+        and "\\" not in run_id
+    )
+
+
 def _selected_state_path(lifecycle_root: Path) -> tuple[Path | None, Finding | None]:
     """Resolve a current pointer without permitting paths outside the repository.
 
@@ -162,7 +173,8 @@ def _selected_state_path(lifecycle_root: Path) -> tuple[Path | None, Finding | N
     pointer_path = lifecycle_root / "current.json"
     namespace = lifecycle_root.name
     project = lifecycle_root.parent
-    if pointer_path.is_symlink():
+    runs_root = lifecycle_root / "runs"
+    if lifecycle_root.is_symlink() or runs_root.is_symlink() or pointer_path.is_symlink():
         return None, Finding(
             "error", "lifecycle_pointer_malformed", project.name,
             f"{namespace}/current.json must be a contained regular file",
@@ -201,18 +213,28 @@ def _selected_state_path(lifecycle_root: Path) -> tuple[Path | None, Finding | N
             candidate = artifact_root / "state.json"
     elif isinstance(pointer.get("run_id"), str):
         run_id = pointer["run_id"]
-        if run_id and Path(run_id).name == run_id:
+        if _is_canonical_run_id(run_id):
             candidate = lifecycle_root / "runs" / run_id / "state.json"
 
     run_id = pointer.get("run_id")
     expected = (
         lifecycle_root / "runs" / run_id / "state.json"
-        if isinstance(run_id, str) and run_id and Path(run_id).name == run_id
+        if _is_canonical_run_id(run_id)
         else None
     )
     selectors_disagree = expected is not None and candidate is not None and candidate != expected
-    if (
+    candidate_run = candidate.parent if candidate is not None else None
+    candidate_layout_invalid = (
         candidate is None
+        or candidate.name != "state.json"
+        or candidate.is_symlink()
+        or candidate_run is None
+        or candidate_run.is_symlink()
+        or not _is_canonical_run_id(candidate_run.name)
+        or candidate_run.parent != runs_root
+    )
+    if (
+        candidate_layout_invalid
         or selectors_disagree
         or not _is_contained(candidate, lifecycle_root)
         or not candidate.is_file()
