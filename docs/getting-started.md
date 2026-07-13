@@ -116,11 +116,12 @@ ancestors of current HEAD, and frozen review states (`REVIEW_READY`,
 `implementation_head` exactly equal to current HEAD. Missing, invalid,
 divergent, or mismatched frozen lineage requires reconciliation.
 
-The operating commands have a metadata-only output boundary. State and Git
-output are byte/count/length bounded, control characters are escaped, blocker
-contents are counted rather than printed, and the raw recorded `next_action`
-is never printed. Diagnostics are read-only; they do not repair selectors or
-artifacts.
+`doctor --portfolio`, `resume`, and `next` have a metadata-only output boundary;
+this privacy contract does not apply to the legacy `status` report. State and
+Git output are byte/count/length bounded, control characters are escaped,
+blocker contents are counted rather than printed, and the raw recorded
+`next_action` is never printed. Diagnostics are read-only; they do not repair
+selectors or artifacts.
 
 ## Recovery and rollback
 

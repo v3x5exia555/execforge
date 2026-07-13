@@ -536,3 +536,35 @@ git diff --check
   errors.
 - Repository validation reported `ExecForge validation passed.`
 - Bytecode compilation and diff whitespace validation produced no findings.
+
+## Task 4 privacy-scope correction
+
+Correction base: `fa9a9062e689a86005aab3290bf4b9ced2f156a2`.
+
+The strengthened documentation contract was added before correcting Getting
+Started. It requires one contiguous statement that scopes metadata-only,
+bounded, escaped, content-hiding output to `doctor --portfolio`, `resume`, and
+`next`, and explicitly excludes the legacy `status` report.
+
+RED command:
+
+```sh
+python3 -W error::ResourceWarning -m unittest tests.test_repository.RepositoryTests.test_operating_layer_documentation_contract -v
+```
+
+- Exit status: `1`.
+- Result: one failure because the existing blanket phrase “operating commands”
+  did not exclude `status`.
+
+After the scoped paragraph was added, the same focused command exited `0`.
+Final verification also exited `0`:
+
+```sh
+python3 -W error::ResourceWarning -m unittest discover -s tests -v
+python3 scripts/execforge.py validate
+git diff --check
+```
+
+- The complete suite passed all `80` tests.
+- Validation reported `ExecForge validation passed.`
+- Diff whitespace validation produced no findings.

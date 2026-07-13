@@ -1022,6 +1022,20 @@ class RepositoryTests(unittest.TestCase):
             with self.subTest(recovery_token=token):
                 self.assertIn(normalized(token), normalized(getting_started))
 
+        scoped_privacy_contract = (
+            "`doctor --portfolio`, `resume`, and `next` have a metadata-only output "
+            "boundary; this privacy contract does not apply to the legacy `status` report. "
+            "State and Git output are byte/count/length bounded, control characters are "
+            "escaped, blocker contents are counted rather than printed, and the raw "
+            "recorded `next_action` is never printed."
+        )
+        self.assertIn(
+            normalized(scoped_privacy_contract),
+            normalized(getting_started),
+            "Getting Started must scope the privacy contract to the three read-only "
+            "operating diagnostics and explicitly exclude legacy status",
+        )
+
         for token in (
             "initiative-scoped",
             "resume --root <repo>",
