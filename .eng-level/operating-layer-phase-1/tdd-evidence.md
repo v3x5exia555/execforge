@@ -628,6 +628,28 @@ GREEN uses the same command after restoring the two bounded metadata values.
 The CLI terminal-safe renderer remains responsible for escaping control
 characters before display.
 
+## Cross-platform no-follow correction
+
+Correction base: `dfa99eb`.
+
+Security delta review showed that descriptor flags alone did not reject a
+selector or backlog symlink on platforms where `O_NOFOLLOW` is unavailable,
+and that a portfolio child needed resolved direct-child containment in addition
+to its initial symlink check.
+
+RED command:
+
+```sh
+python3 -W error::ResourceWarning -m unittest tests.test_repository.RepositoryTests.test_pointer_snapshot_rejects_links_without_o_nofollow_before_publication tests.test_repository.RepositoryTests.test_backlog_count_rejects_oversized_and_fifo_inputs_without_blocking tests.test_repository.RepositoryTests.test_portfolio_skips_symlinked_direct_child_repositories -v
+```
+
+- Exit status: `1`.
+- Result: all three focused methods failed for the intended missing safeguards.
+
+GREEN uses the same command after adding `lstat`/descriptor identity checks and
+resolved portfolio containment. All three methods pass, including a simulated
+zero-value `O_NOFOLLOW` environment and a repeated portfolio boundary check.
+
 ## Security-review correction: output and bounded diagnostics
 
 Correction base: `f3fb0735ffae6938179c70cc70278366b852682c`.

@@ -529,6 +529,13 @@ def _safe_operating_state(project: Path) -> tuple[Path | None, dict | None, list
 
 
 def _backlog_count(backlog: Path) -> int | None:
+    try:
+        path_metadata = os.lstat(backlog)
+    except OSError:
+        return None
+    if not stat.S_ISREG(path_metadata.st_mode):
+        return None
+
     flags = os.O_RDONLY
     if hasattr(os, "O_NONBLOCK"):
         flags |= os.O_NONBLOCK
@@ -540,7 +547,15 @@ def _backlog_count(backlog: Path) -> int | None:
         return None
     try:
         metadata = os.fstat(descriptor)
-        if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > _BACKLOG_MAX_BYTES:
+        current_metadata = os.lstat(backlog)
+        identity = (metadata.st_dev, metadata.st_ino)
+        if (
+            not stat.S_ISREG(metadata.st_mode)
+            or not stat.S_ISREG(current_metadata.st_mode)
+            or identity != (path_metadata.st_dev, path_metadata.st_ino)
+            or identity != (current_metadata.st_dev, current_metadata.st_ino)
+            or metadata.st_size > _BACKLOG_MAX_BYTES
+        ):
             return None
         count = 0
         line_count = 0
@@ -984,11 +999,25 @@ def portfolio_diagnostics(portfolio_root: Path) -> tuple[Finding, ...]:
     """Scan only direct-child Git repositories without changing them."""
     portfolio_root = Path(portfolio_root)
     try:
+        resolved_root = portfolio_root.resolve(strict=True)
+
+        def is_real_direct_child(path: Path) -> bool:
+            if path.is_symlink() or (
+                hasattr(path, "is_junction") and path.is_junction()
+            ):
+                return False
+            try:
+                resolved = path.resolve(strict=True)
+            except OSError:
+                return False
+            return (
+                resolved.is_dir()
+                and resolved.parent == resolved_root
+                and resolved == resolved_root / path.name
+            )
+
         children = sorted(
-            (
-                path for path in portfolio_root.iterdir()
-                if not path.is_symlink() and path.is_dir()
-            ),
+            (path for path in portfolio_root.iterdir() if is_real_direct_child(path)),
             key=lambda path: path.name,
         )
     except OSError:
@@ -1001,6 +1030,8 @@ def portfolio_diagnostics(portfolio_root: Path) -> tuple[Finding, ...]:
 
     findings: list[Finding] = []
     for project in children:
+        if not is_real_direct_child(project):
+            continue
         if not (project / ".git").exists():
             continue
         findings.extend(_project_diagnostics(project))

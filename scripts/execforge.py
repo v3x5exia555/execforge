@@ -704,6 +704,15 @@ def _unlock_descriptor(descriptor: int) -> None:
 
 def _read_bounded_regular_file(path: Path, max_bytes: int) -> bytes | None:
     """Read a regular file through a bounded, non-following descriptor."""
+    try:
+        path_metadata = os.lstat(path)
+    except FileNotFoundError:
+        return None
+    except OSError as exc:
+        raise ValueError("file must be a readable regular file") from exc
+    if not stat.S_ISREG(path_metadata.st_mode):
+        raise ValueError("file must be a real regular file")
+
     flags = os.O_RDONLY
     if hasattr(os, "O_NONBLOCK"):
         flags |= os.O_NONBLOCK
@@ -717,7 +726,15 @@ def _read_bounded_regular_file(path: Path, max_bytes: int) -> bytes | None:
         raise ValueError("file must be a readable regular file") from exc
     try:
         metadata = os.fstat(descriptor)
-        if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > max_bytes:
+        current_metadata = os.lstat(path)
+        identity = (metadata.st_dev, metadata.st_ino)
+        if (
+            not stat.S_ISREG(metadata.st_mode)
+            or not stat.S_ISREG(current_metadata.st_mode)
+            or identity != (path_metadata.st_dev, path_metadata.st_ino)
+            or identity != (current_metadata.st_dev, current_metadata.st_ino)
+            or metadata.st_size > max_bytes
+        ):
             raise ValueError("file must be a bounded regular file")
         chunks: list[bytes] = []
         remaining = max_bytes + 1

@@ -318,9 +318,17 @@ class RepositoryTests(unittest.TestCase):
             portfolio = Path(tmp)
             outside = Path(out) / "outside-repository"
             self._initialize_repo(outside)
-            (portfolio / "escaped-project").symlink_to(outside, target_is_directory=True)
+            escaped = portfolio / "escaped-project"
+            escaped.symlink_to(outside, target_is_directory=True)
 
-            with mock.patch.object(
+            original_is_symlink = Path.is_symlink
+
+            def hide_link_from_initial_check(path):
+                if path == escaped:
+                    return False
+                return original_is_symlink(path)
+
+            with mock.patch.object(Path, "is_symlink", new=hide_link_from_initial_check), mock.patch.object(
                 operating_state, "_project_diagnostics", wraps=operating_state._project_diagnostics
             ) as project_diagnostics:
                 findings = operating_state.portfolio_diagnostics(portfolio)
@@ -1263,6 +1271,26 @@ class RepositoryTests(unittest.TestCase):
             )
             self.assertEqual("snapshot-rejected\nNone", result.stdout.strip())
 
+    def test_pointer_snapshot_rejects_links_without_o_nofollow_before_publication(self):
+        with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as out:
+            root = Path(tmp)
+            module.init_run("Existing", root)
+            pointer = root / ".execforge" / "current.json"
+            outside = Path(out) / "outside.json"
+            outside.write_text('{"private": "outside-only"}\n', encoding="utf-8")
+            pointer.unlink()
+            pointer.symlink_to(outside)
+
+            with mock.patch.object(module.os, "O_NOFOLLOW", 0), mock.patch.object(
+                module, "_write_authoritative_pointer",
+                side_effect=AssertionError("publication must not start"),
+            ):
+                with self.assertRaises(ValueError):
+                    module.init_run("Replacement", root)
+
+            self.assertTrue(pointer.is_symlink())
+            self.assertEqual('{"private": "outside-only"}\n', outside.read_text(encoding="utf-8"))
+
     def test_backlog_count_rejects_oversized_and_fifo_inputs_without_blocking(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -1290,6 +1318,13 @@ class RepositoryTests(unittest.TestCase):
                 check=True,
             )
             self.assertEqual("None", result.stdout.strip())
+
+            fifo.unlink()
+            outside = root / "outside-backlog.md"
+            outside.write_text("| 1 | outside |\n", encoding="utf-8")
+            fifo.symlink_to(outside)
+            with mock.patch.object(operating_state.os, "O_NOFOLLOW", 0):
+                self.assertIsNone(operating_state._backlog_count(fifo))
 
     def test_terminal_output_sanitizes_controls_and_hides_recorded_next_action(self):
         with tempfile.TemporaryDirectory() as tmp:
