@@ -607,6 +607,60 @@ git diff --check
 - Validation reported `ExecForge validation passed.`
 - Compilation and working-tree diff whitespace checks produced no findings.
 
+## Security-review correction: output and bounded diagnostics
+
+Correction base: `f3fb0735ffae6938179c70cc70278366b852682c`.
+
+Five focused regression methods were added before production changes for the
+security review findings: terminal control injection in `init-run` output;
+unsafe selector snapshot/authorization reads; unbounded backlog reads;
+portfolio escape through a symlinked direct child; and missing portfolio commit
+lineage reconciliation.
+
+Valid RED command:
+
+```sh
+python3 -W error::ResourceWarning -m unittest tests.test_repository.RepositoryTests.test_init_run_output_escapes_control_characters_and_is_bounded tests.test_repository.RepositoryTests.test_pointer_snapshots_and_authoritative_reads_reject_unsafe_files tests.test_repository.RepositoryTests.test_backlog_count_rejects_oversized_and_fifo_inputs_without_blocking tests.test_repository.RepositoryTests.test_portfolio_skips_symlinked_direct_child_repositories tests.test_repository.RepositoryTests.test_portfolio_rejects_same_branch_stale_or_missing_commit_lineage -v
+```
+
+- Exit status: `1`.
+- Result: all five methods failed for the intended behavioral reasons.
+- Raw ESC/OSC52/BEL/bidirectional controls reached the terminal; oversized
+  selector and backlog files were authorized/read; a direct-child directory
+  symlink was scanned; and divergent, invalid, or missing frozen lineage was
+  not reported by portfolio diagnostics.
+
+The GREEN suite added detached-HEAD portfolio compatibility to those five
+reviewer cases:
+
+```sh
+python3 -W error::ResourceWarning -m unittest tests.test_repository.RepositoryTests.test_init_run_output_escapes_control_characters_and_is_bounded tests.test_repository.RepositoryTests.test_pointer_snapshots_and_authoritative_reads_reject_unsafe_files tests.test_repository.RepositoryTests.test_backlog_count_rejects_oversized_and_fifo_inputs_without_blocking tests.test_repository.RepositoryTests.test_portfolio_skips_symlinked_direct_child_repositories tests.test_repository.RepositoryTests.test_portfolio_rejects_same_branch_stale_or_missing_commit_lineage tests.test_repository.RepositoryTests.test_portfolio_branch_compatibility_and_precedence -v
+```
+
+- Exit status: `0`.
+- Result: all six focused methods passed with ResourceWarnings promoted to
+  errors.
+- Selector tests cover oversized regular files, symlinks, and FIFOs without
+  blocking. Backlog tests cover byte overflow, line-count overflow, and FIFOs.
+- Portfolio tests prove external symlink targets are never dispatched for
+  diagnostics, HEAD is queried once per real repository, and same-branch
+  divergent/invalid/missing frozen lineage fails closed without exposing
+  recorded hashes.
+
+Pre-commit full verification:
+
+```sh
+python3 -W error::ResourceWarning -m unittest discover -s tests -v
+python3 scripts/execforge.py validate
+python3 -m py_compile scripts/operating_state.py scripts/execforge.py tests/test_repository.py
+git diff --check
+```
+
+- The complete strict suite passed all `88` tests.
+- Validation, bytecode compilation, and working-tree whitespace verification
+  exited `0`.
+- Schema versioning and fsync durability were intentionally unchanged.
+
 ## Production fail-open correction
 
 Correction base: `4c80c255b330f9cf44cadf43297a6f0a443ea624`.

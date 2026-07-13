@@ -164,6 +164,12 @@ blocker counts rather than blocker contents, and the raw `next_action` stored
 in state is not printed. `next` derives its action from validated lifecycle
 evidence.
 
+The `init-run` created-path acknowledgements also use bounded terminal-safe
+escaping. Selector snapshot and authorization reads accept only bounded regular
+files; backlog summaries are streamed under byte and line limits. Portfolio
+diagnostics skip symlinked direct-child directories and reconcile branch,
+reachable commits, and frozen implementation HEAD without printing hashes.
+
 Diagnostics do not fix selectors, change Git state, reconstruct artifacts,
 install hooks, send telemetry, or publish a dashboard.
 

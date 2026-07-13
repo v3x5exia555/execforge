@@ -30,7 +30,10 @@ python3 scripts/execforge.py doctor --portfolio ~/Desktop/project
 
 Installed diagnostics compare bundled skill files with known installation
 roots. Portfolio diagnostics report instruction coverage, Git conflicts,
-selector safety, and lifecycle metadata without modifying a repository.
+selector safety, and lifecycle metadata without modifying a repository. The
+scan stays within real, non-symlinked direct-child repositories and applies the
+same branch, reachable-commit, and frozen implementation-HEAD checks as
+`resume`.
 
 ## First product review
 
@@ -140,6 +143,11 @@ State and Git input are byte/count/length bounded, control characters are
 escaped, blocker contents are counted rather than printed, and the raw recorded
 `next_action` is never printed. These diagnostics are read-only; they do not
 repair selectors or artifacts.
+
+Separately, the three created-path acknowledgements from `init-run` are bounded
+and terminal-safe. Selector rollback/authorization reads accept only bounded
+regular files, and backlog summaries are streamed under byte and line limits;
+oversized or special files are treated as unreadable.
 
 ## Recovery and rollback
 

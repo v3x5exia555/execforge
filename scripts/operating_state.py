@@ -36,7 +36,10 @@ class OperatingSnapshot(NamedTuple):
 
 
 _CONFLICT_CODES = {"DD", "AU", "UD", "UA", "DU", "AA", "UU"}
-_STATE_FIELDS = {"initiative", "state", "branch", "base_branch", "run_id"}
+_STATE_FIELDS = {
+    "initiative", "state", "branch", "base_branch", "run_id", "commit",
+    "base_commit", "implementation_head",
+}
 _STOP_BOUNDARIES = {"product": 1, "plan": 2, "implement": 3, "review": 4, "qa": 5}
 _STATE_RANKS = {
     "NO_CONTEXT": 0,
@@ -64,6 +67,8 @@ _UNSAFE_CODES = {
 }
 _SELECTOR_MAX_BYTES = 1024 * 1024
 _STATE_MAX_BYTES = 4 * 1024 * 1024
+_BACKLOG_MAX_BYTES = 4 * 1024 * 1024
+_BACKLOG_MAX_LINES = 10_000
 _GIT_OUTPUT_MAX_BYTES = 1024 * 1024
 _MAX_BLOCKERS = 100
 _MAX_BLOCKER_LENGTH = 4096
@@ -524,21 +529,54 @@ def _safe_operating_state(project: Path) -> tuple[Path | None, dict | None, list
 
 
 def _backlog_count(backlog: Path) -> int | None:
-    if not backlog.is_file() or backlog.is_symlink():
+    flags = os.O_RDONLY
+    if hasattr(os, "O_NONBLOCK"):
+        flags |= os.O_NONBLOCK
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    try:
+        descriptor = os.open(backlog, flags)
+    except OSError:
         return None
     try:
-        lines = backlog.read_text(encoding="utf-8").splitlines()
-    except (OSError, UnicodeError):
+        metadata = os.fstat(descriptor)
+        if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > _BACKLOG_MAX_BYTES:
+            return None
+        count = 0
+        line_count = 0
+        total_bytes = 0
+        pending = b""
+
+        def inspect_line(raw_line: bytes) -> None:
+            nonlocal count, line_count
+            line_count += 1
+            if line_count > _BACKLOG_MAX_LINES:
+                raise ValueError("backlog exceeds the safe line limit")
+            stripped = raw_line.decode("utf-8").strip()
+            if not stripped.startswith("|") or stripped.startswith("|---"):
+                return
+            cells = [cell.strip() for cell in stripped.strip("|").split("|")]
+            if cells and cells[0] not in {"", "#"} and any(cells[1:2]):
+                count += 1
+
+        while True:
+            chunk = os.read(descriptor, 64 * 1024)
+            if not chunk:
+                break
+            total_bytes += len(chunk)
+            if total_bytes > _BACKLOG_MAX_BYTES:
+                return None
+            pending += chunk
+            while b"\n" in pending:
+                line, pending = pending.split(b"\n", 1)
+                inspect_line(line)
+        if pending:
+            inspect_line(pending)
+        return count
+    except (OSError, UnicodeError, ValueError):
         return None
-    count = 0
-    for line in lines:
-        stripped = line.strip()
-        if not stripped.startswith("|") or stripped.startswith("|---"):
-            continue
-        cells = [cell.strip() for cell in stripped.strip("|").split("|")]
-        if cells and cells[0] not in {"", "#"} and any(cells[1:2]):
-            count += 1
-    return count
+    finally:
+        os.close(descriptor)
 
 
 def _parse_porcelain_v1_z(output: str) -> tuple[tuple[str, tuple[str, ...]], ...] | None:
@@ -803,9 +841,26 @@ def _state_metadata(project: Path) -> tuple[dict | None, tuple[Finding, ...]]:
         return None, tuple(findings)
 
     state = _load_json_object(candidates[0])
-    if state is None or not isinstance(state.get("initiative"), str) or not isinstance(
-        state.get("state"), str
-    ):
+    valid_state = bool(
+        state is not None
+        and _is_string(state.get("initiative"), 512, allow_empty=False)
+        and _is_string(state.get("state"), 128, allow_empty=False)
+        and (
+            "run_id" not in state
+            or _is_canonical_run_id(state["run_id"])
+        )
+        and all(
+            key not in state
+            or _is_nullable_string(state[key], 1024, allow_empty=False)
+            for key in ("branch", "base_branch")
+        )
+        and all(
+            key not in state
+            or _is_nullable_string(state[key], 128, allow_empty=False)
+            for key in ("commit", "base_commit", "implementation_head")
+        )
+    )
+    if not valid_state:
         findings.append(
             Finding(
                 "error", "lifecycle_state_malformed", project.name,
@@ -847,28 +902,78 @@ def _project_diagnostics(project: Path) -> tuple[Finding, ...]:
             )
 
     branch_output, branch_error = _run_git(project, "branch", "--show-current")
+    head_output, head_error = _run_git(project, "rev-parse", "HEAD")
     if branch_error:
         findings.append(branch_error)
         actual_branch = None
     else:
         actual_branch = branch_output.strip() if branch_output else None
+    if head_error:
+        findings.append(head_error)
+        actual_head = None
+    else:
+        actual_head = head_output.strip() if head_output else None
 
     state, state_findings = _state_metadata(project)
     findings.extend(state_findings)
-    if state is not None and branch_error is None:
-        recorded_branch = state.get("branch")
-        if not isinstance(recorded_branch, str) or not recorded_branch:
+    if state is not None:
+        frozen_implementation = state["state"] in _FROZEN_IMPLEMENTATION_STATES
+        if branch_error is None and "branch" not in state:
             findings.append(
                 Finding(
                     "warning", "branch_lineage_unknown", project.name,
                     "current branch lineage was not recorded",
                 )
             )
-        elif recorded_branch != actual_branch:
+        elif branch_error is None and state["branch"] != actual_branch:
             findings.append(
                 Finding(
                     "error", "branch_mismatch", project.name,
-                    f"recorded branch {recorded_branch!r} differs from current branch {actual_branch!r}",
+                    "recorded branch differs from current branch",
+                )
+            )
+        for field, code, label in (
+            ("commit", "commit_mismatch", "lifecycle commit"),
+            ("base_commit", "base_commit_mismatch", "base commit"),
+        ):
+            revision = state.get(field)
+            if revision is not None:
+                reachable, lineage_error = _git_commit_reachable(
+                    project, revision, actual_head
+                )
+                if lineage_error is not None:
+                    findings.append(lineage_error)
+                elif not reachable:
+                    findings.append(
+                        Finding(
+                            "error", code, project.name,
+                            f"recorded {label} is not a commit reachable from current HEAD",
+                        )
+                    )
+        implementation_head = state.get("implementation_head")
+        if frozen_implementation and state.get("base_commit") is None:
+            findings.append(
+                Finding(
+                    "error", "base_commit_missing", project.name,
+                    "frozen review state has no recorded base commit",
+                )
+            )
+        if frozen_implementation and implementation_head is None:
+            findings.append(
+                Finding(
+                    "error", "implementation_head_missing", project.name,
+                    "frozen review state has no recorded implementation HEAD",
+                )
+            )
+        if (
+            frozen_implementation
+            and implementation_head is not None
+            and implementation_head != actual_head
+        ):
+            findings.append(
+                Finding(
+                    "error", "implementation_head_mismatch", project.name,
+                    "recorded implementation HEAD differs from current HEAD",
                 )
             )
     return tuple(findings)
@@ -879,7 +984,11 @@ def portfolio_diagnostics(portfolio_root: Path) -> tuple[Finding, ...]:
     portfolio_root = Path(portfolio_root)
     try:
         children = sorted(
-            (path for path in portfolio_root.iterdir() if path.is_dir()), key=lambda path: path.name
+            (
+                path for path in portfolio_root.iterdir()
+                if not path.is_symlink() and path.is_dir()
+            ),
+            key=lambda path: path.name,
         )
     except OSError:
         return (

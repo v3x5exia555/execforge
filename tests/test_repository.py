@@ -13,6 +13,7 @@ import sys
 import tempfile
 import threading
 import time
+import unicodedata
 import unittest
 from unittest import mock
 
@@ -241,6 +242,23 @@ class RepositoryTests(unittest.TestCase):
                 )
             )
 
+            detached = portfolio / "detached"
+            self._initialize_repo(detached)
+            (detached / "tracked.txt").write_text("base\n", encoding="utf-8")
+            self._git(detached, "add", ".")
+            self._git(detached, "commit", "-m", "base")
+            self._git(detached, "checkout", "--detach")
+            (detached / ".eng-level").mkdir()
+            (detached / ".eng-level" / "state.json").write_text(
+                json.dumps(
+                    {
+                        "initiative": "Detached",
+                        "state": "PLAN_REQUIRED",
+                        "branch": None,
+                    }
+                )
+            )
+
             findings = operating_state.portfolio_diagnostics(portfolio)
             mismatch_projects = {
                 finding.project for finding in findings if finding.code == "branch_mismatch"
@@ -253,6 +271,8 @@ class RepositoryTests(unittest.TestCase):
             self.assertNotIn("legacy", mismatch_projects)
             self.assertIn("legacy", unknown_projects)
             self.assertNotIn("precedence", mismatch_projects)
+            self.assertNotIn("detached", mismatch_projects)
+            self.assertNotIn("detached", unknown_projects)
 
     def test_portfolio_git_status_disables_configured_fsmonitor(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -271,6 +291,97 @@ class RepositoryTests(unittest.TestCase):
             operating_state.portfolio_diagnostics(portfolio)
 
             self.assertFalse(marker.exists(), "portfolio diagnostics executed core.fsmonitor")
+
+    def test_portfolio_skips_symlinked_direct_child_repositories(self):
+        with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as out:
+            portfolio = Path(tmp)
+            outside = Path(out) / "outside-repository"
+            self._initialize_repo(outside)
+            (portfolio / "escaped-project").symlink_to(outside, target_is_directory=True)
+
+            with mock.patch.object(
+                operating_state, "_project_diagnostics", wraps=operating_state._project_diagnostics
+            ) as project_diagnostics:
+                findings = operating_state.portfolio_diagnostics(portfolio)
+
+            self.assertEqual((), findings)
+            project_diagnostics.assert_not_called()
+
+    def test_portfolio_rejects_same_branch_stale_or_missing_commit_lineage(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            portfolio = Path(tmp)
+
+            def initialize(name: str) -> tuple[Path, str, str]:
+                repo = portfolio / name
+                self._initialize_repo(repo)
+                (repo / "tracked.txt").write_text("base\n", encoding="utf-8")
+                self._git(repo, "add", ".")
+                self._git(repo, "commit", "-m", "base")
+                base = self._git(repo, "rev-parse", "HEAD").stdout.strip()
+                self._git(repo, "checkout", "-b", "divergent")
+                (repo / "tracked.txt").write_text("divergent\n", encoding="utf-8")
+                self._git(repo, "commit", "-am", "divergent")
+                divergent = self._git(repo, "rev-parse", "HEAD").stdout.strip()
+                self._git(repo, "checkout", "main")
+                (repo / "tracked.txt").write_text("main\n", encoding="utf-8")
+                self._git(repo, "commit", "-am", "main")
+                return repo, base, divergent
+
+            divergent_repo, _, divergent = initialize("divergent")
+            invalid_repo, invalid_base, _ = initialize("invalid")
+            missing_repo, _, _ = initialize("missing")
+            current_heads = {
+                repo.name: self._git(repo, "rev-parse", "HEAD").stdout.strip()
+                for repo in (divergent_repo, invalid_repo, missing_repo)
+            }
+            states = {
+                divergent_repo: {
+                    "initiative": "Divergent",
+                    "state": "REVIEW_READY",
+                    "branch": "main",
+                    "commit": current_heads["divergent"],
+                    "base_commit": divergent,
+                    "implementation_head": current_heads["divergent"],
+                },
+                invalid_repo: {
+                    "initiative": "Invalid",
+                    "state": "REVIEW_PASSED",
+                    "branch": "main",
+                    "commit": "not-a-commit",
+                    "base_commit": invalid_base,
+                    "implementation_head": current_heads["invalid"],
+                },
+                missing_repo: {
+                    "initiative": "Missing",
+                    "state": "SHIP_READY",
+                    "branch": "main",
+                    "commit": current_heads["missing"],
+                },
+            }
+            for repo, state in states.items():
+                (repo / ".eng-level").mkdir()
+                (repo / ".eng-level" / "state.json").write_text(
+                    json.dumps(state), encoding="utf-8"
+                )
+
+            with mock.patch.object(
+                operating_state, "_run_git", wraps=operating_state._run_git
+            ) as run_git:
+                findings = operating_state.portfolio_diagnostics(portfolio)
+
+            observed = {(finding.project, finding.code) for finding in findings}
+            self.assertIn(("divergent", "base_commit_mismatch"), observed)
+            self.assertIn(("invalid", "commit_mismatch"), observed)
+            self.assertIn(("missing", "base_commit_missing"), observed)
+            self.assertIn(("missing", "implementation_head_missing"), observed)
+            self.assertFalse(
+                any(finding.code == "branch_mismatch" for finding in findings)
+            )
+            head_calls = [
+                call for call in run_git.call_args_list
+                if call.args[1:] == ("rev-parse", "HEAD")
+            ]
+            self.assertEqual(3, len(head_calls))
 
     def test_git_output_with_invalid_utf8_is_replaced(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -1092,6 +1203,73 @@ class RepositoryTests(unittest.TestCase):
             self.assertEqual(1, resume_code)
             self.assertIn("warning: selector_malformed", output)
 
+    def test_pointer_snapshots_and_authoritative_reads_reject_unsafe_files(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            pointer = root / ".execforge" / "current.json"
+            pointer.parent.mkdir()
+            pointer.write_bytes(b"x" * (1024 * 1024 + 1))
+
+            with self.assertRaises(ValueError):
+                module._snapshot_pointer(pointer)
+            self.assertIsNone(module._authoritative_run_id(root))
+
+            pointer.unlink()
+            target = root / "target.json"
+            target.write_text('{"run_id": "escaped"}', encoding="utf-8")
+            pointer.symlink_to(target)
+            with self.assertRaises(ValueError):
+                module._snapshot_pointer(pointer)
+            self.assertIsNone(module._authoritative_run_id(root))
+
+            pointer.unlink()
+            os.mkfifo(pointer)
+            code = (
+                "import runpy, sys\n"
+                "m = runpy.run_path(sys.argv[1])\n"
+                "p = m['Path'](sys.argv[2])\n"
+                "try:\n    m['_snapshot_pointer'](p)\n"
+                "except ValueError:\n    print('snapshot-rejected')\n"
+                "print(m['_authoritative_run_id'](p.parents[1]))\n"
+            )
+            result = subprocess.run(
+                [sys.executable, "-c", code, str(SCRIPT), str(pointer)],
+                cwd=ROOT,
+                capture_output=True,
+                text=True,
+                timeout=2,
+                check=True,
+            )
+            self.assertEqual("snapshot-rejected\nNone", result.stdout.strip())
+
+    def test_backlog_count_rejects_oversized_and_fifo_inputs_without_blocking(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            oversized = root / "oversized.md"
+            oversized.write_bytes(b"x" * (4 * 1024 * 1024 + 1))
+            self.assertIsNone(operating_state._backlog_count(oversized))
+
+            too_many_lines = root / "too-many-lines.md"
+            too_many_lines.write_text("| 1 | item |\n" * 10_001, encoding="utf-8")
+            self.assertIsNone(operating_state._backlog_count(too_many_lines))
+
+            fifo = root / "backlog.md"
+            os.mkfifo(fifo)
+            code = (
+                "import runpy, sys; "
+                "m = runpy.run_path(sys.argv[1]); "
+                "print(m['_backlog_count'](m['Path'](sys.argv[2])))"
+            )
+            result = subprocess.run(
+                [sys.executable, "-c", code, str(OPERATING_STATE), str(fifo)],
+                cwd=ROOT,
+                capture_output=True,
+                text=True,
+                timeout=2,
+                check=True,
+            )
+            self.assertEqual("None", result.stdout.strip())
+
     def test_terminal_output_sanitizes_controls_and_hides_recorded_next_action(self):
         with tempfile.TemporaryDirectory() as tmp:
             repo = Path(tmp) / "repo\x1b]8;;https-secret\x07\u202e"
@@ -1111,6 +1289,41 @@ class RepositoryTests(unittest.TestCase):
                 self.assertNotIn(unsafe, output)
             self.assertEqual(1, len([line for line in output.splitlines() if line.startswith("initiative:")]))
             self.assertNotIn("next_action: forged", output.splitlines())
+
+    def test_init_run_output_escapes_control_characters_and_is_bounded(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp) / "repo-\x1b]52;c;clipboard\x07-\u202e"
+            repo.mkdir()
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPT),
+                    "init-run",
+                    "--name",
+                    "Recognizable Initiative",
+                    "--root",
+                    str(repo),
+                ],
+                cwd=ROOT,
+                capture_output=True,
+                text=True,
+                timeout=5,
+                check=True,
+            )
+
+            self.assertIn("created run:", result.stdout)
+            self.assertIn("recognizable-initiative", result.stdout)
+            self.assertIn("\\x1b", result.stdout)
+            for unsafe in ("\x1b", "\x07", "\u202e"):
+                self.assertNotIn(unsafe, result.stdout)
+            self.assertFalse(
+                any(
+                    character != "\n"
+                    and unicodedata.category(character).startswith("C")
+                    for character in result.stdout
+                )
+            )
+            self.assertLessEqual(len(result.stdout), 1800)
 
     def test_unknown_lifecycle_state_is_a_blocking_reconcile_action(self):
         with tempfile.TemporaryDirectory() as tmp:

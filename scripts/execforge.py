@@ -15,6 +15,7 @@ from pathlib import Path
 import re
 import shlex
 import shutil
+import stat
 import subprocess
 import sys
 import threading
@@ -47,6 +48,7 @@ Q_LEVEL_ASSET_FILES = {
     "retest.md": "retest.template.md",
 }
 _RUN_NAMESPACES = (".execforge", ".eng-level", ".q-level")
+_SELECTOR_MAX_BYTES = 1024 * 1024
 _INIT_LOCKS: dict[str, threading.Lock] = {}
 _INIT_LOCKS_GUARD = threading.Lock()
 
@@ -613,9 +615,9 @@ def _init_run_locked(name: str, cwd: Path) -> Path:
             raise RunPublicationError(original, restore_errors) from original
         raise
 
-    print(f"created run: {run}")
-    print(f"created lifecycle state: {lifecycle_run / 'state.json'}")
-    print(f"created Q Level state: {qa_run / 'state.json'}")
+    print(f"created run: {_terminal_safe(run)}")
+    print(f"created lifecycle state: {_terminal_safe(lifecycle_run / 'state.json')}")
+    print(f"created Q Level state: {_terminal_safe(qa_run / 'state.json')}")
     return run
 
 
@@ -700,10 +702,41 @@ def _unlock_descriptor(descriptor: int) -> None:
         _fcntl.flock(descriptor, _fcntl.LOCK_UN)
 
 
+def _read_bounded_regular_file(path: Path, max_bytes: int) -> bytes | None:
+    """Read a regular file through a bounded, non-following descriptor."""
+    flags = os.O_RDONLY
+    if hasattr(os, "O_NONBLOCK"):
+        flags |= os.O_NONBLOCK
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    try:
+        descriptor = os.open(path, flags)
+    except FileNotFoundError:
+        return None
+    except OSError as exc:
+        raise ValueError("file must be a readable regular file") from exc
+    try:
+        metadata = os.fstat(descriptor)
+        if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > max_bytes:
+            raise ValueError("file must be a bounded regular file")
+        chunks: list[bytes] = []
+        remaining = max_bytes + 1
+        while remaining:
+            chunk = os.read(descriptor, min(64 * 1024, remaining))
+            if not chunk:
+                break
+            chunks.append(chunk)
+            remaining -= len(chunk)
+        payload = b"".join(chunks)
+        if len(payload) > max_bytes:
+            raise ValueError("file exceeds the safe byte limit")
+        return payload
+    finally:
+        os.close(descriptor)
+
+
 def _snapshot_pointer(pointer: Path) -> bytes | None:
-    if pointer.is_symlink():
-        raise ValueError("current pointer must not be a symlink")
-    return pointer.read_bytes() if pointer.exists() else None
+    return _read_bounded_regular_file(pointer, _SELECTOR_MAX_BYTES)
 
 
 def _atomic_write(pointer: Path, payload: bytes) -> None:
@@ -748,11 +781,15 @@ def _remove_new_run(run: Path) -> None:
 
 def _authoritative_run_id(cwd: Path) -> str | None:
     pointer = cwd / ".execforge" / "current.json"
-    if pointer.is_symlink() or not pointer.is_file():
+    try:
+        raw = _read_bounded_regular_file(pointer, _SELECTOR_MAX_BYTES)
+    except (OSError, ValueError):
+        return None
+    if raw is None:
         return None
     try:
-        payload = json.loads(pointer.read_text(encoding="utf-8"))
-    except (OSError, UnicodeError, json.JSONDecodeError):
+        payload = json.loads(raw.decode("utf-8"))
+    except (UnicodeError, json.JSONDecodeError):
         return None
     run_id = payload.get("run_id") if isinstance(payload, dict) else None
     return run_id if _is_canonical_run_id(run_id) else None
