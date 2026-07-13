@@ -14,8 +14,12 @@ route through installed gstack tooling.
   Split into `eng-level-post-hoc-review` and `eng-level-stop-after`, one behavior each.
 - Added `execforge release-check` and a tag-push Release Gate workflow: both plugin
   manifests, the CHANGELOG head entry, and the tag must agree; malformed tags (the
-  historic `v.1.0.0` form) are rejected. Operator note: remove the stray tag with
-  `git tag -d v.1.0.0 && git push origin :refs/tags/v.1.0.0`.
+  historic `v.1.0.0` form) are rejected. The stray `v.1.0.0` tag has been deleted
+  locally and on origin.
+- Wired release consistency into the lifecycle: `eng-level` now requires
+  release-consistency evidence before a `SHIP` on a release-bound branch —
+  `release-check` output in this repository, a recorded manual manifest check
+  elsewhere. A failing check is a P1.
 - Added conditional gstack bridges: q-level tool routing prefers installed `/browse` +
   `/qa` for logged-in portal evidence; eng-level records a post-`SHIP` handoff to
   `/land-and-deploy`; sec-level lists `/cso` as an optional runtime-evidence tool.
