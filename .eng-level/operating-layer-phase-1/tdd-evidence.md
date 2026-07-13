@@ -607,6 +607,27 @@ git diff --check
 - Validation reported `ExecForge validation passed.`
 - Compilation and working-tree diff whitespace checks produced no findings.
 
+## Portfolio branch-detail conformance correction
+
+Correction base: `0b2e29c4f6ce578b2f83ec0864985ba4ad822768`.
+
+The locked D6 test matrix requires a portfolio branch-mismatch warning to name
+both the recorded and actual branches. A focused regression assertion was added
+before restoring those values.
+
+RED command:
+
+```sh
+python3 -W error::ResourceWarning -m unittest tests.test_repository.RepositoryTests.test_portfolio_branch_compatibility_and_precedence -v
+```
+
+- Exit status: `1`.
+- Result: one intended failure because the warning contained only generic text.
+
+GREEN uses the same command after restoring the two bounded metadata values.
+The CLI terminal-safe renderer remains responsible for escaping control
+characters before display.
+
 ## Security-review correction: output and bounded diagnostics
 
 Correction base: `f3fb0735ffae6938179c70cc70278366b852682c`.

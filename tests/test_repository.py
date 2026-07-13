@@ -242,6 +242,19 @@ class RepositoryTests(unittest.TestCase):
                 )
             )
 
+            mismatch = portfolio / "mismatch-details"
+            self._initialize_repo(mismatch)
+            (mismatch / ".eng-level").mkdir()
+            (mismatch / ".eng-level" / "state.json").write_text(
+                json.dumps(
+                    {
+                        "initiative": "Mismatch Details",
+                        "state": "PLAN_REQUIRED",
+                        "branch": "recorded-branch",
+                    }
+                )
+            )
+
             detached = portfolio / "detached"
             self._initialize_repo(detached)
             (detached / "tracked.txt").write_text("base\n", encoding="utf-8")
@@ -273,6 +286,14 @@ class RepositoryTests(unittest.TestCase):
             self.assertNotIn("precedence", mismatch_projects)
             self.assertNotIn("detached", mismatch_projects)
             self.assertNotIn("detached", unknown_projects)
+            mismatch_finding = next(
+                finding
+                for finding in findings
+                if finding.project == "mismatch-details"
+                and finding.code == "branch_mismatch"
+            )
+            self.assertIn("'recorded-branch'", mismatch_finding.detail)
+            self.assertIn("'main'", mismatch_finding.detail)
 
     def test_portfolio_git_status_disables_configured_fsmonitor(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -929,7 +929,8 @@ def _project_diagnostics(project: Path) -> tuple[Finding, ...]:
             findings.append(
                 Finding(
                     "error", "branch_mismatch", project.name,
-                    "recorded branch differs from current branch",
+                    f"recorded branch {state['branch']!r} differs from current branch "
+                    f"{actual_branch!r}",
                 )
             )
         for field, code, label in (
