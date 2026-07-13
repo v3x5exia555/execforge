@@ -60,6 +60,33 @@ def markdown_links(path: Path) -> list[str]:
     return re.findall(r"\[[^\]]+\]\(([^)]+)\)", text)
 
 
+def parse_eval_case(path: Path) -> dict:
+    """Parse an evaluations/*.eval.md case into scenario + graded checklists."""
+    meta = parse_frontmatter(path)
+    text = path.read_text(encoding="utf-8")
+
+    def section(name: str) -> str:
+        match = re.search(rf"^## {re.escape(name)}\n(.*?)(?=^## |\Z)", text, re.M | re.S)
+        if not match:
+            raise ValueError(f"{path.name}: missing required section '## {name}'")
+        return match.group(1).strip()
+
+    def checklist(name: str) -> list[str]:
+        items = re.findall(r"^- \[ \] (.+)$", section(name), re.M)
+        if not items:
+            raise ValueError(f"{path.name}: section '## {name}' has no checklist items")
+        return items
+
+    return {
+        "id": meta.get("id", path.stem),
+        "skill": meta.get("skill", ""),
+        "type": meta.get("type", ""),
+        "scenario": section("Scenario"),
+        "expected": checklist("Expected behavior"),
+        "failures": checklist("Failure conditions"),
+    }
+
+
 def validate_repo(root: Path = ROOT) -> list[str]:
     errors: list[str] = []
     skills_root = root / "skills"
