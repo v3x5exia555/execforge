@@ -233,7 +233,7 @@ All commands run through `scripts/execforge.py` (or `scripts/install.sh` as a th
 | `check-superpowers` | Detect a separately installed Superpowers setup |
 | `doctor --installed` | Compare bundled skills with every known install root and report missing or drifted files |
 | `doctor --portfolio <path>` | Read-only scan of direct-child Git repositories for instruction, Git, selector, and lifecycle-state findings |
-| `init-run --name <initiative> [--root <repo>]` | Seed a new initiative-scoped product, engineering, and QA run and select it |
+| `init-run --name <initiative> [--root <repo>]` | Seed a new initiative-scoped product, engineering, and QA run and select it (`--name` must be a single line, non-empty after trimming, and at most 512 characters) |
 | `status [--root <repo>]` | Report current engineering and QA lifecycle state and backlog |
 | `resume [--root <repo>]` | Reconcile selected lifecycle metadata with the repository's current Git branch and HEAD |
 | `next [--root <repo>]` | Print exactly one safe next lifecycle action; unsafe or stale state exits nonzero |

@@ -1,6 +1,6 @@
 {
   "name": "execforge",
-  "version": "0.10.0",
+  "version": "0.10.1",
   "description": "ExecForge skill bundle for product decision, UX/interface translation, engineering review, and QA orchestration.",
   "skills": [
     "c-level",

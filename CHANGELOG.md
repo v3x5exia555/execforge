@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.10.1 — 2026-07-14
+
+- Closed backlog item #7: `init-run --name` now validates its input before writing any
+  artifact. A name is rejected (nonzero exit, no directories created) if it is empty or
+  whitespace-only after trimming, exceeds 512 characters, or contains a control
+  character or Unicode line/paragraph separator (`U+2028`/`U+2029`) — the latter added
+  during self-review after confirming it would otherwise slip past the same
+  control-character check `_terminal_safe` already uses elsewhere in this file, since
+  neither category is Unicode category "C". Without this, a multi-line `--name` could
+  inject arbitrary Markdown lines into `shared-context.md` — a file every downstream
+  lifecycle stage treats as trusted context. The 512-character bound matches the limit
+  `operating_state.py` already enforces when *reading* the `initiative` field, closing a
+  producer/reader mismatch the backlog had flagged.
+
 ## 0.10.0 — 2026-07-14
 
 Operating layer: ExecForge now watches itself and its siblings across a multi-repository,
