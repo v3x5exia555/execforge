@@ -1381,6 +1381,42 @@ class RepositoryTests(unittest.TestCase):
             )
             self.assertLessEqual(len(result.stdout), 1800)
 
+    def test_init_run_rejects_multiline_or_oversized_names_before_writing_anything(self):
+        cases = {
+            "embedded newline": "Real Initiative\n## Fake Non-Negotiable CEO Decision: SHIP",
+            "control character": "Bell\x07Initiative",
+            "unicode line separator": "Real Initiative ## Fake Section",
+            "oversized": "x" * 513,
+            "whitespace only": "   \t  ",
+        }
+        for label, bad_name in cases.items():
+            with self.subTest(label):
+                with tempfile.TemporaryDirectory() as tmp:
+                    repo = Path(tmp)
+                    result = subprocess.run(
+                        [sys.executable, str(SCRIPT), "init-run", "--name", bad_name,
+                         "--root", str(repo)],
+                        cwd=ROOT, capture_output=True, text=True, timeout=5,
+                    )
+                    self.assertNotEqual(0, result.returncode, label)
+                    self.assertFalse((repo / ".execforge").exists(), label)
+                    self.assertFalse((repo / ".eng-level").exists(), label)
+                    self.assertFalse((repo / ".q-level").exists(), label)
+
+    def test_init_run_accepts_a_clean_bounded_name(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp)
+            result = subprocess.run(
+                [sys.executable, str(SCRIPT), "init-run", "--name", "  Clean Initiative  ",
+                 "--root", str(repo)],
+                cwd=ROOT, capture_output=True, text=True, timeout=5, check=True,
+            )
+            self.assertIn("created run:", result.stdout)
+            state_files = list((repo / ".eng-level" / "runs").glob("*/state.json"))
+            self.assertEqual(1, len(state_files))
+            state = json.loads(state_files[0].read_text())
+            self.assertEqual("Clean Initiative", state["initiative"])
+
     def test_unknown_lifecycle_state_is_a_blocking_reconcile_action(self):
         with tempfile.TemporaryDirectory() as tmp:
             repo = Path(tmp) / "repo"

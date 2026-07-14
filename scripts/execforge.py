@@ -513,7 +513,30 @@ def check_superpowers() -> int:
     return 1
 
 
+# Must stay equal to operating_state.py's `_is_string(state.get("initiative"), 512, ...)`
+# reader bound: the producer and reader disagreeing on the limit is the gap this closes.
+_MAX_INITIATIVE_NAME_LENGTH = 512
+
+
+def _validate_initiative_name(name: str) -> str:
+    """Reject names that would corrupt generated Markdown/state artifacts."""
+    stripped = name.strip()
+    if not stripped:
+        raise ValueError("initiative name must not be empty or whitespace-only")
+    if len(stripped) > _MAX_INITIATIVE_NAME_LENGTH:
+        raise ValueError(
+            f"initiative name must be at most {_MAX_INITIATIVE_NAME_LENGTH} characters"
+        )
+    if any(
+        unicodedata.category(ch).startswith("C") or ch in "  "
+        for ch in stripped
+    ):
+        raise ValueError("initiative name must be a single line with no control characters")
+    return stripped
+
+
 def init_run(name: str, cwd: Path) -> Path:
+    name = _validate_initiative_name(name)
     cwd = Path(cwd)
     _validate_run_storage(cwd)
     with _repository_init_lock(cwd):
@@ -1179,7 +1202,11 @@ def main() -> int:
         return doctor(installed=args.installed, portfolio=args.portfolio)
 
     if args.command == "init-run":
-        init_run(args.name, args.root.resolve())
+        try:
+            init_run(args.name, args.root.resolve())
+        except ValueError as exc:
+            print(f"ERROR: {exc}", file=sys.stderr)
+            return 1
         return 0
 
     if args.command == "status":
