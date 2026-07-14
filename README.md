@@ -70,8 +70,14 @@ python3 scripts/execforge.py doctor
 ```bash
 python3 scripts/execforge.py validate
 python3 scripts/execforge.py doctor
+python3 scripts/execforge.py doctor --installed
+python3 scripts/execforge.py doctor --portfolio ~/Desktop/project
 python3 -m unittest discover -s tests -v
 ```
+
+`doctor --installed` compares the bundled skills with known user installations.
+`doctor --portfolio` scans only direct-child Git repositories for instruction,
+Git, selector, and lifecycle-state problems; diagnostics are read-only.
 
 ### 2. Install the skills
 
@@ -225,12 +231,53 @@ All commands run through `scripts/execforge.py` (or `scripts/install.sh` as a th
 | `doctor` | Check Python version, repository integrity, Git/MkDocs availability, install-target writability, and Superpowers presence |
 | `install --target claude\|codex\|agents` or `--destination <dir>` | Validate, copy, and verify the skill bundle (`--force` to overwrite) |
 | `check-superpowers` | Detect a separately installed Superpowers setup |
-| `init-run --name <initiative>` | Seed `.execforge/`, `.eng-level/`, and `.q-level/` run artifacts |
-| `status` | Report current engineering and QA lifecycle state |
+| `doctor --installed` | Compare bundled skills with every known install root and report missing or drifted files |
+| `doctor --portfolio <path>` | Read-only scan of direct-child Git repositories for instruction, Git, selector, and lifecycle-state findings |
+| `init-run --name <initiative> [--root <repo>]` | Seed a new initiative-scoped product, engineering, and QA run and select it |
+| `status [--root <repo>]` | Report current engineering and QA lifecycle state and backlog |
+| `resume [--root <repo>]` | Reconcile selected lifecycle metadata with the repository's current Git branch and HEAD |
+| `next [--root <repo>]` | Print exactly one safe next lifecycle action; unsafe or stale state exits nonzero |
+| `eval [case-id\|all] [--list] [--limit N]` | Execute behavioral eval cases: replay the scenario through a headless agent (`--agent-cmd`, default `claude -p`), grade the transcript with an LLM judge (`--judge-cmd`), and recompute the verdict locally |
+| `release-check [--tag vX.Y.Z]` | Verify plugin manifests, changelog version, and optional release tag agree |
+
+Typical operating checks and re-entry commands are:
+
+```bash
+python3 scripts/execforge.py doctor --installed
+python3 scripts/execforge.py doctor --portfolio ~/Desktop/project
+python3 scripts/execforge.py resume --root <repo>
+python3 scripts/execforge.py next --root <repo>
+```
+
+## Initiative-scoped operating state
+
+`init-run` creates matching run IDs under `.execforge/runs/<run-id>`,
+`.eng-level/runs/<run-id>`, and `.q-level/runs/<run-id>`. The authoritative
+selector is `.execforge/current.json`; `.eng-level/current.json` and
+`.q-level/current.json` are compatibility projections for existing readers.
+The selector is a rebuildable index, not stronger evidence than runtime
+behavior, tests, code, Git history, or the run artifacts themselves.
+
+Legacy root state remains readable only when no safe current selector can be
+used. ExecForge never silently migrates or deletes those legacy artifacts.
+The stable, Git-ignored `.execforge-init-run.lock` coordinates concurrent
+initialization; retaining the same file keeps its lock inode stable between
+runs.
+
+`resume` reports bounded metadata, evidence/backlog locations, and safe warning
+codes. `next` prints one derived action. Neither command prints the raw recorded
+`next_action`, blocker contents, or unescaped terminal control characters.
+Conflicts, unreadable state, stale branch/commit lineage, or blockers stop
+progress; reaching a `stop_after` boundary waits for an explicit user
+instruction. See [Getting Started](docs/getting-started.md) and the
+[Eng Level state contract](skills/eng-level/references/state-and-artifacts.md)
+for lineage, exit-status, privacy, and rollback details.
 
 ## Evaluations
 
 `evaluations/` contains at least one behavioral evaluation case per bundled skill — plus focused cases for conditional behavior such as the Authorization gate and design system binding. Each case carries an input scenario, an expected-behavior checklist, and explicit failure conditions. A case passes only when every expected behavior is observed and no failure condition occurs. The shared invariant across all cases: **never claim a review, test, approval, or lifecycle stage ran without evidence that it actually ran.** See [`evaluations/README.md`](evaluations/README.md).
+
+Cases are executable: `python3 scripts/execforge.py eval` runs them through a headless agent and grades the transcript. An advisory CI job runs a capped set on skill changes when an `ANTHROPIC_API_KEY` repository secret is configured, and skips cleanly when it is not.
 
 ## Continuous integration
 
@@ -239,9 +286,14 @@ GitHub Actions runs on every push and pull request ([`.github/workflows/ci.yml`]
 1. `python3 scripts/execforge.py validate`
 2. `python3 scripts/execforge.py doctor`
 3. `python3 -m unittest discover -s tests -v`
-4. `mkdocs build --strict`
+4. `python3 scripts/execforge.py release-check`
+5. `mkdocs build --strict`
 
-A second workflow ([`.github/workflows/docs.yml`](.github/workflows/docs.yml)) deploys the MkDocs site to GitHub Pages on pushes to `main`. Enable **Settings → Pages → Source: GitHub Actions** to publish it.
+Three more workflows:
+
+- [`docs.yml`](.github/workflows/docs.yml) deploys the MkDocs site to GitHub Pages on pushes to `main`. Enable **Settings → Pages → Source: GitHub Actions** to publish it.
+- [`evals.yml`](.github/workflows/evals.yml) runs a capped behavioral-eval set on pull requests that touch `skills/`, `evaluations/`, or the CLI. Advisory: it cannot block a merge, and it skips without an `ANTHROPIC_API_KEY` secret.
+- [`release-gate.yml`](.github/workflows/release-gate.yml) runs `release-check --tag` on every pushed `v*` tag, so a tag that disagrees with the manifests or CHANGELOG fails visibly.
 
 ## Documentation
 
