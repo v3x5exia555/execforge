@@ -291,8 +291,13 @@ def validate_repo(root: Path = ROOT) -> list[str]:
         if not (root / rel).exists():
             errors.append(f"Missing required file: {rel}")
 
-    for stray in root.glob("*SKILL*.md"):
-        errors.append(f"{stray.name}: legacy root skill file; skill bodies belong under skills/<name>/")
+    # Match the SKILL token case-sensitively. On Windows, pathlib applies
+    # os.path.normcase inside glob, so `glob("*SKILL*.md")` matches
+    # case-insensitively and wrongly flags legitimate lowercase files such as
+    # skill-usage-feedback.md, breaking validate/doctor/install there.
+    for stray in sorted(root.glob("*.md")):
+        if "SKILL" in stray.name:
+            errors.append(f"{stray.name}: legacy root skill file; skill bodies belong under skills/<name>/")
 
     for path in list((root / "schemas").glob("*.json")) + list((root / ".claude-plugin").glob("*.json")) + list((root / ".codex-plugin").glob("*.json")):
         try:
