@@ -412,6 +412,7 @@ class RepositoryTests(unittest.TestCase):
             ]
             self.assertEqual(3, len(head_calls))
 
+    @unittest.skipUnless(os.name == "posix", "fake git uses a POSIX shell shebang not executable on Windows")
     def test_git_output_with_invalid_utf8_is_replaced(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -424,6 +425,7 @@ class RepositoryTests(unittest.TestCase):
             self.assertIsNone(finding)
             self.assertEqual("\ufffd", output)
 
+    @unittest.skipUnless(hasattr(os, "mkfifo"), "requires os.mkfifo (POSIX-only)")
     def test_installed_skill_fifo_is_hashed_without_blocking(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -500,7 +502,10 @@ class RepositoryTests(unittest.TestCase):
             )
 
     def test_no_legacy_root_skill_files(self):
-        self.assertEqual([], list(ROOT.glob("*SKILL*.md")))
+        # Case-sensitive SKILL match, mirroring validate_repo: a case-insensitive
+        # glob wrongly flags lowercase files (e.g. skill-usage-feedback.md) on
+        # Windows and macOS.
+        self.assertEqual([], [p for p in ROOT.glob("*.md") if "SKILL" in p.name])
 
     def test_install_verifies_installed_skills(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -1050,23 +1055,26 @@ class RepositoryTests(unittest.TestCase):
                     self.assertIn("next_action: reconcile stale lifecycle state", output)
                     self.assertNotIn("tracked.txt", output)
 
-            untracked = root / "untracked"
-            state_file, state = self._initialize_operating_repo(untracked)
-            self._write_state(
-                state_file,
-                state,
-                state="SHIP_READY",
-                upstream_approval_status="APPROVED",
-                base_commit=state["commit"],
-                implementation_head=state["commit"],
-                open_blockers=[],
-            )
-            (untracked / "new\nsource.py").write_text("secret = 'not printed'\n", encoding="utf-8")
-            returncode, output = self._run_operating_command("next", untracked)
-            self.assertEqual(1, returncode)
-            self.assertIn("warning: material_worktree_changes", output)
-            self.assertNotIn("new\nsource.py", output)
-            self.assertNotIn("not printed", output)
+            # A filename containing a newline cannot exist on Windows; the
+            # sanitisation it verifies is platform-independent and covered on POSIX.
+            if os.name != "nt":
+                untracked = root / "untracked"
+                state_file, state = self._initialize_operating_repo(untracked)
+                self._write_state(
+                    state_file,
+                    state,
+                    state="SHIP_READY",
+                    upstream_approval_status="APPROVED",
+                    base_commit=state["commit"],
+                    implementation_head=state["commit"],
+                    open_blockers=[],
+                )
+                (untracked / "new\nsource.py").write_text("secret = 'not printed'\n", encoding="utf-8")
+                returncode, output = self._run_operating_command("next", untracked)
+                self.assertEqual(1, returncode)
+                self.assertIn("warning: material_worktree_changes", output)
+                self.assertNotIn("new\nsource.py", output)
+                self.assertNotIn("not printed", output)
 
             for lifecycle_state, action in expected_actions.items():
                 with self.subTest(state=lifecycle_state, change="governance-only"):
@@ -1232,6 +1240,7 @@ class RepositoryTests(unittest.TestCase):
             self.assertEqual(1, resume_code)
             self.assertIn("warning: selector_malformed", output)
 
+    @unittest.skipUnless(hasattr(os, "mkfifo"), "requires os.mkfifo (POSIX-only)")
     def test_pointer_snapshots_and_authoritative_reads_reject_unsafe_files(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -1271,6 +1280,7 @@ class RepositoryTests(unittest.TestCase):
             )
             self.assertEqual("snapshot-rejected\nNone", result.stdout.strip())
 
+    @unittest.skipUnless(hasattr(os, "O_NOFOLLOW"), "requires os.O_NOFOLLOW (POSIX-only)")
     def test_pointer_snapshot_rejects_links_without_o_nofollow_before_publication(self):
         with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as out:
             root = Path(tmp)
@@ -1291,6 +1301,7 @@ class RepositoryTests(unittest.TestCase):
             self.assertTrue(pointer.is_symlink())
             self.assertEqual('{"private": "outside-only"}\n', outside.read_text(encoding="utf-8"))
 
+    @unittest.skipUnless(hasattr(os, "mkfifo"), "requires os.mkfifo (POSIX-only)")
     def test_backlog_count_rejects_oversized_and_fifo_inputs_without_blocking(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -1326,6 +1337,7 @@ class RepositoryTests(unittest.TestCase):
             with mock.patch.object(operating_state.os, "O_NOFOLLOW", 0):
                 self.assertIsNone(operating_state._backlog_count(fifo))
 
+    @unittest.skipIf(os.name == "nt", "Windows filesystem forbids control characters in path names")
     def test_terminal_output_sanitizes_controls_and_hides_recorded_next_action(self):
         with tempfile.TemporaryDirectory() as tmp:
             repo = Path(tmp) / "repo\x1b]8;;https-secret\x07\u202e"
@@ -1346,6 +1358,7 @@ class RepositoryTests(unittest.TestCase):
             self.assertEqual(1, len([line for line in output.splitlines() if line.startswith("initiative:")]))
             self.assertNotIn("next_action: forged", output.splitlines())
 
+    @unittest.skipIf(os.name == "nt", "Windows filesystem forbids control characters in path names")
     def test_init_run_output_escapes_control_characters_and_is_bounded(self):
         with tempfile.TemporaryDirectory() as tmp:
             repo = Path(tmp) / "repo-\x1b]52;c;clipboard\x07-\u202e"
@@ -1431,6 +1444,7 @@ class RepositoryTests(unittest.TestCase):
                 [line for line in output.splitlines() if line.startswith("next_action:")],
             )
 
+    @unittest.skipUnless(os.name == "posix", "fake git uses a shebang stub not executable on Windows")
     def test_git_diagnostics_reject_oversized_output(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
