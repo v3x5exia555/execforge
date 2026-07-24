@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.11.0 — 2026-07-24
+
+Vendored the third-party **ponytail** simplicity persona into the bundle, executing the
+2026-07-17 ExecForge PILOT decision (`.execforge/runs/20260717T0400042436000Z-f2f06790-ponytail-adoption/decision.md`).
+
+- Added `skills/ponytail/`: verbatim upstream SKILL.md pinned at commit `b6c04480`
+  (2026-07-10), with `PROVENANCE.md` recording the pin, adoption date, SHA-256, and the
+  pilot governance rules (TDD wins, gates win, bottom tier, lite default, no
+  auto-update). A new test verifies the snapshot still matches the recorded hash.
+- `ponytail` joined `BUNDLED_SKILLS` and the Claude plugin manifest, so `install` ships
+  it; the Codex manifest already ships the whole `skills/` directory.
+- `validate` now exempts vendored skills (marked by a `PROVENANCE.md`) from the house
+  "Use when" description style — vendored text stays verbatim.
+- `c-level` fast path points at the in-repo vendored copy; `execforge` gained a
+  fast-path pre-check so a direct trigger auto-detects low-impact implementation jobs
+  and routes them to `ponytail lite` (TDD precedence and approval-before-commit intact)
+  instead of running a product review.
+- Added `evaluations/ponytail.eval.md` (gate case: simplicity never overrides test
+  discipline, gates, or the approval-before-commit rule).
+- `CLAUDE.md`/`AGENTS.md` slot ponytail at the domain-implementation tier with the
+  TDD-wins precedence line; README and docs describe the vendored integration.
+
 ## 0.10.1 — 2026-07-14
 
 - Closed backlog item #7: `init-run --name` now validates its input before writing any

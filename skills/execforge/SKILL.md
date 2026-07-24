@@ -14,6 +14,19 @@ metadata:
 
 Find the smallest evidence-backed scope that creates measurable user value without uncontrolled operational debt.
 
+## Ponytail fast-path pre-check
+
+When `execforge` is triggered directly (bypassing the `c-level` router), first check
+whether the request is actually a concrete low-impact implementation job rather than a
+build/expand/reduce/pilot/defer/kill decision. If it meets ALL of the low-impact
+criteria in the `c-level` "Ponytail fast path" section (single repo, reversible in one
+revert, no auth/secrets/trust-boundary/schema/data-migration surface, no new
+dependency, no governance gate output) and the vendored `ponytail` skill is installed,
+state that the fast path applies and route it to `ponytail lite` under the same
+procedure — TDD precedence and explicit user approval before any commit included —
+instead of running a product review. Any doubt about impact, or any request that is a
+genuine product decision, runs the normal process below.
+
 ## Required topology
 
 ```text
