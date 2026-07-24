@@ -482,6 +482,18 @@ class RepositoryTests(unittest.TestCase):
     def test_repository_validation(self):
         self.assertEqual([], module.validate_repo(ROOT))
 
+    def test_vendored_ponytail_matches_provenance_hash(self):
+        """The vendored copy must stay verbatim at its pinned snapshot."""
+        import hashlib
+
+        provenance = (ROOT / "skills" / "ponytail" / "PROVENANCE.md").read_text(encoding="utf-8")
+        match = re.search(r"SHA-256 of SKILL.md at adoption: ([0-9a-f]{64})", provenance)
+        self.assertIsNotNone(match, "PROVENANCE.md must record the adoption SHA-256")
+        actual = hashlib.sha256(
+            (ROOT / "skills" / "ponytail" / "SKILL.md").read_bytes()
+        ).hexdigest()
+        self.assertEqual(match.group(1), actual)
+
     def test_required_skills_are_discoverable(self):
         names = {
             module.parse_frontmatter(path / "SKILL.md")["name"]

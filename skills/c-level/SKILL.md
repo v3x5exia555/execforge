@@ -22,6 +22,7 @@ Before acting, select the smallest applicable workflow. Do not inspect code, ask
 | New product, feature, platform, automation, or unclear user need | Use `execforge` |
 | Approved product scope needs UX/interface structure or production-oriented HTML/CSS guidance | Use `design-html`; forward `--design-system=<name\|auto\|none>` when the operator set one |
 | Approved product/PRD needs engineering planning | Use `eng-level --mode=plan` |
+| Triggered job is low-impact per the Ponytail fast path criteria below | Use `ponytail lite` fast path; user approval required before any commit |
 | Implementation plan is approved and code work starts | Use the installed Superpowers execution skills |
 | Existing branch needs final audit | Use `eng-level --mode=review` |
 | Web portal/API/backend behavior needs test planning or execution | Use `q-level` |
@@ -31,6 +32,42 @@ Before acting, select the smallest applicable workflow. Do not inspect code, ask
 | QA finds unclear or contradictory acceptance criteria | Return to `execforge` |
 | Product assumption becomes invalid during implementation | Return to `execforge` |
 | Architecture assumption becomes invalid during implementation | Return to `eng-level --mode=plan` |
+
+## Ponytail fast path (optional)
+
+`ponytail` is a third-party simplicity persona
+(github.com/DietrichGebert/ponytail), vendored in this bundle as a pinned
+verbatim copy (`skills/ponytail/`) — never fetched at runtime, never
+auto-updated. When it is not installed, the fast-path row is inert and every
+job uses the normal router rows. Installed, it sits at the
+domain-implementation tier — below every workflow in this router — with its
+pinned commit recorded in `skills/ponytail/PROVENANCE.md`.
+
+A triggered job is **low-impact** only when ALL hold:
+
+- Single repo, no cross-team or production architecture surface
+- Reversible in one revert
+- Touches no auth, secrets, trust-boundary input handling, schema or data
+  migration, and adds no network exposure (otherwise attach `sec-level` and
+  use the normal flow)
+- Adds no new dependency
+- Produces no governance gate output
+
+Fast path procedure:
+
+1. Invoke `ponytail lite` and implement the job.
+2. Precedence: where ponytail conflicts with Superpowers
+   `test-driven-development`, TDD wins — ponytail governs implementation
+   style, never test discipline. Gate outputs are never shortened, skipped,
+   or claimed without evidence.
+3. When the operator has a pilot observation job configured, log the run
+   (for example `.execforge/bin/ponytail-observe.sh record <task-slug> on`).
+4. Present the diff summary to the user and ask for explicit approval
+   BEFORE committing or claiming the job done. No approval, no commit.
+
+Any doubt about impact means not low-impact: use the normal router rows.
+Adoption governance, precedence rules, and kill triggers live in the
+operator's ExecForge decision record for the ponytail initiative.
 
 ## Trigger aliases
 
