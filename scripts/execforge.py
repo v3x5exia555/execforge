@@ -34,7 +34,7 @@ except ImportError:  # pragma: no cover - unavailable on POSIX
 
 ROOT = Path(__file__).resolve().parents[1]
 SKILLS = ROOT / "skills"
-BUNDLED_SKILLS = {"c-level", "design-html", "eng-level", "execforge", "full-cycle", "q-level", "sec-level"}
+BUNDLED_SKILLS = {"c-level", "design-html", "eng-level", "execforge", "full-cycle", "ponytail", "q-level", "sec-level"}
 REQUIRED_SKILLS = BUNDLED_SKILLS
 PLUGIN_MANIFESTS = [".claude-plugin/plugin.json", ".codex-plugin/plugin.json"]
 Q_LEVEL_ASSET_FILES = {
@@ -266,7 +266,9 @@ def validate_repo(root: Path = ROOT) -> list[str]:
             errors.append(f"{skill_file}: name '{name}' must match directory '{skill_dir.name}'")
         if not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", name):
             errors.append(f"{skill_file}: invalid skill name '{name}'")
-        if not description.lower().startswith("use when"):
+        # Vendored third-party skills (marked by PROVENANCE.md) keep their
+        # upstream description verbatim and are exempt from the house style.
+        if not description.lower().startswith("use when") and not (skill_dir / "PROVENANCE.md").exists():
             errors.append(f"{skill_file}: description must start with 'Use when'")
         if len(description) > 1024:
             errors.append(f"{skill_file}: description exceeds 1024 characters")

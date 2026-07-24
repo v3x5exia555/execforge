@@ -21,6 +21,7 @@ Should it exist?
 - **execforge** runs CEO/COO product pressure testing.
 - **eng-level** controls upstream approval, plan review, implementation conformance, and final Staff Engineer review.
 - **q-level** verifies the same business requirement across portal, API, backend/data, and data-risk attachments when persisted state is material.
+- **ponytail** (vendored third-party persona, pinned; see `skills/ponytail/PROVENANCE.md`) supplies generation-time simplicity pressure for the low-impact fast path.
 - **Superpowers** optionally supplies implementation discipline such as worktrees, atomic plans, TDD, subagent execution, debugging, and verification.
 - **gstack** optionally supplies plan-stage engineering and final Staff Engineer reviews.
 

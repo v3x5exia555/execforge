@@ -1,27 +1,56 @@
-# ExecForge
+<h1 align="center">ExecForge</h1>
 
-ExecForge is an agent-skill platform for governing a software initiative from **product decision** through **engineering, security, and cross-layer QA** to a final ship decision. Run the whole pipeline in one governed engagement with `full-cycle`, or enter at any single stage.
+<p align="center"><em>Governed software delivery for AI agents — from product decision to ship verdict, with evidence at every gate.</em></p>
 
-```text
-CEO Subagent
-    \
-     ExecForge Orchestrator → Product Decision
-    /
-COO Subagent
-             ↓
-      User Approval Gate
-             ↓
-  Authorization / RoE Gate   (hard STOP if the initiative is offensive-security,
-             ↓                 legally-gated, or brand-impersonation work)
-   Optional UI/UX Design Bridge
-             ↓
-        Eng Level Orchestrator
-             ↓
-  Plan Review (+ Threat Model) → Build → Staff Review (+ Security Review)
-             ↓
- Portal → API → Backend/Data QA
-             ↓
-      Final Engineering Decision
+<p align="center">
+  <a href="https://github.com/v3x5exia555/execforge/actions/workflows/ci.yml"><img src="https://github.com/v3x5exia555/execforge/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <img src="https://img.shields.io/github/v/tag/v3x5exia555/execforge?label=release&color=111111" alt="Release">
+  <img src="https://img.shields.io/badge/python-%E2%89%A5%203.9-111111" alt="Python ≥ 3.9">
+  <img src="https://img.shields.io/badge/dependencies-none-111111" alt="No dependencies">
+  <img src="https://img.shields.io/badge/license-MIT-111111" alt="MIT license">
+</p>
+
+| | |
+|---|---|
+| **What** | Agent-skill platform governing a software initiative from **product decision** through **engineering, security, and cross-layer QA** to a final ship decision |
+| **Entry points** | One governed end-to-end run (`full-cycle`), any single stage, or the low-impact fast path |
+| **Invariant** | Never claim a review, test, approval, or lifecycle stage ran without evidence that it actually ran |
+| **Harnesses** | Claude and Codex plugin manifests; Agent Skills directory convention |
+
+## Contents
+
+- [Lifecycle](#lifecycle)
+- [Bundled skills](#bundled-skills)
+- [Optional integrations](#optional-integrations)
+- [Requirements](#requirements)
+- [Quick start](#quick-start)
+- [Actor parameters](#actor-parameters)
+- [CLI reference](#cli-reference)
+- [Initiative-scoped operating state](#initiative-scoped-operating-state)
+- [Evaluations](#evaluations)
+- [Continuous integration](#continuous-integration)
+- [Decision boundaries](#decision-boundaries)
+
+## Lifecycle
+
+Every job enters through the `c-level` router. Low-impact jobs may take the fast path; everything else runs the governed pipeline.
+
+```mermaid
+flowchart TD
+    T[Job triggered] --> R{c-level<br>impact assessment}
+    R -- "low-impact: single repo, reversible,<br>no auth/schema/new deps/gate output" --> FP["ponytail lite fast path<br>(vendored, pinned)"]
+    FP --> AP{User approval<br>of diff}
+    AP -- approved --> DONE[Commit]
+    AP -- rejected --> R
+    R -- "everything else" --> PD["execforge product decision<br>CEO + COO subagents"]
+    PD --> UG[User approval gate]
+    UG --> RoE["Authorization / RoE gate<br>hard STOP for offensive-security,<br>legally-gated, or impersonation work"]
+    RoE --> DB["design-html bridge (optional, UI-facing)"]
+    DB --> EL["eng-level plan review<br>+ sec-level threat model"]
+    EL --> BLD["Build (Superpowers: worktrees, plans,<br>TDD, verification)"]
+    BLD --> SR["Staff Engineer review<br>+ sec-level diff review"]
+    SR --> QA["q-level portal → API → backend/data QA"]
+    QA --> FE[Final engineering decision]
 ```
 
 Product decisions set **initiative flags** (`offensive-security`, `legally-gated`, `regulated-impersonation`, `user-prescribed-mechanism`) that arm conditional gates downstream — most importantly an Authorization / Rules-of-Engagement gate that stops legally-gated or offensive-security work until the operator records an authorization decision. See [Authorization Gate](docs/authorization-gate.md).
@@ -39,6 +68,26 @@ Product decisions set **initiative flags** (`offensive-security`, `legally-gated
 | `sec-level` | Application-security actor: threat model at plan stage, OWASP-mapped adversarial review of the real diff, and `SEC PASS / FIX REQUIRED / BLOCK` verdict |
 
 Each skill follows the Agent Skills directory convention: a concise `SKILL.md` entry point, detailed contracts under `references/`, and reusable templates under `assets/`.
+
+## Optional integrations
+
+ExecForge integrates external skills in two ways — referenced when separately installed, or vendored as a pinned snapshot — and never forks or auto-updates them. Absent integrations leave their router rows inert.
+
+| Integration | Role | Contract |
+|---|---|---|
+| [Superpowers](https://github.com/obra/superpowers) | Implementation discipline: worktrees, written plans, TDD, verification-before-completion | Referenced by `c-level` and `eng-level`; install via its official instructions and check with `check-superpowers` |
+| [Ponytail](https://github.com/DietrichGebert/ponytail) | Generation-time simplicity persona powering the **low-impact fast path** | Vendored verbatim in [`skills/ponytail/`](skills/ponytail/), pinned to the upstream commit recorded in [`PROVENANCE.md`](skills/ponytail/PROVENANCE.md); never fetched at runtime, never via auto-updating plugin |
+
+### The low-impact fast path
+
+When a triggered job is **low-impact** — single repo, reversible in one revert, no auth/secrets/trust-boundary/schema/data-migration surface, no new dependency, no governance gate output — `c-level` routes it around the full pipeline:
+
+1. `ponytail lite` implements the job (smallest correct diff; stdlib and native platform first).
+2. Precedence holds: Superpowers TDD wins over ponytail on test discipline; gate outputs are never shortened or skipped.
+3. The run is logged to the operator's pilot observation ledger when one is configured.
+4. The diff summary is presented to the user for **explicit approval before any commit**. No approval, no commit.
+
+Any doubt about impact means not low-impact: the job takes the normal governed pipeline. Full criteria live in [`skills/c-level/SKILL.md`](skills/c-level/SKILL.md).
 
 The repository also includes:
 
@@ -314,6 +363,7 @@ execforge/
 │   ├── execforge/
 │   ├── eng-level/
 │   ├── full-cycle/
+│   ├── ponytail/        # Vendored third-party simplicity persona (pinned; see its PROVENANCE.md)
 │   ├── q-level/
 │   └── sec-level/
 ├── evaluations/         # Behavioral evaluation cases, one per skill
