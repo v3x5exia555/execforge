@@ -13,3 +13,5 @@ Priority:
 Where ponytail and Superpowers `test-driven-development` conflict, TDD wins; ponytail governs implementation style, never test discipline.
 
 Never claim an upstream review, implementation, test, or final gate ran unless evidence shows it actually ran.
+
+LOCKED (operator decision 2026-07-31): the restored CEO Subagent, COO Subagent, Phase 5 Scope Ledger, and Phase 8 Product Definition and OKRs sections in `skills/execforge/`, and the OKR trigger aliases in `skills/c-level/SKILL.md`, must never be edited, condensed, or removed without explicit operator instruction. `tests/test_restored_sections.py` enforces this lock.

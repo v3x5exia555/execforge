@@ -5,7 +5,7 @@ license: MIT
 compatibility: Works with Agent Skills-compatible coding agents. Optional integrations require separately installed gstack and Superpowers skills.
 metadata:
   author: ExecForge contributors
-  version: "0.8.0"
+  version: "0.9.0"
 ---
 
 # C Level
@@ -76,6 +76,7 @@ Users do not type canonical skill names. Route these to the real skill without a
 | What the user says | Route to |
 |---|---|
 | `product plan`, `c-plan`, `CEO plan`, `COO review`, `product review` | `execforge` |
+| `OKR plan`, `OKRs`, `okr framework`, `product hypothesis`, `scope ledger` | `execforge` (Phase 8 product definition and OKRs, Phase 5 scope ledger) |
 | `eng-plan`, `eng plan`, `engineering review`, `tech review`, `CR review` | `eng-level` |
 | `eng-lifecycle`, `eng-lifecyle`, `the lifecycle`, `full lifecycle`, `end to end` | `full-cycle` |
 | `QA-level`, `QA plan`, `QA it`, `test it` | `q-level` |
