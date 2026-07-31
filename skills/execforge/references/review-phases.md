@@ -68,6 +68,29 @@ Ignoring current constraints, describe the ideal end-to-end experience:
 
 Then run an ideal-gap analysis: essential now, valuable later, unnecessary, constraints to challenge, non-negotiable constraints. The ideal is a discovery mechanism, not a commitment.
 
+## Phase 5 — Scope Ledger
+
+Evaluate each proposed capability independently.
+
+| Scope Item | User Pain | User Value | Business Value | Effort | Risk | Decision | Reason |
+|---|---|---:|---:|---:|---:|---|---|
+
+Allowed decisions:
+
+- **ADD NOW**
+- **DEFER**
+- **SKIP**
+- **KILL**
+
+For each item, record:
+
+- Evidence
+- Decision owner
+- Decision date
+- Reopen condition
+
+Previously settled decisions must not be reopened without new evidence.
+
 ## Phase 6 — Complexity smell test
 
 Challenge whether fewer components, reuse, batch processing, configuration, or an existing service can achieve the outcome. Warning indicators:
@@ -110,3 +133,57 @@ These are heuristics. Select: Simple Enough / Acceptable with Controls / Overeng
 ### Rebuttal round
 
 Run at most one orchestrator-mediated rebuttal round when material disagreement exists. The CEO responds to cost, operational limits, compliance blockers, and scope-reduction proposals. The COO responds to expansion proposals, speed arguments, MVP shortcuts, and risk acceptance. The orchestrator then states agreements, disagreements, decisions, deferred decisions, non-negotiable controls, and the final scope posture.
+
+## Phase 8 — Product Definition and OKRs
+
+### Product Hypothesis
+
+Use:
+
+> We believe that **[target user]** experiences **[specific problem]**.
+> By providing **[capability]**, we expect **[measurable outcome]**.
+
+### Job-to-Be-Done
+
+Define:
+
+- Primary user
+- Secondary user
+- User job
+- Current workaround
+- Moment of greatest friction
+- Desired outcome
+- Frequency
+- Evidence
+
+### Scope
+
+**Must Have** — required to prove the hypothesis.
+
+**Should Have** — materially improves usability, adoption, reliability, or compliance.
+
+**Could Have** — useful but must not delay the MVP.
+
+**Non-Goals** — explicitly excluded.
+
+**Deferred** — valuable later.
+
+**Skipped** — rejected and recorded.
+
+### Objective
+
+One qualitative objective.
+
+### Key Results
+
+Provide two to four measurable results.
+
+Each result must include:
+
+- Baseline
+- Target
+- Measurement method
+- Measurement period
+- Owner
+
+Never fabricate a baseline.

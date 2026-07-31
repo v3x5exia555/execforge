@@ -14,6 +14,8 @@ Where ponytail and Superpowers `test-driven-development` conflict, TDD wins; pon
 
 Never claim an upstream review, implementation, test, or final gate ran unless evidence shows it actually ran.
 
+LOCKED (operator decision 2026-07-31): the restored CEO Subagent, COO Subagent, CEO plan (gstack `plan-ceo-review` bridge), Phase 5 Scope Ledger, Phase 8 Product Definition and OKRs, and A-C-T-I-O-N Operational Matrix sections in `skills/execforge/`, and the OKR trigger aliases in `skills/c-level/SKILL.md`, must never be edited, condensed, or removed without explicit operator instruction. `tests/test_restored_sections.py` enforces this lock.
+
 ## Plan file naming
 
 When creating plan files, use format: `YYYYMMDD_HHMMSS_<title>.md` (e.g., `20260607_1016_my-plan.md`).

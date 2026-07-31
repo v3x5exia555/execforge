@@ -2,35 +2,146 @@
 
 Use these expansions when the initiative is approved to proceed and the full framework applies.
 
-## A-C-T-I-O-N operational matrix
+## A-C-T-I-O-N Operational Matrix
 
-### A — Assess the problem
+### A — Assess the Problem
 
-Identify the user problem, business problem, root cause, system bottleneck, process/data failure, latency or reliability issue, and the cost of the current state. Use: "The problem occurs because **[root cause]**, causing **[measurable impact]** for **[user or business area]**."
+Identify:
 
-### C — Cost optimisation
+- User problem
+- Business problem
+- Root cause
+- System bottleneck
+- Process failure
+- Data failure
+- Latency problem
+- Reliability issue
+- Cost of the current state
 
-Evaluate development, infrastructure, licensing, support, and maintenance cost; cost per user and per transaction; cost at current, 10×, and 100× scale; build versus buy; payback period; opportunity cost. Identify the cost driver most likely to become uncontrolled.
+Use:
 
-### T — Technical tactics
+> The problem occurs because **[root cause]**, causing **[measurable impact]**
+> for **[user or business area]**.
 
-For every tactic state benefit, effort, risk, owner, and success metric. Consider reuse, simplification, batch versus real time, event-driven processing, caching, partitioning, idempotency, schema validation, API standards, automated testing, infrastructure as code, feature flags, progressive rollout, archival, and removal of duplicate systems.
+### C — Cost Optimisation
 
-### I — Incorporate controls
+Evaluate:
 
-Evaluate authentication, authorisation, least privilege, sensitive-data handling, encryption, masking, consent, purpose limitation, retention, deletion, regulatory requirements, audit trails, data lineage, change history, segregation of duties, approval, evidence retention, and AI governance where applicable.
+- Development cost
+- Infrastructure cost
+- Licensing
+- Support
+- Maintenance
+- Cost per user
+- Cost per transaction
+- Current-scale cost
+- 10×-scale cost
+- 100×-scale cost
+- Build versus buy
+- Payback period
+- Opportunity cost
 
-Classify every control: Before Prototype / Before MVP / Before Production / Before Scale / Not Applicable.
+Identify the cost driver most likely to become uncontrolled.
 
-### O — Operational work reduction
+### T — Technical Tactics
 
-Define manual steps removed, hours saved, handoffs eliminated, service-level indicator and objective, alert threshold, dashboard owner, and escalation path.
+For every tactic, state:
 
-### N — No manual work by default
+- Benefit
+- Effort
+- Risk
+- Owner
+- Success metric
 
-Include idempotency, retry with exponential backoff, dead-letter queue or quarantine, duplicate prevention, checkpointing, automatic reconciliation and rollback, self-healing, reprocessing, poison-message handling, data-correction strategy, maximum retry threshold, and human-approval conditions.
+Consider:
 
-Reserve human intervention for policy decisions, security incidents, irrecoverable corruption, repeated systemic failure, material financial exceptions, and regulatory-impact exceptions.
+- Reuse
+- Simplification
+- Batch versus real time
+- Event-driven processing
+- Caching
+- Serverless versus provisioned compute
+- Partitioning
+- Idempotency
+- Schema validation
+- API standards
+- Automated testing
+- Infrastructure as code
+- Feature flags
+- Progressive rollout
+- Archival
+- Removal of duplicate systems
+
+### I — Incorporate Security, Governance, and Compliance
+
+Evaluate:
+
+- Authentication
+- Authorisation
+- Least privilege
+- Sensitive-data handling
+- Encryption
+- Masking
+- Consent
+- Purpose limitation
+- Retention
+- Deletion
+- Regulatory requirements
+- Audit trails
+- Data lineage
+- Change history
+- Segregation of duties
+- Approval
+- Evidence retention
+- AI governance, where applicable
+
+Classify every control:
+
+- Before Prototype
+- Before MVP
+- Before Production
+- Before Scale
+- Not Applicable
+
+### O — Operational Work Reduction
+
+Define:
+
+- Manual steps removed
+- Hours saved
+- Handoffs eliminated
+- Service-level indicator
+- Service-level objective
+- Alert threshold
+- Dashboard owner
+- Escalation path
+
+### N — No Manual Work by Default
+
+Include:
+
+- Idempotency
+- Retry with exponential backoff
+- Dead-letter queue or quarantine
+- Duplicate prevention
+- Checkpointing
+- Automatic reconciliation
+- Automatic rollback
+- Self-healing
+- Reprocessing
+- Poison-message handling
+- Data-correction strategy
+- Maximum retry threshold
+- Human approval conditions
+
+Human intervention is reserved for:
+
+- Policy decisions
+- Security incidents
+- Irrecoverable corruption
+- Repeated systemic failure
+- Material financial exceptions
+- Regulatory-impact exceptions
 
 ## Automated runbook
 

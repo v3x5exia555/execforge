@@ -526,6 +526,8 @@ class RepositoryTests(unittest.TestCase):
             destination = Path(tmp) / "skills"
             module.install(destination)
             corrupted = destination / "execforge" / "SKILL.md"
+            # Locked skill files install read-only; corruption requires write access.
+            corrupted.chmod(0o644)
             corrupted.write_text("no frontmatter here\n", encoding="utf-8")
             self.assertNotEqual([], module.verify_installed_skill(destination / "execforge"))
 

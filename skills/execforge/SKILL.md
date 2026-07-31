@@ -5,7 +5,7 @@ license: MIT
 compatibility: Supports real subagents when available and isolated simulated review passes otherwise.
 metadata:
   author: ExecForge contributors
-  version: "0.6.0"
+  version: "0.7.0"
 ---
 
 # ExecForge Product Decision
@@ -66,31 +66,104 @@ Before dispatch, create one neutral package:
 
 Send the same factual package to both reviewers. Do not expose one review to the other before their independent first pass.
 
-## CEO contract
+## CEO Subagent
 
-Return:
+The CEO Subagent independently evaluates:
+
+- Whether the user actually needs the initiative
+- Product-market fit
+- User pain
+- Product hypothesis
+- 10-star user experience
+- 10× product opportunity
+- Scope mode
+- Platonic Ideal
+- MVP scope
+- Adoption
+- Strategic moat
+- Business impact
+- Add / Defer / Skip recommendations
+
+The CEO must challenge technically interesting work that lacks user value.
+
+### CEO output contract
+
+The CEO returns only an advisory review containing:
 
 - Gatekeeper recommendation
-- User pain and job-to-be-done
-- Scope mode
-- 10× opportunity and Platonic Ideal
-- MVP and non-goals
-- Adoption and defensibility
-- Add / Defer / Skip proposals
-- Product risks, evidence labels, confidence, and unknowns
+- Evidence-labelled product claims
+- Scope-mode recommendation
+- 10× opportunity
+- Platonic Ideal
+- Proposed Add / Defer / Skip items
+- Adoption and moat assessment
+- Product risks
+- Confidence level
+- Questions or facts requiring verification
 
-## COO contract
+The CEO must not produce the final executive verdict.
 
-Return:
+### CEO plan
 
-- Cost and unit economics
-- 10× and 100× operating risks
-- Reliability and support model
-- Security, privacy, compliance, lineage, and audit controls
+Use the current installed gstack `plan-ceo-review` skill when available to produce the
+CEO plan artifact. Otherwise state that the CEO Subagent contract above is being used
+and label the output:
+
+```text
+Fallback CEO plan used; upstream gstack /plan-ceo-review was unavailable.
+```
+
+Whichever path produces it, the CEO plan must include:
+
+- **A-C-T-I-O-N operational matrix** — assess the problem, cost optimisation, technical
+  tactics, security/governance/compliance controls, operational work reduction, and no
+  manual work by default, per
+  [execution and governance detail](references/execution-and-governance.md).
+- **OKR plan** — product hypothesis, job-to-be-done, one qualitative objective, and two
+  to four measurable key results with real baselines, per Phase 8 in
+  [the detailed review phases](references/review-phases.md).
+
+A fallback CEO plan cannot claim exact behavioural equivalence with gstack.
+
+## COO Subagent
+
+The COO Subagent independently evaluates:
+
+- Total cost of ownership
+- Scalability
+- Reliability
+- Compliance
+- Security
+- Privacy
+- Architecture
+- Operational readiness
+- Support burden
+- Automation
+- Failure recovery
+- Data lineage
+- Auditability
+- Ownership
+- Technical debt
+- Sunset criteria
+
+The COO must challenge valuable ideas that cannot operate safely, economically,
+or predictably.
+
+### COO output contract
+
+The COO returns only an advisory review containing:
+
+- Cost and unit-economics assessment
+- Evidence-labelled operational claims
+- Scalability and reliability risks
+- Compliance, security, and privacy controls
 - Automation and recovery requirements
-- Ownership and technical-debt constraints
-- Kill/sunset thresholds
-- Evidence labels, confidence, and unknowns
+- Non-negotiable production gates
+- Kill and sunset criteria
+- Confidence level
+- Questions or facts requiring verification
+
+The COO must not produce the final executive verdict.
 
 ## Orchestrator process
 
@@ -114,7 +187,13 @@ Return:
 6. **Contradictions:** classify as factual or strategic.
 7. **Optional rebuttal:** one orchestrator-mediated round for material disagreement.
 8. **Resolution:** decide scope, controls, ownership, success thresholds, and kill criteria.
-9. **Final verdict:** select exactly one:
+   Record every scope item in the scope ledger as `ADD NOW` / `DEFER` / `SKIP` / `KILL`
+   with evidence, decision owner, decision date, and reopen condition.
+9. **Product definition and OKRs:** state the product hypothesis, job-to-be-done, one
+   qualitative objective, and two to four measurable key results with real baselines.
+   Never fabricate a baseline. Use the Phase 8 framework in
+   [the detailed review phases](references/review-phases.md).
+10. **Final verdict:** select exactly one:
    - `GO`
    - `GO WITH CONDITIONS`
    - `MODIFY`
@@ -122,7 +201,7 @@ Return:
    - `DEFER`
    - `KILL`
 
-Read [evidence and contradiction rules](references/evidence-and-contradictions.md) and [the detailed decision contract](references/decision-contract.md) when producing a full review. For large initiatives, expand each stage with [the detailed review phases](references/review-phases.md) and [execution and governance detail](references/execution-and-governance.md).
+Read [evidence and contradiction rules](references/evidence-and-contradictions.md) and [the detailed decision contract](references/decision-contract.md) when producing a full review. For large initiatives, expand each stage with [the detailed review phases](references/review-phases.md) — including the Phase 5 scope ledger and the Phase 8 product definition and OKR framework — and [execution and governance detail](references/execution-and-governance.md).
 
 ## Required final output
 
@@ -132,11 +211,12 @@ Read [evidence and contradiction rules](references/evidence-and-contradictions.m
 4. COO finding
 5. Contradiction register and resolutions
 6. Final scope ledger: Add / Defer / Skip / Kill
-7. Product hypothesis and objective
+7. OKR plan: product hypothesis and objective
 8. Measurable KRs with real baselines or clearly provisional targets
-9. Non-negotiable controls
-10. Roadmap, owners, rollback, and kill criteria
-11. Final verdict and one-line rationale
+9. A-C-T-I-O-N operational matrix
+10. Non-negotiable controls
+11. Roadmap, owners, rollback, and kill criteria
+12. Final verdict and one-line rationale
 
 ## Validation gate
 
