@@ -77,6 +77,7 @@ Users do not type canonical skill names. Route these to the real skill without a
 |---|---|
 | `product plan`, `c-plan`, `CEO plan`, `COO review`, `product review` | `execforge` |
 | `OKR plan`, `OKRs`, `okr framework`, `product hypothesis`, `scope ledger` | `execforge` (Phase 8 product definition and OKRs, Phase 5 scope ledger) |
+| `gstack ceo plan`, `g stack ceo plan`, `plan-ceo-review`, `ACTION framework`, `ACTION matrix` | `execforge` (CEO plan uses gstack `plan-ceo-review` when installed; includes the A-C-T-I-O-N matrix and OKR plan) |
 | `eng-plan`, `eng plan`, `engineering review`, `tech review`, `CR review` | `eng-level` |
 | `eng-lifecycle`, `eng-lifecyle`, `the lifecycle`, `full lifecycle`, `end to end` | `full-cycle` |
 | `QA-level`, `QA plan`, `QA it`, `test it` | `q-level` |

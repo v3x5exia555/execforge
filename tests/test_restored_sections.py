@@ -107,6 +107,42 @@ Previously settled decisions must not be reopened without new evidence."""
 OKR_HYPOTHESIS = """> We believe that **[target user]** experiences **[specific problem]**.
 > By providing **[capability]**, we expect **[measurable outcome]**."""
 
+CEO_PLAN_BRIDGE = """Use the current installed gstack `plan-ceo-review` skill when available to produce the
+CEO plan artifact. Otherwise state that the CEO Subagent contract above is being used
+and label the output:"""
+
+CEO_PLAN_FALLBACK_LABEL = "Fallback CEO plan used; upstream gstack /plan-ceo-review was unavailable."
+
+ACTION_ROOT_CAUSE_TEMPLATE = """> The problem occurs because **[root cause]**, causing **[measurable impact]**
+> for **[user or business area]**."""
+
+ACTION_NO_MANUAL_WORK = """### N — No Manual Work by Default
+
+Include:
+
+- Idempotency
+- Retry with exponential backoff
+- Dead-letter queue or quarantine
+- Duplicate prevention
+- Checkpointing
+- Automatic reconciliation
+- Automatic rollback
+- Self-healing
+- Reprocessing
+- Poison-message handling
+- Data-correction strategy
+- Maximum retry threshold
+- Human approval conditions
+
+Human intervention is reserved for:
+
+- Policy decisions
+- Security incidents
+- Irrecoverable corruption
+- Repeated systemic failure
+- Material financial exceptions
+- Regulatory-impact exceptions"""
+
 OKR_KEY_RESULTS = """Provide two to four measurable results.
 
 Each result must include:
@@ -143,6 +179,18 @@ class RestoredSectionLockTests(unittest.TestCase):
         self.assert_locked(phases, "## Phase 8 — Product Definition and OKRs", "Phase 8 heading")
         self.assert_locked(phases, OKR_HYPOTHESIS, "Product hypothesis template")
         self.assert_locked(phases, OKR_KEY_RESULTS, "Key results requirements")
+
+    def test_ceo_plan_gstack_bridge_is_locked_in_execforge_skill(self):
+        skill = ROOT / "skills" / "execforge" / "SKILL.md"
+        self.assert_locked(skill, "### CEO plan", "CEO plan heading")
+        self.assert_locked(skill, CEO_PLAN_BRIDGE, "CEO plan gstack bridge")
+        self.assert_locked(skill, CEO_PLAN_FALLBACK_LABEL, "CEO plan fallback label")
+
+    def test_action_matrix_is_locked_in_execution_and_governance(self):
+        governance = ROOT / "skills" / "execforge" / "references" / "execution-and-governance.md"
+        self.assert_locked(governance, "## A-C-T-I-O-N Operational Matrix", "A-C-T-I-O-N heading")
+        self.assert_locked(governance, ACTION_ROOT_CAUSE_TEMPLATE, "Root-cause template")
+        self.assert_locked(governance, ACTION_NO_MANUAL_WORK, "N — No Manual Work by Default")
 
     def test_okr_aliases_are_locked_in_c_level_router(self):
         c_level = ROOT / "skills" / "c-level" / "SKILL.md"

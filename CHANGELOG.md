@@ -20,6 +20,25 @@ source (`git show 4123e3d^:ExecForge_SKILL.md`):
   "never fabricate a baseline" rule).
 - `c-level`: new trigger aliases (`OKR plan`, `OKRs`, `okr framework`,
   `product hypothesis`, `scope ledger`) route to `execforge`. Version 0.9.0.
+
+Also loaded the gstack CEO plan into the bundle and restored the initial-version
+A-C-T-I-O-N framework:
+
+- `execforge` SKILL.md: new **CEO plan** section wiring the installed gstack
+  `plan-ceo-review` skill into the CEO stage, mirroring how `eng-level` uses
+  `plan-eng-review` — gstack produces the CEO plan when installed, with a clearly
+  labelled fallback to the internal CEO Subagent contract otherwise. Whichever path
+  runs, the CEO plan must include the A-C-T-I-O-N operational matrix and the OKR plan.
+  The required final output now lists the OKR plan and the A-C-T-I-O-N matrix
+  explicitly.
+- `execforge` references/execution-and-governance.md: the condensed A-C-T-I-O-N prose is
+  replaced by the full initial-version **Phase 9 — A-C-T-I-O-N Operational Matrix**
+  itemised framework, verbatim from the pre-deletion source
+  (`git show 4123e3d^:ExecForge_SKILL.md`), including the initial section titles
+  ("Incorporate Security, Governance, and Compliance") and the
+  serverless-versus-provisioned-compute tactic dropped in the condensation.
+- `c-level`: new trigger aliases (`gstack ceo plan`, `g stack ceo plan`,
+  `plan-ceo-review`, `ACTION framework`, `ACTION matrix`) route to `execforge`.
 - The restored sections are **locked** by operator decision (2026-07-31):
   `tests/test_restored_sections.py` fails on any drift from the verbatim text, and
   `CLAUDE.md`/`AGENTS.md`/`GEMINI.md` forbid editing them without explicit operator

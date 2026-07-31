@@ -103,6 +103,28 @@ The CEO returns only an advisory review containing:
 
 The CEO must not produce the final executive verdict.
 
+### CEO plan
+
+Use the current installed gstack `plan-ceo-review` skill when available to produce the
+CEO plan artifact. Otherwise state that the CEO Subagent contract above is being used
+and label the output:
+
+```text
+Fallback CEO plan used; upstream gstack /plan-ceo-review was unavailable.
+```
+
+Whichever path produces it, the CEO plan must include:
+
+- **A-C-T-I-O-N operational matrix** — assess the problem, cost optimisation, technical
+  tactics, security/governance/compliance controls, operational work reduction, and no
+  manual work by default, per
+  [execution and governance detail](references/execution-and-governance.md).
+- **OKR plan** — product hypothesis, job-to-be-done, one qualitative objective, and two
+  to four measurable key results with real baselines, per Phase 8 in
+  [the detailed review phases](references/review-phases.md).
+
+A fallback CEO plan cannot claim exact behavioural equivalence with gstack.
+
 ## COO Subagent
 
 The COO Subagent independently evaluates:
@@ -189,11 +211,12 @@ Read [evidence and contradiction rules](references/evidence-and-contradictions.m
 4. COO finding
 5. Contradiction register and resolutions
 6. Final scope ledger: Add / Defer / Skip / Kill
-7. Product hypothesis and objective
+7. OKR plan: product hypothesis and objective
 8. Measurable KRs with real baselines or clearly provisional targets
-9. Non-negotiable controls
-10. Roadmap, owners, rollback, and kill criteria
-11. Final verdict and one-line rationale
+9. A-C-T-I-O-N operational matrix
+10. Non-negotiable controls
+11. Roadmap, owners, rollback, and kill criteria
+12. Final verdict and one-line rationale
 
 ## Validation gate
 
