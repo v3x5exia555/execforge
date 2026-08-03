@@ -5,7 +5,7 @@ license: MIT
 compatibility: Supports real subagents when available and isolated simulated review passes otherwise.
 metadata:
   author: ExecForge contributors
-  version: "0.7.0"
+  version: "0.7.1"
 ---
 
 # ExecForge Product Decision
@@ -105,15 +105,20 @@ The CEO must not produce the final executive verdict.
 
 ### CEO plan
 
-Use the current installed gstack `plan-ceo-review` skill when available to produce the
-CEO plan artifact. Otherwise state that the CEO Subagent contract above is being used
-and label the output:
+The internal CEO Subagent review above ALWAYS runs. It is never replaced, skipped, or
+shortened by any external integration.
+
+When the installed gstack `plan-ceo-review` skill is available, run it IN ADDITION to
+the internal review to produce a second, independent CEO plan artifact. Present both
+findings; route any disagreement between them through the orchestrator's contradiction
+register like any other strategic disagreement. When gstack is unavailable, state that
+only the internal CEO Subagent contract ran and label the output:
 
 ```text
 Fallback CEO plan used; upstream gstack /plan-ceo-review was unavailable.
 ```
 
-Whichever path produces it, the CEO plan must include:
+Whichever paths run, the combined CEO plan must include:
 
 - **A-C-T-I-O-N operational matrix** — assess the problem, cost optimisation, technical
   tactics, security/governance/compliance controls, operational work reduction, and no

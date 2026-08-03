@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.12.1 — 2026-08-04
+
+- `execforge` CEO plan bridge changed from either/or to both-and (edited 2026-07-31;
+  operator approval given 2026-08-04, recorded in
+  `docs/decisions/2026-08-04-ceo-plan-both-and.md`):
+  the internal CEO Subagent review now ALWAYS runs and is never replaced by the gstack
+  integration; when gstack `plan-ceo-review` is installed it runs IN ADDITION,
+  producing a second independent CEO plan artifact, with disagreements routed through
+  the orchestrator's contradiction register. The fallback label and the A-C-T-I-O-N +
+  OKR output requirements are unchanged. Lock pin in `tests/test_restored_sections.py`
+  updated to the new verbatim text. execforge 0.7.1.
+
 ## 0.12.0 — 2026-07-31
 
 Restored three pieces of the original monolithic `ExecForge_SKILL.md` that were lost or

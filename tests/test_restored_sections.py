@@ -107,9 +107,14 @@ Previously settled decisions must not be reopened without new evidence."""
 OKR_HYPOTHESIS = """> We believe that **[target user]** experiences **[specific problem]**.
 > By providing **[capability]**, we expect **[measurable outcome]**."""
 
-CEO_PLAN_BRIDGE = """Use the current installed gstack `plan-ceo-review` skill when available to produce the
-CEO plan artifact. Otherwise state that the CEO Subagent contract above is being used
-and label the output:"""
+CEO_PLAN_BRIDGE = """The internal CEO Subagent review above ALWAYS runs. It is never replaced, skipped, or
+shortened by any external integration.
+
+When the installed gstack `plan-ceo-review` skill is available, run it IN ADDITION to
+the internal review to produce a second, independent CEO plan artifact. Present both
+findings; route any disagreement between them through the orchestrator's contradiction
+register like any other strategic disagreement. When gstack is unavailable, state that
+only the internal CEO Subagent contract ran and label the output:"""
 
 CEO_PLAN_FALLBACK_LABEL = "Fallback CEO plan used; upstream gstack /plan-ceo-review was unavailable."
 
