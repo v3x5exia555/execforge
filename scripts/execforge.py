@@ -34,7 +34,7 @@ except ImportError:  # pragma: no cover - unavailable on POSIX
 
 ROOT = Path(__file__).resolve().parents[1]
 SKILLS = ROOT / "skills"
-BUNDLED_SKILLS = {"c-level", "design-html", "eng-level", "execforge", "full-cycle", "ponytail", "q-level", "sec-level"}
+BUNDLED_SKILLS = {"c-level", "design-html", "eng-level", "execforge", "full-cycle", "ponytail", "q-level", "sec-level", "ux-level"}
 REQUIRED_SKILLS = BUNDLED_SKILLS
 PLUGIN_MANIFESTS = [".claude-plugin/plugin.json", ".codex-plugin/plugin.json"]
 Q_LEVEL_ASSET_FILES = {

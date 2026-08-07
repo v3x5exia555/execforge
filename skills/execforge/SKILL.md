@@ -217,7 +217,10 @@ The COO must not produce the final executive verdict.
 7. **Optional rebuttal:** one orchestrator-mediated round for material disagreement.
 8. **Resolution:** decide scope, controls, ownership, success thresholds, and kill criteria.
    Record every scope item in the scope ledger as `ADD NOW` / `DEFER` / `SKIP` / `KILL`
-   with evidence, decision owner, decision date, and reopen condition.
+   with evidence, decision owner, decision date, and reopen condition. Give every
+   `ADD NOW` item a one-sentence benefit line — an active verb, a real metric or
+   `no baseline yet`, and the next step it unlocks. See Phase 5a in
+   [the detailed review phases](references/review-phases.md).
 9. **Product definition and OKRs:** state the product hypothesis, job-to-be-done, one
    qualitative objective, and two to four measurable key results with real baselines.
    Never fabricate a baseline. Use the Phase 8 framework in
@@ -239,7 +242,10 @@ Read [evidence and contradiction rules](references/evidence-and-contradictions.m
 3. CEO finding
 4. COO finding
 5. Contradiction register and resolutions
-6. Final scope ledger: Add / Defer / Skip / Kill
+6. Final scope ledger as a `Decision` / `Item` / `Why` table — benefit line on every
+   `ADD NOW`, checkable reopen condition on every `DEFER`, one-line reason on every
+   `SKIP` and `KILL`. Shape in Phase 5a of
+   [the detailed review phases](references/review-phases.md).
 7. OKR plan: product hypothesis and objective
 8. Measurable KRs with real baselines or clearly provisional targets
 9. A-C-T-I-O-N operational matrix
@@ -254,6 +260,8 @@ Before returning:
 - Both required reviews occurred independently.
 - Every material claim is labelled.
 - No invented metric is presented as fact.
+- Every `ADD NOW` item has a benefit line with a verb and a next step, or `no baseline
+  yet` where no real figure exists.
 - Factual contradictions are verified or remain unresolved.
 - Unresolved facts do not silently support the decision.
 - Security, compliance, cost, ownership, rollback, and kill criteria are visible.

@@ -20,6 +20,7 @@ Before acting, select the smallest applicable workflow. Do not inspect code, ask
 |---|---|
 | Initiative must be governed end-to-end from idea to ship in one engagement | Use `full-cycle` |
 | New product, feature, platform, automation, or unclear user need | Use `execforge` |
+| An existing or proposed user journey needs reviewing for friction, drop-off, or dead ends | Use `ux-level` |
 | Approved product scope needs UX/interface structure or production-oriented HTML/CSS guidance | Use `design-html`; forward `--design-system=<name\|auto\|none>` when the operator set one |
 | Approved product/PRD needs engineering planning | Use `eng-level --mode=plan` |
 | Triggered job is low-impact per the Ponytail fast path criteria below | Use `ponytail lite` fast path; user approval required before any commit |
@@ -81,7 +82,8 @@ Users do not type canonical skill names. Route these to the real skill without a
 | `eng-plan`, `eng plan`, `engineering review`, `tech review`, `CR review` | `eng-level` |
 | `eng-lifecycle`, `eng-lifecyle`, `the lifecycle`, `full lifecycle`, `end to end` | `full-cycle` |
 | `QA-level`, `QA plan`, `QA it`, `test it` | `q-level` |
-| `designer`, `design plan`, `UI review`, `UX review` | `design-html` |
+| `designer`, `design plan`, `UI review` | `design-html` |
+| `UX review`, `journey review`, `user journey`, `UX audit`, `usability review`, `friction points`, `drop-off` | `ux-level` |
 | `security review`, `threat model`, `pentest review` | `sec-level` |
 | `exec-forge`, `excecforge`, `execforge lifecycle` | `execforge`, or `full-cycle` when the request spans build-to-ship |
 
@@ -106,7 +108,7 @@ When Superpowers is installed, use its current skill instructions rather than me
 Recommended mapping:
 
 1. Product ambiguity: `execforge`; use Superpowers `brainstorming` only when design discovery is still required.
-2. UI-facing scope translation: `design-html`, with `--design-system` forwarded when a visual language is required.
+2. UI-facing scope translation: `design-html`, with `--design-system` forwarded when a visual language is required. When the flow itself is in doubt rather than the screens, review it with `ux-level` first.
 3. Approved technical design: Superpowers `using-git-worktrees`.
 4. Atomic execution plan: Superpowers `writing-plans`.
 5. Implementation: `subagent-driven-development` or `executing-plans`.

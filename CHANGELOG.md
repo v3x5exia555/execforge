@@ -1,6 +1,20 @@
 # Changelog
 
-## 0.12.2 — 2026-08-07
+## 0.13.3 — 2026-08-07
+
+- `execforge` product decision only: **Phase 5a** now defines the shape of the final
+  scope ledger. Required output item 6 named it but never said what it looked like, so
+  every run reinvented the layout. It is now a three-column `Decision` / `Item` / `Why`
+  table, read at a glance, sitting alongside — not replacing — the eight-column Phase 5
+  working table where the thinking happens.
+- The `Why` column is defined per decision type, because one rule does not fit all four:
+  `ADD NOW` carries the benefit line; `DEFER` carries a **checkable** reopen condition
+  ("at client #3", not "when we are bigger"); `SKIP` and `KILL` carry a one-line reason.
+- Evidence, decision owner, and decision date stay recorded under Phase 5 and stay out
+  of the final table.
+- No locked section edited; Phase 5 is untouched. No skill outside `execforge` changed.
+
+## 0.13.2 — 2026-08-07
 
 - `execforge`: new **New platform role baseline** section (operator instruction
   2026-08-07). Any new platform, portal, or tenant-facing system now always carries four
@@ -11,6 +25,46 @@
   the baseline is stated or the difference recorded. Mirrored in
   `docs/product-decision.md` and pinned by
   `tests/test_repository.py::test_new_platform_role_baseline_is_stated`. execforge 0.7.2.
+
+## 0.13.1 — 2026-08-07
+
+- `execforge` product decision only: new **Phase 5a — Benefit line** in
+  `references/review-phases.md`. Every `ADD NOW` scope item now carries one sentence
+  saying what the user achieves — an active verb, a real metric or `no baseline yet`,
+  and the next step it unlocks. An item that unlocks nothing is flagged as a `DEFER`
+  candidate. Wired into the orchestrator's resolution step, the required final output,
+  and the validation gate.
+- Scoped deliberately small. The operator's source framework was a six-letter
+  features-to-benefits formula; four of its six ideas were already covered by the
+  Phase 5 ledger's `User Pain` / `User Value` / `Business Value` columns and the Phase 8
+  job-to-be-done section. Only the action-verb rule and "next step enabled" were new, so
+  only those were added — a second six-letter framework would have cost context on every
+  run and collided by name with the locked **A-C-T-I-O-N Operational Matrix**, which is
+  an unrelated operational framework (assess, cost, technical tactics, incorporate
+  security, operational work reduction, no manual work).
+- No locked section was edited. Phase 5, Phase 8, the CEO and COO contracts, the CEO
+  plan bridge, and the A-C-T-I-O-N matrix are byte-identical; Phase 5a sits beside the
+  ledger rather than changing its table. No engineering, QA, security, design, or
+  lifecycle skill changed.
+
+## 0.13.0 — 2026-08-07
+
+- New `ux-level` skill: a Senior Product Manager and Lead UX Researcher who reviews a
+  described user journey and ends in a `UX PASS / FIX REQUIRED / REDESIGN` verdict.
+  Two modes, chosen from the journey rather than asked for: `product` (friction,
+  time-to-value, edge cases, improvements) and `technical` (four heuristic pillars —
+  system visibility and data feedback, error prevention and recovery, flexibility and
+  efficiency, information architecture and cognitive load). Output is a step-by-step
+  journey breakdown with every claim labelled `OBSERVED` / `INFERRED` / `ASSUMED` /
+  `UNKNOWN`, a `HIGH` / `MEDIUM` / `LOW` severity matrix, and three to five prioritized
+  recommendations. Ships with `references/pillars.md`, an
+  `assets/journey-review.template.md`, `docs/ux-level.md`, and a worked example at
+  `examples/09-ux-journey-review.md`.
+- `c-level` routing: new router row for journey review, and a new trigger-alias row.
+  **Behaviour change** — `UX review` now routes to `ux-level` instead of `design-html`.
+  `designer`, `design plan`, and `UI review` still route to `design-html`.
+- `ux-level` is deliberately **not** wired into `full-cycle` as a gate yet. Deferred
+  until the skill has been used on real journeys.
 
 ## 0.12.1 — 2026-08-04
 
