@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"UserPromptSubmit\",\"additionalContext\":\"PLAN TRACKING (project rule): if this prompt starts or continues work that runs an ExecForge role (c-level, execforge, eng-level, q-level, sec-level, design-html, full-cycle, CEO/COO review), keep a plan file under plans/. NEW task: create plans/YYYYMMDD_HHMMSS_<slug>.md using plans/TEMPLATE.md and write the plan BEFORE doing the work. SAME task as an earlier prompt: update that existing file (progress, decisions, status) instead of creating a new one; do not start a second file for the same task. No role involved: no plan file needed. WRITE THE PLAN FILE IN PLAIN, SIMPLE ENGLISH: short everyday words, short sentences, no jargon. If a technical term is unavoidable, say in a few words what it means. A reader who does not know this codebase should still follow it.\"}}'",
+            "suppressOutput": true
+          }
+        ]
+      }
+    ]
+  }
+}
