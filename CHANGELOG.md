@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.12.2 — 2026-08-07
+
+- `execforge`: new **New platform role baseline** section (operator instruction
+  2026-08-07). Any new platform, portal, or tenant-facing system now always carries four
+  roles — `superadmin`, `accountadmin`, `admin`, `user` — entered in the scope ledger as
+  `ADD NOW`, with deny-by-default access, audit logging for the three admin roles, an
+  evidence bar for extra roles, and a recorded reason for dropping one. Because the role
+  model touches auth, `sec-level` attaches before build. The validation gate now checks
+  the baseline is stated or the difference recorded. Mirrored in
+  `docs/product-decision.md` and pinned by
+  `tests/test_repository.py::test_new_platform_role_baseline_is_stated`. execforge 0.7.2.
+
 ## 0.12.1 — 2026-08-04
 
 - `execforge` CEO plan bridge changed from either/or to both-and (edited 2026-07-31;

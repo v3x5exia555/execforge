@@ -5,7 +5,7 @@ license: MIT
 compatibility: Supports real subagents when available and isolated simulated review passes otherwise.
 metadata:
   author: ExecForge contributors
-  version: "0.7.1"
+  version: "0.7.2"
 ---
 
 # ExecForge Product Decision
@@ -65,6 +65,30 @@ Before dispatch, create one neutral package:
 - Known facts, assumptions, inferences, and unknowns
 
 Send the same factual package to both reviewers. Do not expose one review to the other before their independent first pass.
+
+## New platform role baseline
+
+When the initiative is a new platform, product, portal, or tenant-facing system, it
+always ships these four roles. Put them in the scope ledger as `ADD NOW`; they are not
+a later phase.
+
+| Role | Sees and controls |
+|---|---|
+| `superadmin` | The whole platform across every account. Held by the platform operator, never by a customer. |
+| `accountadmin` | One customer account or tenant end to end: its plan, billing, admins, and account-wide settings. |
+| `admin` | One workspace or team inside an account: its members, settings, and data. |
+| `user` | Own work only. No setting that changes another person's access. |
+
+Rules:
+
+- Deny by default. A role gets only what its own scope needs, and no role reads or
+  writes another account's data.
+- Every action by `superadmin`, `accountadmin`, and `admin` is audit-logged with actor,
+  target, and time.
+- Extra roles are allowed on top of the baseline when evidence shows a real job the four
+  do not cover. Removing, renaming, or merging a baseline role is a scope decision: put
+  the reason in the ledger with an owner and a date.
+- The role model touches auth, so attach `sec-level` before build.
 
 ## CEO Subagent
 
@@ -233,4 +257,6 @@ Before returning:
 - Factual contradictions are verified or remain unresolved.
 - Unresolved facts do not silently support the decision.
 - Security, compliance, cost, ownership, rollback, and kill criteria are visible.
+- A new platform states the New platform role baseline — `superadmin`, `accountadmin`,
+  `admin`, `user` — or records why it differs.
 - The plan is not more complex than the problem.
