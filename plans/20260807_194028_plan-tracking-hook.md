@@ -46,6 +46,8 @@ I asked two questions and got these answers:
 - 2026-08-07 — Added a "Plan tracking" section to `CLAUDE.md`.
 - 2026-08-07 — Wrote this file.
 - 2026-08-07 — Added the "use easy words" rule to the hook, the template, and `CLAUDE.md`, then rewrote this file in simpler words.
+- 2026-08-07 — Opened PR #14 with only these four files, built on a fresh branch off `main` so the unrelated platform-role work stayed out.
+- 2026-08-07 — Installed the skill bundle to the three local targets (`.claude`, `.codex`, `.agents`). Drift is now zero.
 
 ## Still unclear
 
