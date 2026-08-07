@@ -114,6 +114,31 @@ Use:
 Keep it to one sentence. A benefit line that needs a paragraph usually means the scope
 item is really several items.
 
+### Final ledger shape
+
+The Phase 5 table above is the **working** table. It is where the thinking happens —
+pain, value, effort, risk — and it is not what the reader wants at the end.
+
+The **final** scope ledger, required output item 6, is three columns: the call, the
+thing, and one line of why.
+
+| Decision | Item | Why |
+|---|---|---|
+| `ADD NOW` | Transactional email — invite link and self-serve reset | Removes the operator from every credential event; `no baseline yet`; unlocks onboarding without anyone seeing a password |
+| `ADD NOW` | Bulk CSV import with a validation preview | Collapses onboarding from N actions to 1; makes a 200-seat client as cheap to serve as a 20-seat one |
+| `DEFER` | Let `accountadmin` create their own staff | Reopen at client #3, or one client above 150 seats, or two prospects raising it in a questionnaire |
+| `SKIP` | A client-facing edition of the internal console | It is cross-tenant by definition. There is no safe client edition. |
+
+What the `Why` column holds depends on the decision. One rule does not fit all four:
+
+- `ADD NOW` — the benefit line: verb, metric or `no baseline yet`, next step unlocked.
+- `DEFER` — the **reopen condition**, written so it can be checked rather than felt.
+  "When we are bigger" is not a reopen condition; "at client #3" is.
+- `SKIP` and `KILL` — the reason it is not being built, in one line.
+
+One line per row. Evidence, decision owner, and decision date stay recorded per Phase 5;
+they do not belong in this table, which exists to be read at a glance.
+
 ## Phase 6 — Complexity smell test
 
 Challenge whether fewer components, reuse, batch processing, configuration, or an existing service can achieve the outcome. Warning indicators:
