@@ -2365,6 +2365,19 @@ class RepositoryTests(unittest.TestCase):
             self.assertIsNone(detached["branch"])
             self.assertEqual(commit, detached["commit"])
 
+    def test_new_platform_role_baseline_is_stated(self):
+        """Operator rule (2026-08-07): a new platform always ships the four
+        baseline roles, so the review cannot silently invent its own set."""
+        skill = (ROOT / "skills" / "execforge" / "SKILL.md").read_text(encoding="utf-8")
+        docs = (ROOT / "docs" / "product-decision.md").read_text(encoding="utf-8")
+        self.assertIn("## New platform role baseline", skill)
+        self.assertIn("New platform role baseline", docs)
+        for document, label in ((skill, "SKILL.md"), (docs, "product-decision.md")):
+            for role in ("superadmin", "accountadmin", "admin", "user"):
+                with self.subTest(document=label, role=role):
+                    self.assertIn(f"`{role}`", document)
+        self.assertIn("New platform role baseline", skill.split("## Validation gate")[-1])
+
     @staticmethod
     def _matches_json_type(value, expected):
         if expected is None:
