@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.13.3 — 2026-08-07
+
+- `execforge` product decision only: **Phase 5a** now defines the shape of the final
+  scope ledger. Required output item 6 named it but never said what it looked like, so
+  every run reinvented the layout. It is now a three-column `Decision` / `Item` / `Why`
+  table, read at a glance, sitting alongside — not replacing — the eight-column Phase 5
+  working table where the thinking happens.
+- The `Why` column is defined per decision type, because one rule does not fit all four:
+  `ADD NOW` carries the benefit line; `DEFER` carries a **checkable** reopen condition
+  ("at client #3", not "when we are bigger"); `SKIP` and `KILL` carry a one-line reason.
+- Evidence, decision owner, and decision date stay recorded under Phase 5 and stay out
+  of the final table.
+- No locked section edited; Phase 5 is untouched. No skill outside `execforge` changed.
+
 ## 0.13.2 — 2026-08-07
 
 - `execforge`: new **New platform role baseline** section (operator instruction

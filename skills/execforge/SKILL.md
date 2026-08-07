@@ -242,7 +242,10 @@ Read [evidence and contradiction rules](references/evidence-and-contradictions.m
 3. CEO finding
 4. COO finding
 5. Contradiction register and resolutions
-6. Final scope ledger: Add / Defer / Skip / Kill, with a benefit line on every Add
+6. Final scope ledger as a `Decision` / `Item` / `Why` table — benefit line on every
+   `ADD NOW`, checkable reopen condition on every `DEFER`, one-line reason on every
+   `SKIP` and `KILL`. Shape in Phase 5a of
+   [the detailed review phases](references/review-phases.md).
 7. OKR plan: product hypothesis and objective
 8. Measurable KRs with real baselines or clearly provisional targets
 9. A-C-T-I-O-N operational matrix
