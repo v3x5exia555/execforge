@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.13.0 — 2026-08-07
+
+- New `ux-level` skill: a Senior Product Manager and Lead UX Researcher who reviews a
+  described user journey and ends in a `UX PASS / FIX REQUIRED / REDESIGN` verdict.
+  Two modes, chosen from the journey rather than asked for: `product` (friction,
+  time-to-value, edge cases, improvements) and `technical` (four heuristic pillars —
+  system visibility and data feedback, error prevention and recovery, flexibility and
+  efficiency, information architecture and cognitive load). Output is a step-by-step
+  journey breakdown with every claim labelled `OBSERVED` / `INFERRED` / `ASSUMED` /
+  `UNKNOWN`, a `HIGH` / `MEDIUM` / `LOW` severity matrix, and three to five prioritized
+  recommendations. Ships with `references/pillars.md`, an
+  `assets/journey-review.template.md`, `docs/ux-level.md`, and a worked example at
+  `examples/09-ux-journey-review.md`.
+- `c-level` routing: new router row for journey review, and a new trigger-alias row.
+  **Behaviour change** — `UX review` now routes to `ux-level` instead of `design-html`.
+  `designer`, `design plan`, and `UI review` still route to `design-html`.
+- `ux-level` is deliberately **not** wired into `full-cycle` as a gate yet. Deferred
+  until the skill has been used on real journeys.
+
 ## 0.12.1 — 2026-08-04
 
 - `execforge` CEO plan bridge changed from either/or to both-and (edited 2026-07-31;

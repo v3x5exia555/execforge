@@ -66,6 +66,7 @@ Product decisions set **initiative flags** (`offensive-security`, `legally-gated
 | `eng-level` | Upstream approval, engineering plan review, implementation conformance, Staff Engineer review, and final ship decision |
 | `q-level` | Risk-based portal/API/backend QA planning, execution, retest, data-QA attachment, and `QA PASS / RETURN / BLOCK` decision |
 | `sec-level` | Application-security actor: threat model at plan stage, OWASP-mapped adversarial review of the real diff, and `SEC PASS / FIX REQUIRED / BLOCK` verdict |
+| `ux-level` | Senior PM + Lead UX Researcher journey review: friction, time-to-value, error recovery, cognitive load, severity matrix, and `UX PASS / FIX REQUIRED / REDESIGN` verdict |
 
 Each skill follows the Agent Skills directory convention: a concise `SKILL.md` entry point, detailed contracts under `references/`, and reusable templates under `assets/`.
 
