@@ -5,7 +5,7 @@ license: MIT
 compatibility: Requires a Git repository for diff review. Integrates with separately installed gstack and Superpowers skills when available.
 metadata:
   author: ExecForge contributors
-  version: "0.8.0"
+  version: "0.8.1"
 ---
 
 # Eng Level
@@ -252,6 +252,38 @@ For each upstream requirement and plan task, use:
 
 Runtime behavior and actual code outrank plan intent.
 
+## Concurrent session check
+
+More than one agent session can work the same project at once. Before any merge,
+land, or `SHIP`, check for the other sessions and reconcile their commits. Names
+are not evidence; tip SHAs are.
+
+1. Run the check and record the raw output in `decision.md`:
+
+   ```text
+   python3 scripts/execforge.py sessions --root <repo>
+   ```
+
+   In a repository without this CLI, use `git worktree list`, `git branch -a -v`,
+   and `git log --oneline <branch> ^HEAD` to get the same three facts: other
+   working copies, other branch tips, and which commits HEAD does not have.
+
+2. For every line the check reports, decide one of:
+   - **MERGE** — the work belongs in this landing. Merge it in, then re-run tests
+     and the Staff Engineer review over the combined diff, not the original one.
+   - **EXCLUDE** — it stays out. Record the branch, its tip SHA, and the reason.
+   - **STALE** — it is already contained elsewhere or abandoned. Record which
+     commit contains it, or that the owner confirmed it is dead.
+
+3. Merge, never rebase, a branch whose own review artifacts cite commit SHAs as
+   evidence — rebasing rewrites those hashes and breaks the audit trail.
+4. Re-run the check after merging. It must come back `sessions: clear`, or every
+   remaining line must carry an EXCLUDE or STALE decision.
+5. Unreconciled sessions are a P1. Do not land while one is open.
+
+Also run `python3 scripts/execforge.py doctor --portfolio <parent>` when sibling
+repositories may hold lifecycle state from another session.
+
 ## Final decision
 
 Only the lifecycle orchestrator selects:
@@ -304,5 +336,7 @@ Before returning:
 - Applicable portal/API/backend QA completed with `QA PASS` or explicitly accepted non-blocking risks.
 - QA-driven production-code changes received a final delta review and retest.
 - Contradictions and deviations are recorded.
+- The Concurrent session check ran before the merge or `SHIP`, and every other
+  session is MERGE, EXCLUDE, or STALE with its tip SHA recorded.
 - No P0/P1 is hidden behind conditional shipping.
 - The final verdict is traceable to evidence.

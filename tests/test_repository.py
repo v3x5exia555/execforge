@@ -2365,6 +2365,88 @@ class RepositoryTests(unittest.TestCase):
             self.assertIsNone(detached["branch"])
             self.assertEqual(commit, detached["commit"])
 
+    def _sessions(self, repo: Path):
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            returncode = module.show_sessions(repo)
+        return returncode, output.getvalue()
+
+    def test_sessions_reports_clear_when_no_other_work_exists(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp) / "solo"
+            self._initialize_repo(repo)
+            self._commit_tracked(repo, "base\n", "base")
+
+            returncode, output = self._sessions(repo)
+
+            self.assertEqual(0, returncode)
+            self.assertIn("sessions: clear", output)
+            self.assertIn("current: branch=main", output)
+
+    def test_sessions_lists_branches_holding_commits_head_does_not_have(self):
+        """The merge gate needs the other session's tip commit, not just its name."""
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp) / "shared"
+            self._initialize_repo(repo)
+            self._commit_tracked(repo, "base\n", "base")
+            self._git(repo, "checkout", "-b", "other-session")
+            other_head = self._commit_tracked(repo, "other\n", "other session work")
+            self._git(repo, "checkout", "main")
+
+            returncode, output = self._sessions(repo)
+
+            self.assertEqual(1, returncode)
+            self.assertIn("unmerged: other-session", output)
+            self.assertIn(other_head[:12], output)
+            self.assertIn("commits_not_in_head=1", output)
+            self.assertIn("merge or record why not", output)
+
+    def test_sessions_ignores_branches_already_contained_in_head(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp) / "merged"
+            self._initialize_repo(repo)
+            self._commit_tracked(repo, "base\n", "base")
+            self._git(repo, "checkout", "-b", "landed")
+            self._commit_tracked(repo, "landed\n", "landed work")
+            self._git(repo, "checkout", "main")
+            self._git(repo, "merge", "--no-ff", "-m", "merge landed", "landed")
+
+            returncode, output = self._sessions(repo)
+
+            self.assertEqual(0, returncode)
+            self.assertNotIn("unmerged: landed", output)
+
+    def test_sessions_reports_other_working_copies(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp) / "worktrees"
+            self._initialize_repo(repo)
+            self._commit_tracked(repo, "base\n", "base")
+            elsewhere = Path(tmp) / "parallel"
+            self._git(repo, "worktree", "add", "-b", "parallel-session", str(elsewhere))
+
+            returncode, output = self._sessions(repo)
+
+            self.assertEqual(1, returncode)
+            self.assertIn("worktree:", output)
+            self.assertIn("parallel-session", output)
+
+    def test_sessions_rejects_a_path_that_is_not_a_git_repository(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            returncode, output = self._sessions(Path(tmp))
+            self.assertEqual(2, returncode)
+            self.assertIn("not a Git repository", output)
+
+    def test_merge_gate_requires_the_session_check(self):
+        eng = (ROOT / "skills" / "eng-level" / "SKILL.md").read_text(encoding="utf-8")
+        full_cycle = (ROOT / "skills" / "full-cycle" / "SKILL.md").read_text(encoding="utf-8")
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        getting_started = (ROOT / "docs" / "getting-started.md").read_text(encoding="utf-8")
+        self.assertIn("## Concurrent session check", eng)
+        for document in (eng, readme, getting_started):
+            self.assertIn("python3 scripts/execforge.py sessions --root <repo>", document)
+        self.assertIn("sessions", full_cycle)
+        self.assertIn("Concurrent session check", eng.split("## Validation gate")[-1])
+
     def test_new_platform_role_baseline_is_stated(self):
         """Operator rule (2026-08-07): a new platform always ships the four
         baseline roles, so the review cannot silently invent its own set."""

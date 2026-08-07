@@ -5,7 +5,7 @@ license: MIT
 compatibility: Orchestrates the other bundled ExecForge skills. Optional integrations require separately installed gstack and Superpowers skills.
 metadata:
   author: ExecForge contributors
-  version: "0.8.0"
+  version: "0.8.1"
 ---
 
 # Full Cycle
@@ -45,7 +45,12 @@ Stage 9  Final engineering decision  SHIP / SHIP WITH REQUIRED FIXES /
 6. When the change touches auth, user input, secrets, sensitive data, new dependencies, or network exposure, attach `sec-level`: `threat-model` inside Stage 3 and `review` inside Stage 6. An unresolved `S0`/`S1` blocks Stage 9 like a `P0`/`P1`.
 7. When Stage 0 sets a gating initiative flag (`offensive-security`, `legally-gated`, or `regulated-impersonation`), the Authorization / Rules-of-Engagement gate is a hard STOP before Stage 4: the operator must record an `AUTHORIZED` / `NOT AUTHORIZED` / `N-A (justified)` decision with its evidence (written authorization, scope, consent basis, no unapproved third-party impersonation, captured-data handling). The agent never self-answers this gate. `NOT AUTHORIZED` or an unresolved decision blocks implementation, and blocks Stage 9 like a `P0`. This governance gate is distinct from the `sec-level` technical review. See execforge's initiative-flags reference.
 8. A gating initiative flag also attaches `sec-level` automatically, without being asked. The authorization gate (rule 7) decides whether the work is *permitted*; `sec-level` decides whether it is *safe*. Passing one never substitutes for the other. A product whose own subject is security or offensive capability is the case where the technical review matters most, and is the case most often skipped.
-9. `--stop-after=<stage>` halts the cycle at that stage boundary, emits its artifacts, and executes nothing beyond it. Treat a stated intent to stop — "plan it but do not deploy", "keep it for next cycle", "let me review first" — as setting this parameter. Record it so it survives later turns, and do not resume past the boundary without a new instruction. Deferred work is written to `.eng-level/backlog.md`.
+9. Before Stage 9 lands anything, run eng-level's Concurrent session check
+   (`python3 scripts/execforge.py sessions --root <repo>`) and reconcile every other
+   working copy or branch it reports as MERGE, EXCLUDE, or STALE with its tip SHA. A
+   MERGE re-opens Stage 5 and Stage 6 over the combined diff. An unreconciled session
+   blocks Stage 9 like a `P1`.
+10. `--stop-after=<stage>` halts the cycle at that stage boundary, emits its artifacts, and executes nothing beyond it. Treat a stated intent to stop — "plan it but do not deploy", "keep it for next cycle", "let me review first" — as setting this parameter. Record it so it survives later turns, and do not resume past the boundary without a new instruction. Deferred work is written to `.eng-level/backlog.md`.
 
 ## Feedback routing
 

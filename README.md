@@ -286,6 +286,7 @@ All commands run through `scripts/execforge.py` (or `scripts/install.sh` as a th
 | `status [--root <repo>]` | Report current engineering and QA lifecycle state and backlog |
 | `resume [--root <repo>]` | Reconcile selected lifecycle metadata with the repository's current Git branch and HEAD |
 | `next [--root <repo>]` | Print exactly one safe next lifecycle action; unsafe or stale state exits nonzero |
+| `sessions [--root <repo>]` | List other working copies and branches holding commits HEAD does not have, with tip SHAs; exits nonzero while any is unreconciled |
 | `eval [case-id\|all] [--list] [--limit N]` | Execute behavioral eval cases: replay the scenario through a headless agent (`--agent-cmd`, default `claude -p`), grade the transcript with an LLM judge (`--judge-cmd`), and recompute the verdict locally |
 | `release-check [--tag vX.Y.Z]` | Verify plugin manifests, changelog version, and optional release tag agree |
 
@@ -296,7 +297,13 @@ python3 scripts/execforge.py doctor --installed
 python3 scripts/execforge.py doctor --portfolio ~/Desktop/project
 python3 scripts/execforge.py resume --root <repo>
 python3 scripts/execforge.py next --root <repo>
+python3 scripts/execforge.py sessions --root <repo>
 ```
+
+Run `sessions` before every merge or `SHIP`. When several agent sessions work the
+same project, it names the other working copies and branch tips so each one is
+merged, excluded with a recorded reason, or confirmed stale — matched by commit
+SHA, never by branch name.
 
 ## Initiative-scoped operating state
 
