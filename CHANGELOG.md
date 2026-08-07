@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.13.1 — 2026-08-07
+
+- `execforge` product decision only: new **Phase 5a — Benefit line** in
+  `references/review-phases.md`. Every `ADD NOW` scope item now carries one sentence
+  saying what the user achieves — an active verb, a real metric or `no baseline yet`,
+  and the next step it unlocks. An item that unlocks nothing is flagged as a `DEFER`
+  candidate. Wired into the orchestrator's resolution step, the required final output,
+  and the validation gate.
+- Scoped deliberately small. The operator's source framework was a six-letter
+  features-to-benefits formula; four of its six ideas were already covered by the
+  Phase 5 ledger's `User Pain` / `User Value` / `Business Value` columns and the Phase 8
+  job-to-be-done section. Only the action-verb rule and "next step enabled" were new, so
+  only those were added — a second six-letter framework would have cost context on every
+  run and collided by name with the locked **A-C-T-I-O-N Operational Matrix**, which is
+  an unrelated operational framework (assess, cost, technical tactics, incorporate
+  security, operational work reduction, no manual work).
+- No locked section was edited. Phase 5, Phase 8, the CEO and COO contracts, the CEO
+  plan bridge, and the A-C-T-I-O-N matrix are byte-identical; Phase 5a sits beside the
+  ledger rather than changing its table. No engineering, QA, security, design, or
+  lifecycle skill changed.
+
 ## 0.13.0 — 2026-08-07
 
 - New `ux-level` skill: a Senior Product Manager and Lead UX Researcher who reviews a

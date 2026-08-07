@@ -91,6 +91,29 @@ For each item, record:
 
 Previously settled decisions must not be reopened without new evidence.
 
+## Phase 5a — Benefit line
+
+Every `ADD NOW` item carries one benefit line. `DEFER`, `SKIP`, and `KILL` items do not
+need one. This does not change the ledger table above; it is what the `User Value` cell
+must say.
+
+Two rules:
+
+1. **Start with a verb, and name a number when one exists.** Write what the user
+   achieves, not what the product contains. "Reporting dashboard" is not a benefit.
+   "Generate stakeholder updates in one click, saving about 3 hours a week" is. Where no
+   real baseline exists, write `no baseline yet` — never invent a figure.
+2. **State the next step it unlocks.** What can the user do *because* this shipped that
+   they could not do before? An item that unlocks nothing is a candidate for `DEFER`.
+
+Use:
+
+> **[Verb]** [what the user achieves] — [metric, or `no baseline yet`], which lets them
+> **[next step unlocked]**.
+
+Keep it to one sentence. A benefit line that needs a paragraph usually means the scope
+item is really several items.
+
 ## Phase 6 — Complexity smell test
 
 Challenge whether fewer components, reuse, batch processing, configuration, or an existing service can achieve the outcome. Warning indicators:
