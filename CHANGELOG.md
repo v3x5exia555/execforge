@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.14.2 — 2026-08-08
+
+- `.gitattributes` now pins every file to LF on every platform (`* text=auto eol=lf`),
+  not just the vendored `ponytail` paths. 0.14.1 fixed the one folder that had already
+  broken; this closes the class. Any file added later — including a future vendored
+  snapshot pinned by hash — is covered without anyone remembering to add a rule.
+- Verified as a no-op today: the repo is already all-LF, and `git add --renormalize .`
+  rewrites nothing. The `skills/ponytail/**  -text` rule still wins for those paths, so
+  the hash-pinned snapshot keeps the strictest treatment available.
+
 ## 0.14.1 — 2026-08-08
 
 - Fix a live Windows failure in `validate`, and therefore in `doctor` and `install`,

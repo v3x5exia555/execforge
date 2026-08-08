@@ -1,3 +1,9 @@
+# Every file checks out with LF on every platform. The repo is already all-LF,
+# so this changes nothing today; it keeps that true on machines we do not own.
+# Without it, Git rewrites line endings on Windows checkouts, which silently
+# changes the bytes of any file pinned by hash.
+* text=auto eol=lf
+
 # The vendored ponytail snapshot is pinned by SHA-256 in PROVENANCE.md and
 # checked by tests/test_repository.py. Git's automatic line-ending translation
 # rewrites the bytes on Windows checkouts (LF -> CRLF), so the hash can never
