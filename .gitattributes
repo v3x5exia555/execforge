@@ -1,0 +1,7 @@
+# The vendored ponytail snapshot is pinned by SHA-256 in PROVENANCE.md and
+# checked by tests/test_repository.py. Git's automatic line-ending translation
+# rewrites the bytes on Windows checkouts (LF -> CRLF), so the hash can never
+# match there. Marking these paths as non-text disables that translation and
+# keeps the snapshot verbatim on every platform, which is the whole point of
+# vendoring it.
+skills/ponytail/** -text

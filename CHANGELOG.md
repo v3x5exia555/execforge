@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.14.1 — 2026-08-08
+
+- Fix a live Windows failure in `validate`, and therefore in `doctor` and `install`,
+  which both run it first. The stray-root-skill check used `glob("*SKILL*.md")`; on
+  Windows `pathlib` applies `os.path.normcase` inside `glob`, so the pattern matched
+  case-insensitively and flagged the repo's own `skill-usage-feedback.md` as a legacy
+  root skill file. The token is now matched case-sensitively. Landed in PR #9 (branch
+  dated 2026-07-17) without a CHANGELOG entry; recorded here.
+- New `windows-latest` CI job running the test suite, so this class of platform bug is
+  caught rather than reasoned about. POSIX-only tests are guarded. Every other workflow
+  remains `ubuntu-latest`.
+- New evaluation case `evaluations/eng-level-verify-before-claiming.eval.md`.
+- Fix a second Windows failure, found by that new job on its first real run. The
+  vendored `ponytail` snapshot is pinned by SHA-256 in `PROVENANCE.md`, but Git's
+  automatic line-ending translation rewrote it to CRLF on Windows checkouts, so the
+  recorded hash could never match — `1316a2f3` expected, `46a57e26` computed. A new
+  `.gitattributes` marks `skills/ponytail/**` as non-text, disabling translation and
+  keeping the snapshot verbatim on every platform, which is the point of vendoring it.
+
 ## 0.14.0 — 2026-08-07
 
 - New `execforge sessions --root <repo>` command: lists other working copies and any
