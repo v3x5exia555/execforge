@@ -32,4 +32,19 @@ Write every plan file in plain, simple English: short everyday words, short sent
 
 The `UserPromptSubmit` hook in `.claude/settings.json` is the reminder for this rule.
 
+## Risk analysis on every fix
+
+Whenever a bug or failure is fixed, the report on that fix carries a short risk analysis. Four parts, one or two sentences each:
+
+| Part | What it answers |
+|---|---|
+| **Blast radius** | What else can this change affect? |
+| **Not fixed** | What does it leave unsolved, and what related case does it not cover? |
+| **Detection** | What would catch it if it regresses — the specific test, gate, or CI job? If nothing would, say so plainly. |
+| **Rollback** | How is it undone? |
+
+State the root cause as proven evidence, or say plainly that it is a hypothesis. "Probably line endings" and "confirmed: the CRLF hash matches byte for byte" are different claims and must not be written the same way.
+
+A fix reported without this is not finished.
+
 LOCKED (operator decision 2026-07-31): the restored CEO Subagent, COO Subagent, CEO plan (gstack `plan-ceo-review` bridge), Phase 5 Scope Ledger, Phase 8 Product Definition and OKRs, and A-C-T-I-O-N Operational Matrix sections in `skills/execforge/`, and the OKR trigger aliases in `skills/c-level/SKILL.md`, must never be edited, condensed, or removed without explicit operator instruction. `tests/test_restored_sections.py` enforces this lock.
