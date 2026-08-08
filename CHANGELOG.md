@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.14.1 — 2026-08-08
+
+- Fix a live Windows failure in `validate`, and therefore in `doctor` and `install`,
+  which both run it first. The stray-root-skill check used `glob("*SKILL*.md")`; on
+  Windows `pathlib` applies `os.path.normcase` inside `glob`, so the pattern matched
+  case-insensitively and flagged the repo's own `skill-usage-feedback.md` as a legacy
+  root skill file. The token is now matched case-sensitively. Landed in PR #9 (branch
+  dated 2026-07-17) without a CHANGELOG entry; recorded here.
+- New `windows-latest` CI job running the test suite, so this class of platform bug is
+  caught rather than reasoned about. POSIX-only tests are guarded. Every other workflow
+  remains `ubuntu-latest`.
+- New evaluation case `evaluations/eng-level-verify-before-claiming.eval.md`.
+
 ## 0.14.0 — 2026-08-07
 
 - New `execforge sessions --root <repo>` command: lists other working copies and any
