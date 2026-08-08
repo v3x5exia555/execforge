@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.14.3 — 2026-08-08
+
+- New `docs/product-plan.md`. ExecForge required a product hypothesis, job-to-be-done,
+  objective, and key results with real baselines from every initiative it reviewed, and
+  had never applied that to itself. It does now.
+- Every figure in it is measured, not estimated: 0 stars / 0 forks / 0 watchers after
+  5 weeks public, 1 human contributor, 9 skills, 19 releases, 99 commits, and **2
+  recorded ExecForge decisions across those 99 commits** — the sharpest gap the plan
+  names, and the only key result fully within reach.
+- The target user is recorded as an **open question owned by the operator**, not filled
+  in. The evidence says one person today; that is a legitimate answer but has to be
+  chosen rather than defaulted into, and almost every other line of the plan depends on
+  it. Inventing an adoption target would be the exact fabrication the skill forbids, so
+  KR3 carries `no baseline yet`.
+- Known gaps are named rather than quietly fixed: the roadmap lists features instead of
+  benefits (deferred — a benefit needs a beneficiary, which is the open question), plans
+  live in two folders, and 19 releases have shipped with no feedback loop.
+
 ## 0.14.2 — 2026-08-08
 
 - `.gitattributes` now pins every file to LF on every platform (`* text=auto eol=lf`),
