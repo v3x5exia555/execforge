@@ -131,6 +131,25 @@ tracked or untracked path outside the governance namespaces differs from HEAD.
 can remain untracked or modified. The warning reports no file paths; inspect
 `git status` before returning to review or ship readiness.
 
+## Check for other sessions before merging
+
+```bash
+python3 scripts/execforge.py sessions --root <repo>
+```
+
+Several agent sessions can work one project at the same time. `sessions` reports
+the current branch and HEAD, every other working copy (`git worktree`), and every
+local or remote branch holding commits HEAD does not have — each with its tip SHA,
+how many commits are missing, and the date of its last commit. Branch tips already
+contained in HEAD are silently skipped, and a local branch and its remote mirror
+count once.
+
+It exits `0` and prints `sessions: clear` when nothing else is outstanding, `1`
+when another session is found, and `2` when the path is not a Git repository.
+Treat a `1` as a decision to make, not a failure: eng-level's Concurrent session
+check requires each reported line to end up MERGE, EXCLUDE, or STALE with its tip
+SHA recorded before the merge or `SHIP`.
+
 ## Output safety boundary
 
 For `doctor --portfolio`, `resume`, and `next` only, output is allowlisted,

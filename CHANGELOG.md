@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.14.0 — 2026-08-07
+
+- New `execforge sessions --root <repo>` command: lists other working copies and any
+  branches holding commits `HEAD` does not have, so a merge is not made blind to work in
+  progress elsewhere. Wired into the merge gate, with `docs/getting-started.md` and a
+  README entry. Six tests cover the clear case, branches with unmerged commits, branches
+  already contained in `HEAD`, other working copies, a path that is not a git repository,
+  and the merge gate requiring the check.
+
 ## 0.13.3 — 2026-08-07
 
 - `execforge` product decision only: **Phase 5a** now defines the shape of the final

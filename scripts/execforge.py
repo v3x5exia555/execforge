@@ -1129,6 +1129,89 @@ def show_next(cwd: Path) -> int:
     return returncode
 
 
+def show_sessions(cwd: Path) -> int:
+    """List every other working copy or branch holding commits this HEAD lacks.
+
+    Several agent sessions on one project is the normal case here; the failure
+    mode is landing one session and silently dropping another's commits. This
+    reports tip commits so the merge decision is made against SHAs, not names.
+    """
+    operating_state = _load_operating_state_module()
+
+    def git(*arguments: str) -> tuple[str, int]:
+        output, returncode, finding = operating_state._run_git_process(cwd, *arguments)
+        if finding is not None or output is None or returncode is None:
+            return "", 1
+        return output, returncode
+
+    inside, failed = git("rev-parse", "--is-inside-work-tree")
+    if failed or inside.strip() != "true":
+        print(f"sessions: {_terminal_safe(cwd)} is not a Git repository")
+        return 2
+
+    toplevel, _ = git("rev-parse", "--show-toplevel")
+    branch, _ = git("rev-parse", "--abbrev-ref", "HEAD")
+    head, _ = git("rev-parse", "HEAD")
+    branch = branch.strip() or "unknown"
+    head = head.strip() or "unknown"
+    print(f"sessions: repo {_terminal_safe(toplevel.strip() or cwd)}")
+    print(f"current: branch={_terminal_safe(branch)} head={_terminal_safe(head[:12])}")
+
+    others = 0
+    root = Path(toplevel.strip()).resolve() if toplevel.strip() else cwd.resolve()
+    worktrees, _ = git("worktree", "list", "--porcelain")
+    for block in worktrees.strip().split("\n\n"):
+        fields: dict[str, str] = {}
+        for line in block.splitlines():
+            key, _, value = line.partition(" ")
+            fields[key] = value
+        path = fields.get("worktree", "")
+        if not path or Path(path).resolve() == root:
+            continue
+        others += 1
+        checked_out = fields.get("branch", "").rsplit("/", 1)[-1] or "detached"
+        print(
+            f"worktree: {_terminal_safe(path)} branch={_terminal_safe(checked_out)} "
+            f"head={_terminal_safe(fields.get('HEAD', '')[:12])}"
+        )
+
+    refs, _ = git(
+        "for-each-ref",
+        "--format=%(refname:short)%09%(objectname)%09%(committerdate:short)",
+        "refs/heads",
+        "refs/remotes",
+    )
+    reported: set[str] = set()
+    for line in refs.splitlines():
+        name, _, rest = line.partition("\t")
+        tip, _, last_commit = rest.partition("\t")
+        if not name or not tip or name == branch or name.endswith("/HEAD"):
+            continue
+        if tip in reported:
+            continue
+        _, unmerged = git("merge-base", "--is-ancestor", tip, "HEAD")
+        if not unmerged:
+            continue
+        reported.add(tip)
+        counts, _ = git("rev-list", "--left-right", "--count", f"HEAD...{tip}")
+        parts = counts.split()
+        others += 1
+        print(
+            f"unmerged: {_terminal_safe(name)} head={_terminal_safe(tip[:12])} "
+            f"commits_not_in_head={parts[1] if len(parts) == 2 else 'unknown'} "
+            f"last_commit={_terminal_safe(last_commit or 'unknown')}"
+        )
+
+    if others:
+        print(
+            f"sessions: {others} other session(s) found; "
+            "merge or record why not before landing"
+        )
+        return 1
+    print("sessions: clear — no other working copy or branch holds commits outside HEAD")
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(prog="execforge")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -1164,6 +1247,11 @@ def main() -> int:
 
     next_parser = sub.add_parser("next", help="show the next safe lifecycle action")
     next_parser.add_argument("--root", type=Path, default=Path.cwd())
+
+    sessions_parser = sub.add_parser(
+        "sessions", help="list other working copies and branches with unmerged commits"
+    )
+    sessions_parser.add_argument("--root", type=Path, default=Path.cwd())
 
     eval_parser = sub.add_parser("eval", help="run behavioral eval cases via a headless agent")
     eval_parser.add_argument("case", nargs="?", default="all", help="case id or 'all'")
@@ -1219,6 +1307,9 @@ def main() -> int:
 
     if args.command == "next":
         return show_next(args.root.resolve())
+
+    if args.command == "sessions":
+        return show_sessions(args.root.resolve())
 
     if args.command == "eval":
         return cmd_eval(args)
