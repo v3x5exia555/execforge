@@ -12,6 +12,12 @@
   caught rather than reasoned about. POSIX-only tests are guarded. Every other workflow
   remains `ubuntu-latest`.
 - New evaluation case `evaluations/eng-level-verify-before-claiming.eval.md`.
+- Fix a second Windows failure, found by that new job on its first real run. The
+  vendored `ponytail` snapshot is pinned by SHA-256 in `PROVENANCE.md`, but Git's
+  automatic line-ending translation rewrote it to CRLF on Windows checkouts, so the
+  recorded hash could never match — `1316a2f3` expected, `46a57e26` computed. A new
+  `.gitattributes` marks `skills/ponytail/**` as non-text, disabling translation and
+  keeping the snapshot verbatim on every platform, which is the point of vendoring it.
 
 ## 0.14.0 — 2026-08-07
 
