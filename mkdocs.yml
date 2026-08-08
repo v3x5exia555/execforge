@@ -9,6 +9,7 @@ nav:
   - Home: index.md
   - Getting Started: getting-started.md
   - Architecture: architecture.md
+  - Product Plan: product-plan.md
   - Product Decision: product-decision.md
   - Full Cycle: full-cycle.md
   - Design HTML: design-html.md
