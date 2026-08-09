@@ -22,6 +22,7 @@ Before acting, select the smallest applicable workflow. Do not inspect code, ask
 | New product, feature, platform, automation, or unclear user need | Use `execforge` |
 | An existing or proposed user journey needs reviewing for friction, drop-off, or dead ends | Use `ux-level` |
 | Approved product scope needs UX/interface structure or production-oriented HTML/CSS guidance | Use `design-html`; forward `--design-system=<name\|auto\|none>` when the operator set one |
+| Approved product scope needs its risks written down before engineering starts | Use `full-cycle` Stage 0b risk register (`skills/full-cycle/assets/risk-register.template.md`); nine questions per risk, carried into the approval gate |
 | Approved product/PRD needs engineering planning | Use `eng-level --mode=plan` |
 | Triggered job is low-impact per the Ponytail fast path criteria below | Use `ponytail lite` fast path; user approval required before any commit |
 | Implementation plan is approved and code work starts | Use the installed Superpowers execution skills |
@@ -79,6 +80,7 @@ Users do not type canonical skill names. Route these to the real skill without a
 | `product plan`, `c-plan`, `CEO plan`, `COO review`, `product review` | `execforge` |
 | `OKR plan`, `OKRs`, `okr framework`, `product hypothesis`, `scope ledger` | `execforge` (Phase 8 product definition and OKRs, Phase 5 scope ledger) |
 | `gstack ceo plan`, `g stack ceo plan`, `plan-ceo-review`, `ACTION framework`, `ACTION matrix` | `execforge` (CEO plan uses gstack `plan-ceo-review` when installed; includes the A-C-T-I-O-N matrix and OKR plan) |
+| `risk register`, `risk framework`, `risk analysis`, `what are the risks`, `risk assessment` | `full-cycle` Stage 0b risk register |
 | `eng-plan`, `eng plan`, `engineering review`, `tech review`, `CR review` | `eng-level` |
 | `eng-lifecycle`, `eng-lifecyle`, `the lifecycle`, `full lifecycle`, `end to end` | `full-cycle` |
 | `QA-level`, `QA plan`, `QA it`, `test it` | `q-level` |

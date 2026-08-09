@@ -7,6 +7,7 @@
 | Stage | Owner | Gate |
 |---|---|---|
 | 0. Product decision | `execforge` | `KILL`/`DEFER` ends the cycle |
+| 0b. Risk register | `full-cycle` | Nine questions per risk; carried into Stage 1 |
 | 1. Upstream approval | `eng-level` stop check | **User must approve** |
 | 2. UI/UX design bridge | `design-html` | UI-facing scope only |
 | 3. Engineering plan review | `eng-level --mode=plan` | `APPROVED` required |
