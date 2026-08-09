@@ -32,6 +32,26 @@ Write every plan file in plain, simple English: short everyday words, short sent
 
 The `UserPromptSubmit` hook in `.claude/settings.json` is the reminder for this rule.
 
+## Risk framework in every plan
+
+Every plan file carries a `## Risks` section. One block per risk, named `Risk A`, `Risk B`, and so on. Each block answers nine questions:
+
+| Question | Notes |
+|---|---|
+| **How bad?** | `HIGH` / `MEDIUM` / `LOW` |
+| **What actually happens?** | The real impact, not the label — who is hurt and how |
+| **Short or long term?** | `SHORT` passes on its own; `LONG` is structural and stays |
+| **Solution** | `none yet` is an honest answer |
+| **What would the solution fix?** | Only what genuinely applies: operational load / manual work / automation / compliance. `none of these` is allowed |
+| **Risk of the solution itself** | Every fix brings its own risk. "None" is almost always wrong |
+| **Cost** | Build time, money, and ongoing upkeep |
+| **What we expect after** | What should be true once it is in place — this is what gets checked later |
+| **Does a human need training?** | If `YES`, say who must learn what. That is a hidden cost |
+
+Never invent a cost or a number; write `not measured`. If there is genuinely no risk, write `No risks identified` and say why — an empty section is not a considered one.
+
+The shape lives in `plans/TEMPLATE.md`. This is a **plan-time** register and is separate from the fix-time analysis below; a plan gets this, a fix gets that, and work that is both gets both.
+
 ## Risk analysis on every fix
 
 Whenever a bug or failure is fixed, the report on that fix carries a short risk analysis. Four parts, one or two sentences each:
