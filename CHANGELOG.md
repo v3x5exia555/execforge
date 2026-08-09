@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.15.0 — 2026-08-09
+
+- New **Stage 0b — Risk register** in `full-cycle`, sitting between the Stage 0 product
+  decision and the Stage 1 upstream approval gate. Nine questions per risk: how bad; what
+  actually happens; short or long term; the solution; what the solution would fix
+  (operational load / manual work / automation / compliance); the risk of the solution
+  itself; cost including ongoing upkeep; what we expect after; and whether a human needs
+  training. Ships with `skills/full-cycle/assets/risk-register.template.md`.
+- Placed before the approval gate on purpose: the user approves scope **and** its risks in
+  one decision instead of two. The register is updated, never rewritten, when a later
+  stage finds a new risk.
+- New validation-gate line: no `HIGH` risk reaches the final verdict without a solution or
+  a recorded decision to accept it, naming who accepted it. Grading a risk down to dodge
+  that line is named in the skill as the failure it exists to catch.
+- Numbered `0b` rather than renumbering Stages 3–9. Renumbering would have touched 10
+  files, including two eval cases and two historical plan records — and rewriting history
+  to match a later change would falsify the record.
+- `c-level` gains a router row between the product row and the engineering-plan row, plus
+  trigger words (`risk register`, `risk framework`, `risk assessment`, `what are the
+  risks`).
+- `No risks identified` with a one-line reason is allowed, so small changes are not forced
+  through ceremony. A silent skip is not.
+
 ## 0.14.3 — 2026-08-08
 
 - New `docs/product-plan.md`. ExecForge required a product hypothesis, job-to-be-done,
