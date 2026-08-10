@@ -1,5 +1,38 @@
 # Changelog
 
+## 0.16.0 — 2026-08-10
+
+- `docs/product-plan.md` gains four working methods: **how it reads evidence** (measured
+  numbers only, facts apart from guesses, `no baseline yet` over invented baselines);
+  **how work gets picked** (the ADD NOW / DEFER / SKIP ledger plus a three-line ordering
+  rule); a **strategic roadmap** table mapping every `docs/roadmap.md` item to the key
+  result it serves, who is better off (labeled judgment, not measurement), and what
+  blocks it; and **scope and dependencies** (scope changes take a recorded `execforge`
+  decision; an item with an unmet dependency cannot be `ADD NOW`).
+- What the roadmap table shows: seven of ten roadmap items are blocked on the open
+  question — who is ExecForge for. Answering it is worth more than building any of them.
+- The product plan enters the lifecycle: `full-cycle` rule 5a (0.9.0) anchors Stage 0 to
+  `docs/product-plan.md` when it exists. Every Stage 0 decision names the objective or
+  key result it serves, or records `serves none` — an allowed answer that flags rather
+  than blocks, because inventing a link to pass a gate is the failure the rule exists to
+  catch. A decision that changes the plan updates it in the same cycle, inside what
+  Stage 1 approves. The validation gate checks the anchor. Repositories without a
+  product plan are untouched: the rule is inert there.
+- This release carries a recorded decision
+  (`docs/decisions/2026-08-10-product-plan-in-lifecycle.md`) — the first skill change to
+  satisfy the plan's own key result 1 since it was written.
+- A **planning workflow** section, hybrid of the operator's four phase names and the
+  existing machinery. The operator proposed discovery & alignment / definition & scoping
+  / prioritization & sequencing / communication & execution; a scored comparison
+  (`plans/2026-08-10_09-07-32-06_test-workflow-plan-structure.md`) found three of the
+  four already exist under other names, and two halves genuinely missing. The section
+  maps the names once — so the same machinery is never built twice — and adds the
+  missing halves: **discovery** (a dated log in the plan itself, one entry per release,
+  outside signals logged the day they arrive) and **communication** (which channel
+  reaches which reader, and why none leaves the repo until the open question says it
+  should). The discovery log opens with a real entry: two skill-changing releases
+  shipped without recorded decisions, and no gate caught it.
+
 ## 0.15.0 — 2026-08-09
 
 - New **Stage 0b — Risk register** in `full-cycle`, sitting between the Stage 0 product
