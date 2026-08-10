@@ -5,7 +5,7 @@ license: MIT
 compatibility: Orchestrates the other bundled ExecForge skills. Optional integrations require separately installed gstack and Superpowers skills.
 metadata:
   author: ExecForge contributors
-  version: "0.8.1"
+  version: "0.9.0"
 ---
 
 # Full Cycle
@@ -21,7 +21,7 @@ Use `full-cycle` when the user asks to take an initiative "from idea to ship" un
 ## Stage sequence
 
 ```text
-Stage 0  Product decision            execforge
+Stage 0  Product decision            execforge  [product-plan anchor]
 Stage 0b Risk register               full-cycle (this skill)
 Stage 1  Upstream approval gate      eng-level stop check   [USER GATE]
 Stage 2  UI/UX design bridge         design-html [--design-system=<name|auto|none>]
@@ -43,6 +43,15 @@ Stage 9  Final engineering decision  SHIP / SHIP WITH REQUIRED FIXES /
 3. Two gates always stop for the user: upstream approval (Stage 1) and QA plan/environment approval (Stage 7). Never infer approval from enthusiasm in the original request.
 4. Mark Stage 2 `NOT APPLICABLE` for non-UI scope, recording one sentence of justification. When the operator sets `--design-system` on the cycle, forward it to `design-html` at Stage 2; absent it, Stage 2 runs aesthetic-neutral. A design system binds visual language only — it never changes Stage 0 scope, and Stage 2 still owes its full screen and state coverage.
 5. A `KILL` or `DEFER` verdict at Stage 0 ends the cycle; do not continue to planning.
+5a. **Stage 0 anchors to the product plan.** When the repository carries a product plan
+    (`docs/product-plan.md`), the Stage 0 decision must state, in one sentence, which of
+    the plan's objectives or key results the initiative serves — or state plainly that it
+    serves none. "Serves none" is an allowed answer and a flag for the gatekeeper to
+    weigh, never an automatic kill; inventing a link to pass the gate is the failure this
+    rule exists to catch. When a Stage 0 verdict changes the plan itself — who the
+    product is for, what it is or is not, or a key result — the product plan is updated
+    in the same cycle, and the update is part of what Stage 1 approves. No product plan
+    in the repository means this rule is inert; it never demands one be written first.
 5b. **Stage 0b** builds the risk register from the approved Stage 0 scope, using
     [the risk register template](assets/risk-register.template.md). One block per risk,
     named `Risk A`, `Risk B`, and so on, each answering nine questions: how bad
@@ -97,6 +106,9 @@ Before returning a final result:
 - Both user gates received an actual user response.
 - Any gating initiative flag has a recorded authorization decision; no `NOT AUTHORIZED` or unresolved authorization is hidden behind the final verdict.
 - No P0/P1 finding or blocking QA defect is hidden behind the final verdict.
+- When the repository carries `docs/product-plan.md`, the Stage 0 artifact names the
+  objective or key result the initiative serves, or records `serves none` — never
+  silence.
 - The Stage 0b risk register exists, and no `HIGH` risk reaches the final verdict without
   either a solution or a recorded decision to accept it, naming who accepted it. Grading a
   risk down to avoid this line is the failure it exists to catch.
