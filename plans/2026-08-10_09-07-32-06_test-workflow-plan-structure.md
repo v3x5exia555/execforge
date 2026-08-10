@@ -6,7 +6,7 @@
 - **Last updated:** 2026-08-10
 - **Role(s):** execforge (product review — judging a proposal, changing nothing)
 - **Branch:** lz-plan-capabilities (no code change expected; review only)
-- **Status:** DONE (verdict delivered, hybrid built on PR #28)
+- **Status:** DONE (merged to main by operator instruction, 2026-08-10; skills installed locally)
 
 ## What was asked
 
@@ -82,6 +82,8 @@ current plan (version 0.16.0) and say which is better, with reasons.
   log opened with one real entry, "no feedback loop" gap updated, changelog
   extended. 104 tests OK, validate passed, release-check consistent. Pushed to
   `lz-plan-capabilities`; rides PR #28.
+- 2026-08-10 — Operator said: merge, and install on local. PR #28 merged to
+  main; skills reinstalled to the local user-level skill folder.
 
 ## The build (added after the user chose the hybrid)
 
