@@ -18,13 +18,9 @@ Never claim an upstream review, implementation, test, or final gate ran unless e
 
 Whenever a prompt runs an ExecForge role (`c-level`, `execforge`, `eng-level`, `q-level`, `sec-level`, `design-html`, `full-cycle`, CEO/COO review), keep a plan file under `plans/`:
 
-- New task: create `plans/YYYY-MM-DD_HH-MM-SS-ss_<title>.md` from `plans/TEMPLATE.md`, and write the plan before starting the work. `ss` is hundredths of a second. Get the stamp with:
+- New task: create `plans/YYYYMMDD_<title>.md` from `plans/TEMPLATE.md`, and write the plan before starting the work. Date only, no time — for example `20260810_fix-login.md`. This is the operator's standard format across all their projects (set 2026-08-10). If the same title would collide on the same day, it is the same task: update the existing file.
 
-  ```bash
-  python3 -c "from datetime import datetime as d; n=d.now(); print(n.strftime('%Y-%m-%d_%H-%M-%S-')+f'{n.microsecond//10000:02d}')"
-  ```
-
-  Use dashes in the time, never colons. A colon is illegal in a Windows filename, and one committed here makes `git clone` fail outright on Windows — which this repo supports (`scripts/execforge.py` has a Windows file-locking backend).
+  Never put a colon in the name. A colon is illegal in a Windows filename, and one committed here makes `git clone` fail outright on Windows — which this repo supports (`scripts/execforge.py` has a Windows file-locking backend). Files created before 2026-08-10 keep their old timestamped names; do not rename them.
 - Continuing an earlier task: update that same file. Do not open a second file for the same task.
 - No role involved: no plan file.
 
