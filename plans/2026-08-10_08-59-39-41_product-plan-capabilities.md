@@ -6,7 +6,7 @@
 - **Last updated:** 2026-08-10
 - **Role(s):** execforge (product plan change), full-cycle (lifecycle change)
 - **Branch:** lz-plan-capabilities, cut from `main`
-- **Status:** DONE (PR open)
+- **Status:** DONE (merged as `af0f47b`; released as v0.16.0 on 2026-08-10)
 
 ## What was asked
 
