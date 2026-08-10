@@ -21,6 +21,17 @@
 - This release carries a recorded decision
   (`docs/decisions/2026-08-10-product-plan-in-lifecycle.md`) — the first skill change to
   satisfy the plan's own key result 1 since it was written.
+- A **planning workflow** section, hybrid of the operator's four phase names and the
+  existing machinery. The operator proposed discovery & alignment / definition & scoping
+  / prioritization & sequencing / communication & execution; a scored comparison
+  (`plans/2026-08-10_09-07-32-06_test-workflow-plan-structure.md`) found three of the
+  four already exist under other names, and two halves genuinely missing. The section
+  maps the names once — so the same machinery is never built twice — and adds the
+  missing halves: **discovery** (a dated log in the plan itself, one entry per release,
+  outside signals logged the day they arrive) and **communication** (which channel
+  reaches which reader, and why none leaves the repo until the open question says it
+  should). The discovery log opens with a real entry: two skill-changing releases
+  shipped without recorded decisions, and no gate caught it.
 
 ## 0.15.0 — 2026-08-09
 

@@ -182,6 +182,45 @@ build nothing, until a decision says otherwise.
 
 An item with an unmet dependency cannot be `ADD NOW`. That is the whole rule.
 
+## Planning workflow
+
+Four phases, named by the operator (2026-08-10). Three of the four already live in this
+document or the lifecycle — this table maps the names so the same machinery is never
+built twice. The two halves that were genuinely missing, discovery and communication,
+are defined below the table.
+
+| Phase | Where it lives |
+| --- | --- |
+| Discovery & alignment | Discovery: the loop below (new). Alignment: the Stage 1 upstream approval gate, where the operator approves scope and risks in one decision. |
+| Definition & scoping | The job-to-be-done, hypothesis, and "What ExecForge is / is not" above; `full-cycle` Stage 0 with Hold Scope as the default. |
+| Prioritization & sequencing | "How work gets picked" and the strategic roadmap table above; the `execforge` ledger. |
+| Communication & execution | Communication: the channels below (new). Execution: lifecycle Stages 3–9, plan review through ship verdict. |
+
+### Discovery
+
+How new evidence gets in, instead of waiting to be tripped over:
+
+- After each release, the operator writes one dated entry in the discovery log at the
+  bottom of this document: what broke, what a gate caught or missed, and one thing that
+  was harder than it should have been.
+- Anything arriving from outside — an issue, a question, a star, a user — is logged the
+  same day it arrives. Baseline (2026-08-10): nothing has ever arrived.
+- Discovery from whom: today, the operator. If the open question is ever answered
+  "other people", the first discovery job becomes finding one external user — ahead of
+  every item on the roadmap.
+
+### Communication
+
+Where each kind of decision reaches its reader:
+
+- Decisions → `docs/decisions/` (these are what key result 1 counts).
+- Releases → `CHANGELOG.md`. Plans and their risks → `plans/`.
+- The audience today is the operator and their future self. That is a real audience:
+  the wrong `GO` of 2026-08-08 was reversed by someone reading the record.
+- If the open question is answered "other people", this section must grow a channel
+  that leaves this repository. Until then, building one would be building for a
+  beneficiary not proven to exist.
+
 ## Kill criteria
 
 Written now, while it is cheap to be honest:
@@ -201,5 +240,16 @@ Written now, while it is cheap to be honest:
   deliberately unfixed: a benefit needs a beneficiary, and that is the open question
   above.
 - **Plans live in two folders** — `plans/` and `docs/plans/` — with different naming.
-- **19 releases in 5 weeks with no feedback loop.** Speed is not the problem; the absence
-  of any signal about whether releases help is.
+- **21 releases in 5 weeks with no feedback loop.** Speed is not the problem; the absence
+  of any signal about whether releases help is. As of 0.16.0 the loop has a home — the
+  planning workflow above and the discovery log below — but a loop exists only if
+  entries keep appearing. One entry proves nothing; check back in a month.
+
+## Discovery log
+
+One dated entry per release, newest first. What broke, what a gate caught or missed,
+one thing harder than it should have been. Outside signals logged the day they arrive.
+
+| Date | Entry |
+| --- | --- |
+| 2026-08-10 | Nothing broke. **Missed by every gate:** releases 0.15.0 and the risk framework both changed skill files with no recorded decision — found only by reading this plan against `git log`, two days later. **Harder than it should be:** checking key result 1 is manual git archaeology; nothing counts recorded decisions against skill-touching commits. |
