@@ -63,4 +63,17 @@ State the root cause as proven evidence, or say plainly that it is a hypothesis.
 
 A fix reported without this is not finished.
 
+## Recommendation and risk on every option
+
+Whenever an answer offers two or more options, it must name one recommended option and say plainly that it is the recommendation. Then, for the recommendation and for every other option, explain:
+
+| Part | What it answers |
+|---|---|
+| **Business risk and impact** | What it costs or breaks for the business if this option goes wrong |
+| **Technical risk and impact** | What it costs or breaks on the technical side |
+| **Short or long term** | `SHORT` passes on its own; `LONG` is structural and stays |
+| **Scenario** | What actually goes wrong, who is hurt, and how it shows up |
+
+This applies to ordinary answers, not only plan files. An option list without a recommendation and these four parts is not finished. Operator instruction 2026-09-27.
+
 LOCKED (operator decision 2026-07-31): the restored CEO Subagent, COO Subagent, CEO plan (gstack `plan-ceo-review` bridge), Phase 5 Scope Ledger, Phase 8 Product Definition and OKRs, and A-C-T-I-O-N Operational Matrix sections in `skills/execforge/`, and the OKR trigger aliases in `skills/c-level/SKILL.md`, must never be edited, condensed, or removed without explicit operator instruction. `tests/test_restored_sections.py` enforces this lock.
