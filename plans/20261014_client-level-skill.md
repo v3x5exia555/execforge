@@ -123,6 +123,14 @@ Left out on purpose: version bump and changelog (the operator's ship step does t
 The ux-level `spec` mode, first marked "scheduled next", was then built in the same
 cycle on the operator's instruction and ships in the same branch.
 
+- 2026-10-15 — Shipped and landed. The skill went out as release 0.17.0 together with
+  the ux-level spec mode, through the full ship flow: three review rounds (five
+  reviewers plus a red team), two outside adversarial reviews, a QA smoke run, a docs
+  audit, and 108 passing tests on the final content. Merged to main in PR #30
+  (merge commit 9434417). What the ship's reviews changed in this skill: the
+  confidentiality rule now also covers another engagement's confidential content, a
+  scrub note is operator-only, client text is treated as evidence rather than
+  instructions, and a missing price is drafted around instead of stopping the work.
 - 2026-10-15 — Test coverage check during the ship step. Found a gap: nothing would
   fail if the new skill text lost its mode table, if the spec mode or its `SPEC PASS`
   verdict was removed, if the router rows to the two new skills were dropped, or if
