@@ -14,14 +14,20 @@ Do not use it to decide whether the feature should exist; that is
 [`design-html`](design-html.md). Do not use it to test whether software works; that is
 [`q-level`](q-level.md).
 
-## Two modes
+## Three modes
 
-The skill picks a mode from the journey. You do not have to choose.
+The skill picks a mode from the request. You do not have to choose.
 
 | Mode | For | What it applies |
 |---|---|---|
 | `product` | Sign-up, onboarding, checkout, first-run — flows judged on adoption | Friction points, time-to-value, edge cases and dead ends, actionable improvements |
 | `technical` | Dashboards, pipelines, compliance and admin tooling, anything with long background jobs | The four pillars below |
+| `spec` | A written UI/UX specification or PRD, reviewed for completeness before anything is built | Seven completeness pillars: screen states, failure paths, scope and persona, accessibility, design-system reuse, testable "done", feasibility |
+
+In `spec` mode the document is the input: a missing persona or screen state becomes a
+finding, not a question back to you, and the verdict is `SPEC PASS`, `FIX REQUIRED`,
+or `REDESIGN`. A passing spec hands to [`design-html`](design-html.md) for structure,
+then comes back here as a journey once screens exist.
 
 The four pillars in `technical` mode:
 
@@ -64,6 +70,7 @@ Six sections:
 | Verdict | Meaning |
 |---|---|
 | `UX PASS` | The journey works. What is left is `LOW` and can wait. |
+| `SPEC PASS` | (`spec` mode) The written spec is buildable as written. |
 | `FIX REQUIRED` | The shape is right, but named findings must close before release. |
 | `REDESIGN` | The flow itself is wrong; fixing it step by step will not work. |
 
@@ -78,8 +85,10 @@ Two `HIGH` findings in one journey means the verdict cannot be `UX PASS`.
 - A finding that questions whether the feature should exist goes back to
   [`execforge`](product-decision.md).
 
-`ux-level` is not yet a gate inside [`full-cycle`](full-cycle.md). That was deferred on
-purpose until the skill has been used on real journeys.
+In `spec` mode, `ux-level` is a gate inside [`full-cycle`](full-cycle.md): Stage 2
+opens with a spec review when a written spec exists, and `design-html` consumes the
+spec only after `SPEC PASS`. Journey review (`product` and `technical`) is still not a
+lifecycle gate; that stays deferred until the skill has been used on real journeys.
 
 ## Example
 

@@ -1,0 +1,45 @@
+{
+  "runner": "python3 -m unittest {files}",
+  "dependencies": {
+    "skills/**": [
+      "tests/test_skill_bundle.py",
+      "tests/test_restored_sections.py",
+      "tests/test_repository.py"
+    ],
+    "scripts/**": [
+      "tests/test_skill_bundle.py",
+      "tests/test_restored_sections.py",
+      "tests/test_repository.py",
+      "tests/test_eval_runner.py"
+    ],
+    ".claude-plugin/**": [
+      "tests/test_skill_bundle.py",
+      "tests/test_repository.py"
+    ],
+    ".codex-plugin/**": [
+      "tests/test_skill_bundle.py",
+      "tests/test_repository.py"
+    ],
+    "schemas/**": ["tests/test_repository.py"],
+    "evaluations/**": ["tests/test_eval_runner.py", "tests/test_skill_bundle.py"],
+    "tests/**": [
+      "tests/test_skill_bundle.py",
+      "tests/test_restored_sections.py",
+      "tests/test_repository.py",
+      "tests/test_eval_runner.py"
+    ],
+    "plans/**": [],
+    "docs/**": ["tests/test_repository.py"],
+    "examples/**": [],
+    "prompt-history/**": [],
+    "*.md": ["tests/test_repository.py"],
+    "mkdocs.yml": [],
+    ".gstack/**": [],
+    ".claude/**": [],
+    ".gitignore": [],
+    ".gitattributes": [],
+    ".github/**": [],
+    "VERSION": [],
+    "requirements-docs.txt": []
+  }
+}

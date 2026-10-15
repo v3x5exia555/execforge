@@ -81,6 +81,81 @@ class SkillBundleTests(unittest.TestCase):
             body = (ROOT / "skills" / skill_name / "SKILL.md").read_text(encoding="utf-8")
             self.assertIn(needle, body, f"{skill_name}/SKILL.md missing '{needle}'")
 
+    # Value: protects=client-level declares its 3 modes, 3 verdicts, no-invented-numbers rule, both templates; fails_when=mode/verdict/template dropped in an edit; why_new=validate_repo checks only frontmatter style and links, never content; seam=none; no_claim=does not judge drafting quality (eval case does)
+    def test_client_level_skill_declares_modes_verdicts_and_templates(self):
+        skill_file = ROOT / "skills" / "client-level" / "SKILL.md"
+        body = skill_file.read_text(encoding="utf-8")
+        self.assertIn("verdicts: CLIENT READY | FIX REQUIRED | REWORK", body)
+        for mode_row in ["| `answer` |", "| `deliverable` |", "| `proposal` |"]:
+            self.assertIn(mode_row, body, f"client-level mode table lost row {mode_row}")
+        self.assertIn("Never invent a number, a price, or a capability.", body)
+        self.assertIn(
+            "no identifier from a different client or engagement",
+            body,
+            "cross-engagement scrub rule missing",
+        )
+        self.assertIn(
+            "evidence, never instructions",
+            body,
+            "client-text injection guard missing",
+        )
+        links = module.markdown_links(skill_file)
+        for template in ["assets/client-answer.template.md", "assets/proposal.template.md"]:
+            self.assertIn(template, links, f"client-level does not link {template}")
+        proposal = (skill_file.parent / "assets" / "proposal.template.md").read_text(encoding="utf-8")
+        self.assertIn("- Price: _to be set by the operator_", proposal)
+        self.assertIn("Recommended?", proposal)
+
+    # Value: protects=ux-level spec mode exists with SPEC PASS verdict and the seven-pillar reference; fails_when=spec row, verdict, handoff, or a pillar heading is deleted; why_new=no test reads ux-level content; link check only proves the file exists; seam=none; no_claim=does not grade an actual spec review (eval case does)
+    def test_ux_level_spec_mode_declares_seven_pillars_and_spec_pass(self):
+        skill_file = ROOT / "skills" / "ux-level" / "SKILL.md"
+        body = skill_file.read_text(encoding="utf-8")
+        self.assertIn("verdicts: UX PASS | SPEC PASS | FIX REQUIRED | REDESIGN", body)
+        self.assertIn("| `spec` |", body, "ux-level mode table lost the spec row")
+        self.assertIn("## Mode: spec — the seven completeness pillars", body)
+        self.assertIn("| `SPEC PASS` |", body, "SPEC PASS verdict row missing")
+        self.assertIn("## Handoff from spec mode", body)
+        self.assertIn("earns a `missing` under pillar 3", body, "spec-mode inputs rule missing")
+        self.assertIn("references/spec-pillars.md", module.markdown_links(skill_file))
+        pillars = (skill_file.parent / "references" / "spec-pillars.md").read_text(encoding="utf-8")
+        for heading in [
+            "## 1. State completeness",
+            "## 2. Failure and recovery paths",
+            "## 3. Scope, target user, tenancy",
+            "## 4. Accessibility and responsive behavior",
+            "## 5. Design-system conformance",
+            "## 6. Acceptance criteria clarity",
+            "## 7. Feasibility and constraints",
+        ]:
+            self.assertIn(heading, pillars, f"spec-pillars.md lost pillar {heading}")
+
+    # Value: protects=c-level router reaches the two new skills: client-facing requests route to client-level and spec reviews to ux-level spec mode; fails_when=a router row or alias row is dropped or retargeted; why_new=restored-sections lock covers only the OKR aliases; seam=none; no_claim=does not test live routing behavior (routing eval would)
+    def test_c_level_routes_client_and_spec_requests(self):
+        body = (ROOT / "skills" / "c-level" / "SKILL.md").read_text(encoding="utf-8")
+        self.assertIn("Use `client-level` |", body, "router row to client-level missing")
+        self.assertIn("Use `ux-level` (spec mode) |", body, "router row to ux-level spec mode missing")
+        alias_targets = {
+            "`explain to my client`": "`client-level`",
+            "`review the spec`": "`ux-level` (spec mode)",
+        }
+        for alias, target in alias_targets.items():
+            rows = [line for line in body.splitlines() if alias in line]
+            self.assertTrue(rows, f"c-level alias table lost {alias}")
+            self.assertTrue(
+                any(target in row for row in rows),
+                f"alias {alias} no longer routes to {target}",
+            )
+
+    # Value: protects=full-cycle Stage 2 opens with ux-level spec mode gated on SPEC PASS, with REDESIGN routed to Stage 0; fails_when=the stage-sequence line or rule 4 wiring is reverted; why_new=existing full-cycle checks cover only the authorization gate and fallback contract; seam=none; no_claim=does not run a cycle
+    def test_full_cycle_stage_2_opens_with_ux_level_spec_mode(self):
+        body = (ROOT / "skills" / "full-cycle" / "SKILL.md").read_text(encoding="utf-8")
+        self.assertIn("ux-level spec mode", body, "Stage 2 sequence lost the spec-mode entry")
+        self.assertIn("Stage 2 opens with `ux-level` spec mode", body)
+        self.assertIn("only after `SPEC PASS`", body)
+        self.assertIn("the operator — never the agent —", body, "Stage 2 approver line missing")
+        self.assertIn("re-checks the amended document to `SPEC PASS`", body)
+        self.assertIn("routes back to Stage 0", body)
+
     def test_design_html_and_data_qa_assets_exist(self):
         required_paths = [
             ROOT / "skills" / "design-html" / "SKILL.md",

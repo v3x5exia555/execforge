@@ -66,7 +66,8 @@ Product decisions set **initiative flags** (`offensive-security`, `legally-gated
 | `eng-level` | Upstream approval, engineering plan review, implementation conformance, Staff Engineer review, and final ship decision |
 | `q-level` | Risk-based portal/API/backend QA planning, execution, retest, data-QA attachment, and `QA PASS / RETURN / BLOCK` decision |
 | `sec-level` | Application-security actor: threat model at plan stage, OWASP-mapped adversarial review of the real diff, and `SEC PASS / FIX REQUIRED / BLOCK` verdict |
-| `ux-level` | Senior PM + Lead UX Researcher journey review: friction, time-to-value, error recovery, cognitive load, severity matrix, and `UX PASS / FIX REQUIRED / REDESIGN` verdict |
+| `ux-level` | Senior PM + Lead UX Researcher journey review: friction, time-to-value, error recovery, cognitive load, severity matrix, and `UX PASS / FIX REQUIRED / REDESIGN` verdict — plus a `spec` mode that checks a written UI/UX spec for completeness before build (`SPEC PASS`) |
+| `client-level` | Consulting engagement lens: plain-words client answers with scenario and risk, deliverable readiness review (`CLIENT READY / FIX REQUIRED / REWORK`), and proposals with honest effort — never an invented number or price |
 
 Each skill follows the Agent Skills directory convention: a concise `SKILL.md` entry point, detailed contracts under `references/`, and reusable templates under `assets/`.
 
@@ -241,8 +242,10 @@ Parameters passed when you trigger an actor. Every parameter is optional.
 | `/eng-level` | `--mode` | `plan` \| `review` \| `full` \| `auto` \| `status` | Pass `auto` to detect the next valid stage |
 | `/q-level` | `--mode` | `plan` \| `execute` \| `full` \| `retest` \| `auto` \| `status` | Pass `auto` to detect the next valid stage |
 | `/sec-level` | `--mode` | `threat-model` \| `review` \| `auto` | Pass `auto` to pick from lifecycle evidence |
+| `/ux-level` | *none* | Mode (`product` \| `technical` \| `spec`) is inferred from the request: naming a document or PRD selects `spec` | — |
+| `/client-level` | *none* | Mode (`answer` \| `deliverable` \| `proposal`) is inferred from the request | — |
 
-Only `design-html` declares a default for an omitted parameter (`none`). `eng-level`, `q-level`, and `sec-level` document their modes but do not declare a default — pass `--mode=auto` explicitly, as the quick start does, rather than relying on inference.
+Only `design-html` declares a default for an omitted parameter (`none`). `eng-level`, `q-level`, and `sec-level` document their modes but do not declare a default — pass `--mode=auto` explicitly, as the quick start does, rather than relying on inference. `ux-level` and `client-level` are the exception: they take no flag, and their mode is always inferred from the request.
 
 ### What each value does
 
@@ -367,13 +370,15 @@ mkdocs serve
 execforge/
 ├── skills/              # Bundled skills (SKILL.md + references/ + assets/)
 │   ├── c-level/
+│   ├── client-level/
 │   ├── design-html/
 │   ├── execforge/
 │   ├── eng-level/
 │   ├── full-cycle/
 │   ├── ponytail/        # Vendored third-party simplicity persona (pinned; see its PROVENANCE.md)
 │   ├── q-level/
-│   └── sec-level/
+│   ├── sec-level/
+│   └── ux-level/
 ├── evaluations/         # Behavioral evaluation cases, one per skill
 ├── docs/                # MkDocs wiki source
 ├── examples/            # Example decision artifacts

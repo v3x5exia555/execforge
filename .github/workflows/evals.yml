@@ -37,6 +37,9 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
-          python3 scripts/execforge.py eval --limit 4 \
+          # Stopgap (2026-10-15): raised from 4 so adding client-level.eval.md does
+          # not evict eng-level-post-hoc-review from the sorted window. The real fix
+          # (changed-skill selection) is the P1 entry in TODOS.md.
+          python3 scripts/execforge.py eval --limit 5 \
             --agent-cmd 'claude -p --max-turns 20' \
             --judge-cmd 'claude -p --max-turns 1'

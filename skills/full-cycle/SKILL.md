@@ -24,7 +24,8 @@ Use `full-cycle` when the user asks to take an initiative "from idea to ship" un
 Stage 0  Product decision            execforge  [product-plan anchor]
 Stage 0b Risk register               full-cycle (this skill)
 Stage 1  Upstream approval gate      eng-level stop check   [USER GATE]
-Stage 2  UI/UX design bridge         design-html [--design-system=<name|auto|none>]
+Stage 2  UI/UX design bridge         ux-level spec mode (when a written spec exists),
+                                     then design-html [--design-system=<name|auto|none>]
                                                             (UI-facing scope only)
 Stage 3  Engineering plan review     eng-level --mode=plan
 Stage 4  Implementation              Superpowers execution skills
@@ -40,8 +41,14 @@ Stage 9  Final engineering decision  SHIP / SHIP WITH REQUIRED FIXES /
 
 1. Run stages strictly in order. Entering a stage requires the previous stage's exit artifact.
 2. Delegate each stage to its owning skill and follow that skill's current instructions; `full-cycle` owns only sequencing, evidence reconciliation, and re-entry. When Superpowers is unavailable at Stage 4, follow [the fallback implementation contract](references/fallback-implementation-contract.md).
-3. Two gates always stop for the user: upstream approval (Stage 1) and QA plan/environment approval (Stage 7). Never infer approval from enthusiasm in the original request.
-4. Mark Stage 2 `NOT APPLICABLE` for non-UI scope, recording one sentence of justification. When the operator sets `--design-system` on the cycle, forward it to `design-html` at Stage 2; absent it, Stage 2 runs aesthetic-neutral. A design system binds visual language only — it never changes Stage 0 scope, and Stage 2 still owes its full screen and state coverage.
+3. Two gates always stop for the user: upstream approval (Stage 1) and QA plan/environment approval (Stage 7) — plus, when Stage 2 spec review ends in `FIX REQUIRED`, the conditional Stage 2 fix approval (rule 4), which is the operator's, never the agent's. Never infer approval from enthusiasm in the original request.
+4. Mark Stage 2 `NOT APPLICABLE` for non-UI scope, recording one sentence of justification.
+   When the approved scope carries a written UI/UX specification, PRD, or plan document,
+   Stage 2 opens with `ux-level` spec mode on that document; `design-html` consumes the
+   spec only after `SPEC PASS`. After `FIX REQUIRED`, the operator — never the agent —
+   approves the fixes, and spec mode re-checks the amended document to `SPEC PASS`
+   before the handoff. A `REDESIGN` verdict routes back to Stage 0. With no written
+   spec, Stage 2 runs as before. When the operator sets `--design-system` on the cycle, forward it to `design-html` at Stage 2; absent it, Stage 2 runs aesthetic-neutral. A design system binds visual language only — it never changes Stage 0 scope, and Stage 2 still owes its full screen and state coverage.
 5. A `KILL` or `DEFER` verdict at Stage 0 ends the cycle; do not continue to planning.
 5a. **Stage 0 anchors to the product plan.** When the repository carries a product plan
     (`docs/product-plan.md`), the Stage 0 decision must state, in one sentence, which of
@@ -103,7 +110,8 @@ Report at exit: stage-by-stage status with evidence paths, open non-blocking ite
 Before returning a final result:
 
 - Every stage is DONE with evidence, NOT APPLICABLE with justification, or explicitly reported as not run.
-- Both user gates received an actual user response.
+- Both user gates received an actual user response, and so did any conditional
+  Stage 2 fix approval (rule 4) when spec review ended in `FIX REQUIRED`.
 - Any gating initiative flag has a recorded authorization decision; no `NOT AUTHORIZED` or unresolved authorization is hidden behind the final verdict.
 - No P0/P1 finding or blocking QA defect is hidden behind the final verdict.
 - When the repository carries `docs/product-plan.md`, the Stage 0 artifact names the
