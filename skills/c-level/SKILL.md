@@ -1,6 +1,6 @@
 ---
 name: c-level
-description: Use when starting work that may involve product scope, feature planning, architecture, implementation, code review, portal/API/backend QA, release readiness, CEO/COO review, gstack review, or Superpowers workflows.
+description: Use when starting work that may involve product scope, feature planning, architecture, implementation, code review, portal/API/backend QA, client-facing answers and proposals, release readiness, CEO/COO review, gstack review, or Superpowers workflows.
 license: MIT
 compatibility: Works with Agent Skills-compatible coding agents. Optional integrations require separately installed gstack and Superpowers skills.
 metadata:
@@ -21,6 +21,8 @@ Before acting, select the smallest applicable workflow. Do not inspect code, ask
 | Initiative must be governed end-to-end from idea to ship in one engagement | Use `full-cycle` |
 | New product, feature, platform, automation, or unclear user need | Use `execforge` |
 | An existing or proposed user journey needs reviewing for friction, drop-off, or dead ends | Use `ux-level` |
+| A written UI/UX specification, PRD, or plan document needs reviewing for completeness before anything is built | Use `ux-level` (spec mode) |
+| Technical work must be explained, reviewed, or packaged for a paying client — an answer, a deliverable readiness check, or a proposal | Use `client-level` |
 | Approved product scope needs UX/interface structure or production-oriented HTML/CSS guidance | Use `design-html`; forward `--design-system=<name\|auto\|none>` when the operator set one |
 | Approved product scope needs its risks written down before engineering starts | Use `full-cycle` Stage 0b risk register (`skills/full-cycle/assets/risk-register.template.md`); nine questions per risk, carried into the approval gate |
 | Approved product/PRD needs engineering planning | Use `eng-level --mode=plan` |
@@ -86,7 +88,11 @@ Users do not type canonical skill names. Route these to the real skill without a
 | `QA-level`, `QA plan`, `QA it`, `test it` | `q-level` |
 | `designer`, `design plan`, `UI review` | `design-html` |
 | `UX review`, `journey review`, `user journey`, `UX audit`, `usability review`, `friction points`, `drop-off` | `ux-level` |
+| `review the spec`, `review the PRD`, `is this spec complete`, `spec review` — and `review this plan` / `review the proposal` when the document is a UI/UX spec rather than code or architecture | `ux-level` (spec mode) |
 | `security review`, `threat model`, `pentest review` | `sec-level` |
+| `explain to my client`, `make it simple for the client`, `client proposal`, `how do I reply to my client` | `client-level` |
+| `layman`, `layman term`, `make a proposal`, `is this good enough for presentation` | `client-level` when a client is the audience; otherwise route by the main router — an internal build or expand proposal is `execforge` territory, and only a plain explanation with no routing need (a stack trace in layman terms) is answered directly |
+| `what can we sell`, `what can we sales` | `client-level` when the ask is a client-facing offer; `execforge` when it is discovery of what to build next |
 | `exec-forge`, `excecforge`, `execforge lifecycle` | `execforge`, or `full-cycle` when the request spans build-to-ship |
 
 Misspellings and casing variants of any skill name route to that skill. When a request names

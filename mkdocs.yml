@@ -17,6 +17,7 @@ nav:
   - Q Level: q-level.md
   - Sec Level: sec-level.md
   - UX Level: ux-level.md
+  - Client Level: client-level.md
   - Authorization Gate: authorization-gate.md
   - Data QA: data-qa.md
   - Upstream Approval: upstream-approval.md

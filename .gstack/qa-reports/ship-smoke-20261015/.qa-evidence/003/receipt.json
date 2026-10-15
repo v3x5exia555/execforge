@@ -1,0 +1,52 @@
+{
+  "version": 1,
+  "id": "003",
+  "cwd": "/Users/tysonchua/Desktop/project/execforge",
+  "argv": [
+    "python3",
+    "scripts/execforge.py",
+    "install",
+    "--dest",
+    ".gstack/qa-reports/ship-smoke-20261015/tmp-skills-2"
+  ],
+  "deadline": "/Users/tysonchua/Desktop/project/execforge/.gstack/qa-reports/ship-smoke-20261015/.qa-evidence/003/deadline.json",
+  "timing": [
+    {
+      "guard": "qa-deadline",
+      "event": "started",
+      "version": 1,
+      "startedAt": "2026-10-15T01:52:50.835Z",
+      "deadlineAt": "2026-10-15T01:53:50.835Z",
+      "budgetMs": 60000,
+      "observedAt": "2026-10-15T01:52:50.836Z",
+      "remainingMs": 59999,
+      "expired": false
+    },
+    {
+      "guard": "qa-deadline",
+      "event": "finished",
+      "observedAt": "2026-10-15T01:52:50.911Z",
+      "deadlineAt": "2026-10-15T01:53:50.835Z",
+      "timedOut": false,
+      "exitCode": 0
+    }
+  ],
+  "startedAt": "2026-10-15T01:52:50.836Z",
+  "completedAt": "2026-10-15T01:52:50.913Z",
+  "exitCode": 0,
+  "signal": null,
+  "status": "complete",
+  "observation": {
+    "sha256": "cb1ad8b6c648a5f8d2f7f88881c72e8dcc9f81cb35a66d44b497d3e73ab931d2",
+    "bytes": 1421
+  },
+  "publicOutput": false,
+  "stdout": {
+    "sha256": "02b9aeda5212f1ffafddd1d0feb03868544989b4f8c33788ebd80f06e6fa9e5e",
+    "bytes": 1407
+  },
+  "stderr": {
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "bytes": 0
+  }
+}

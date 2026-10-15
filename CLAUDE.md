@@ -16,7 +16,7 @@ Never claim an upstream review, implementation, test, or final gate ran unless e
 
 ## Plan tracking
 
-Whenever a prompt runs an ExecForge role (`c-level`, `execforge`, `eng-level`, `q-level`, `sec-level`, `design-html`, `full-cycle`, CEO/COO review), keep a plan file under `plans/`:
+Whenever a prompt runs an ExecForge role (`c-level`, `execforge`, `eng-level`, `q-level`, `sec-level`, `ux-level`, `client-level`, `design-html`, `full-cycle`, CEO/COO review), keep a plan file under `plans/`:
 
 - New task: create `plans/YYYYMMDD_<title>.md` from `plans/TEMPLATE.md`, and write the plan before starting the work. Date only, no time — for example `20260810_fix-login.md`. This is the operator's standard format across all their projects (set 2026-08-10). If the same title would collide on the same day, it is the same task: update the existing file.
 
@@ -90,3 +90,7 @@ cd ~/.claude/skills/gstack && ./setup --team
 
 Skills like /qa, /ship, /review, /investigate, and /browse become available after install.
 Use /browse for all web browsing (Aside first, the bundled gstack browser as fallback). Use ~/.claude/skills/gstack/... for gstack file paths.
+
+## Skill routing
+
+When the user's request matches an available skill, invoke it via the Skill tool. Route only to skills in the session's available-skills list; answer directly for quick questions or small scoped edits. This never replaces the rule at the top of this file: load `c-level` first when work may concern product scope, planning, implementation, review, or release readiness, and the `sec-level` attachment rule in `skills/c-level/SKILL.md`'s router (changes touching auth, user input, secrets, sensitive data, new dependencies, or network exposure) applies to direct edits too.

@@ -8,3 +8,8 @@ site/
 
 # Extracted prompt transcripts — contain plaintext credentials. Never commit.
 prompt-history/
+
+# QA probe scratch: installed skill-tree copies are evidence-local duplicates.
+# The report.md and .qa-evidence observations stay committable; the tree copies do not.
+.gstack/qa-reports/**/tmp-skills*/
+.gstack/tmp/

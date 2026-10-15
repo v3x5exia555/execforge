@@ -9,7 +9,7 @@
 | 0. Product decision | `execforge` | `KILL`/`DEFER` ends the cycle |
 | 0b. Risk register | `full-cycle` | Nine questions per risk; carried into Stage 1 |
 | 1. Upstream approval | `eng-level` stop check | **User must approve** |
-| 2. UI/UX design bridge | `design-html` | UI-facing scope only |
+| 2. UI/UX design bridge | `ux-level` spec mode (when a written spec exists), then `design-html` | UI-facing scope only; `design-html` consumes the spec only after `SPEC PASS`, and fixes after a `FIX REQUIRED` spec verdict need **user approval** |
 | 3. Engineering plan review | `eng-level --mode=plan` | `APPROVED` required |
 | 4. Implementation | Superpowers execution skills | — |
 | 5. Verification | tests/build/validation evidence | — |
@@ -22,7 +22,7 @@
 
 - Stages run strictly in order; entering a stage requires the previous stage's exit artifact.
 - `full-cycle` owns sequencing, evidence reconciliation, and re-entry; each stage's work is delegated to its owning skill.
-- The two user gates (Stage 1 and Stage 7) always stop for a real user response.
+- The two user gates (Stage 1 and Stage 7) always stop for a real user response — and so does the conditional Stage 2 fix approval when a spec review ends in `FIX REQUIRED`.
 - Defects route backwards: code defects to implementation, architecture defects to plan review, product-assumption defects to the product decision.
 - Automatic fix/review loops are limited to three per root cause.
 - The cycle ends only with a recorded Stage 9 verdict, a Stage 0 `KILL`/`DEFER`, or an explicit user stop.

@@ -1,0 +1,49 @@
+{
+  "revision": "48484191eafd6c4192e2acae5c08363fbe737da1",
+  "runtime": "bun 1.3.13",
+  "cwd": "/Users/tysonchua/Desktop/project/execforge",
+  "limits": [
+    "smoke scope: 2 of 12 probe budget used; remaining documented CLI contracts (doctor, status, sessions, release-check) rely on the invocation's unittest receipts, and release-check is expected to change state only after the version bump step",
+    "behavioral eval execution deferred to advisory CI by recorded operator decision (ship Step 6, answer B)"
+  ],
+  "evidence": [
+    {
+      "command": "python3 scripts/execforge.py install --dest .gstack/qa-reports/ship-smoke-20261015/tmp-skills",
+      "contract": "Successful execution: install copies every bundled skill and verifies them",
+      "expected": "exit 0; 10 skills installed into the owned destination including the new client-level",
+      "classification": "pass",
+      "observed": "installed c-level -> /Users/tysonchua/Desktop/project/execforge/.gstack/qa-reports/ship-smoke-20261015/tmp-skills/c-level\ninstalled client-level -> /Users/tysonchua/Desktop/project/execforge/.gstack/qa-reports/ship-smoke-20261015/tmp-skills/client-level\ninstalled design-html -> /Users/tysonchua/Desktop/project/execforge/.gstack/qa-reports/ship-smoke-20261015/tmp-skills/design-html\ninstalled eng-level -> /Users/tysonchua/Desktop/project/execforge/.gstack/qa-reports/ship-smoke-20261015/tmp-skills/eng-level\ninstalled execforge -> /Users/tysonchua/Desktop/project/execforge/.gstack/qa-reports/ship-smoke-20261015/tmp-skills/execforge\ninstalled full-cycle -> /Users/tysonchua/Desktop/project/execforge/.gstack/qa-reports/ship-smoke-20261015/tmp-skills/full-cycle\ninstalled ponytail -> /Users/tysonchua/Desktop/project/execforge/.gstack/qa-reports/ship-smoke-20261015/tmp-skills/ponytail\ninstalled q-level -> /Users/tysonchua/Desktop/project/execforge/.gstack/qa-reports/ship-smoke-20261015/tmp-skills/q-level\ninstalled sec-level -> /Users/tysonchua/Desktop/project/execforge/.gstack/qa-reports/ship-smoke-20261015/tmp-skills/sec-level\ninstalled ux-level -> /Users/tysonchua/Desktop/project/execforge/.gstack/qa-reports/ship-smoke-20261015/tmp-skills/ux-level\nverified 10 installed skills at /Users/tysonchua/Desktop/project/execforge/.gstack/qa-reports/ship-smoke-20261015/tmp-skills\n"
+    },
+    {
+      "command": "python3 scripts/execforge.py eval --list",
+      "contract": "Eval runner parses every evaluations/*.eval.md case file (riskiest changed edge: two new case files)",
+      "expected": "exit 0; case list includes client-level-honest-answer-no-invented-numbers and ux-level-spec-mode-incomplete-spec",
+      "classification": "pass",
+      "observed": "c-level-routing-new-feature\nclient-level-honest-answer-no-invented-numbers\ndesign-html-design-system-binding\ndesign-html-scope-boundary\neng-level-post-hoc-review\neng-level-role-routing\neng-level-stop-after\neng-level-verify-before-claiming\neng-level-upstream-stop-check\nexecforge-weak-evidence-decision\nfull-cycle-authorization-gate\nfull-cycle-end-to-end-gates\nponytail-fast-path-precedence\nq-level-plan-approval-gate\nsec-level-diff-review-evidence\nux-level-spec-mode-incomplete-spec\nux-level-journey-review-evidence\n"
+    }
+  ],
+  "learning": [
+    {
+      "observationCapture": "001",
+      "observationArgv": [
+        "python3",
+        "scripts/execforge.py",
+        "install",
+        "--dest",
+        ".gstack/qa-reports/ship-smoke-20261015/tmp-skills"
+      ],
+      "hypothesis": "install succeeded with client-level present; next risk is whether the eval runner parses the two new eval case files without error",
+      "nextCapture": "002",
+      "nextArgv": [
+        "python3",
+        "scripts/execforge.py",
+        "eval",
+        "--list"
+      ]
+    }
+  ],
+  "verdict": {
+    "status": "pass",
+    "open": []
+  }
+}

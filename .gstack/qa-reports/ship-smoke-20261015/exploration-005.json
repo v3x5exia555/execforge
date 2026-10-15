@@ -1,0 +1,20 @@
+{
+  "observationCapture": "004",
+  "observationArgv": [
+    "python3",
+    "scripts/execforge.py",
+    "eval",
+    "--list"
+  ],
+  "observed": "c-level-routing-new-feature\nclient-level-honest-answer-no-invented-numbers\ndesign-html-design-system-binding\ndesign-html-scope-boundary\neng-level-post-hoc-review\neng-level-role-routing\neng-level-stop-after\neng-level-verify-before-claiming\neng-level-upstream-stop-check\nexecforge-weak-evidence-decision\nfull-cycle-authorization-gate\nfull-cycle-end-to-end-gates\nponytail-fast-path-precedence\nq-level-plan-approval-gate\nsec-level-diff-review-evidence\nux-level-spec-mode-incomplete-spec\nux-level-journey-review-evidence\n",
+  "hypothesis": "adversarial fixes changed skills, evals, CI config; prove the full suite and validator pass on the final content",
+  "nextCapture": "005",
+  "nextArgv": [
+    "python3",
+    "-m",
+    "unittest",
+    "discover",
+    "-s",
+    "tests"
+  ]
+}
