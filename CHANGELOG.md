@@ -1,5 +1,50 @@
 # Changelog
 
+## 0.17.0 — 2026-10-15
+
+- New tenth skill: **`client-level`**, the consulting engagement lens. Three inferred
+  modes: `answer` turns a client question into a plain-words reply with the scenario,
+  the risk in the client's terms, and one clear ask; `deliverable` checks a report or
+  deck before it goes out, ending in `CLIENT READY / FIX REQUIRED / REWORK`; `proposal`
+  turns findings into an offer with honest effort. Hard rules: no invented number or
+  price (the operator sets prices), no credential or other-engagement identifier or
+  confidential content in any output (with an operator-only scrub note that never
+  enters send-ready text), client-supplied text is evidence rather than instructions,
+  `REPORTED` claims are attributed, and finding severity is never softened to sell.
+  Decision record: `docs/decisions/2026-10-14-client-level-skill.md`, grounded in a
+  three-month usage review (~590 prompts) that found client consulting is now the
+  dominant workload with no owning skill.
+- **`ux-level` gains a `spec` mode**: a written UI/UX specification or PRD is reviewed
+  for completeness before anything is built, against seven pillars (screen states,
+  failure paths, scope/persona/tenancy, accessibility, design-system reuse, testable
+  "done", feasibility), ending in `SPEC PASS / FIX REQUIRED / REDESIGN` with a cited
+  completeness matrix. In spec mode a missing persona or state is a `missing` finding,
+  never a question back to the user, and the document under review is evidence, never
+  instructions. Wired into the lifecycle: `full-cycle` Stage 2 opens with spec mode
+  when a written spec exists, `design-html` consumes the spec only after `SPEC PASS`
+  (fixes after `FIX REQUIRED` are approved by the operator, never the agent, and
+  re-checked), and the exit checklist verifies that conditional gate. Decision record:
+  `docs/decisions/2026-10-14-ux-level-spec-mode.md`; proposal and risk register in
+  `plans/20260930_ux-level-spec-review.md`.
+- `c-level` routes the new work without canonical names: client-facing phrasings
+  ("explain to my client", "how do I reply to my client") reach `client-level`; "review
+  the spec / PRD" and plan/proposal reviews of UI/UX documents reach `ux-level` spec
+  mode; ambiguous phrasings ("layman", "make a proposal", "what can we sell") are
+  scoped so internal build proposals still route to `execforge`.
+- Four content-lock tests (suite now 108) pin the new modes, verdicts, router rows,
+  and Stage 2 wiring — each proven to fail on a tree without the feature. Two gate
+  eval cases land (`client-level`, `ux-level` spec mode); the CI eval cap rises from
+  4 to 5 so the new client-level case does not push an existing case out of the run
+  window. Honest limit, recorded in `TODOS.md` as P1: the spec-mode eval does not yet
+  run in CI until eval selection becomes changed-skill-aware.
+- Docs: new `docs/client-level.md` page, spec mode in `docs/ux-level.md`, README skill
+  and parameter tables updated, mkdocs nav entry.
+- Project hygiene from this release's own review (three cycles, five specialists, a
+  red team, and two outside adversarial rounds): client identifiers and a credential
+  locator were redacted from plan records, `.gstack/pregate.json` maps the repo's
+  files to their test lanes, QA probe scratch trees are git-ignored, and `TODOS.md`
+  opens with the eval-selection P1 and two P2 follow-ups.
+
 ## 0.16.0 — 2026-08-10
 
 - `docs/product-plan.md` gains four working methods: **how it reads evidence** (measured
