@@ -1,0 +1,19 @@
+{
+  "observationCapture": "001",
+  "observationArgv": [
+    "python3",
+    "scripts/execforge.py",
+    "install",
+    "--dest",
+    ".gstack/qa-reports/ship-smoke-20261015/tmp-skills"
+  ],
+  "observed": "installed c-level -> /Users/tysonchua/Desktop/project/execforge/.gstack/qa-reports/ship-smoke-20261015/tmp-skills/c-level\ninstalled client-level -> /Users/tysonchua/Desktop/project/execforge/.gstack/qa-reports/ship-smoke-20261015/tmp-skills/client-level\ninstalled design-html -> /Users/tysonchua/Desktop/project/execforge/.gstack/qa-reports/ship-smoke-20261015/tmp-skills/design-html\ninstalled eng-level -> /Users/tysonchua/Desktop/project/execforge/.gstack/qa-reports/ship-smoke-20261015/tmp-skills/eng-level\ninstalled execforge -> /Users/tysonchua/Desktop/project/execforge/.gstack/qa-reports/ship-smoke-20261015/tmp-skills/execforge\ninstalled full-cycle -> /Users/tysonchua/Desktop/project/execforge/.gstack/qa-reports/ship-smoke-20261015/tmp-skills/full-cycle\ninstalled ponytail -> /Users/tysonchua/Desktop/project/execforge/.gstack/qa-reports/ship-smoke-20261015/tmp-skills/ponytail\ninstalled q-level -> /Users/tysonchua/Desktop/project/execforge/.gstack/qa-reports/ship-smoke-20261015/tmp-skills/q-level\ninstalled sec-level -> /Users/tysonchua/Desktop/project/execforge/.gstack/qa-reports/ship-smoke-20261015/tmp-skills/sec-level\ninstalled ux-level -> /Users/tysonchua/Desktop/project/execforge/.gstack/qa-reports/ship-smoke-20261015/tmp-skills/ux-level\nverified 10 installed skills at /Users/tysonchua/Desktop/project/execforge/.gstack/qa-reports/ship-smoke-20261015/tmp-skills\n",
+  "hypothesis": "install succeeded with client-level present; next risk is whether the eval runner parses the two new eval case files without error",
+  "nextCapture": "002",
+  "nextArgv": [
+    "python3",
+    "scripts/execforge.py",
+    "eval",
+    "--list"
+  ]
+}

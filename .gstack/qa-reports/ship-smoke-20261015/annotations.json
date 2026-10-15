@@ -1,0 +1,22 @@
+{
+  "evidence": [
+    {
+      "capture": "001",
+      "command": "python3 scripts/execforge.py install --dest .gstack/qa-reports/ship-smoke-20261015/tmp-skills",
+      "contract": "Successful execution: install copies every bundled skill and verifies them",
+      "expected": "exit 0; 10 skills installed into the owned destination including the new client-level",
+      "classification": "pass"
+    },
+    {
+      "capture": "002",
+      "command": "python3 scripts/execforge.py eval --list",
+      "contract": "Eval runner parses every evaluations/*.eval.md case file (riskiest changed edge: two new case files)",
+      "expected": "exit 0; case list includes client-level-honest-answer-no-invented-numbers and ux-level-spec-mode-incomplete-spec",
+      "classification": "pass"
+    }
+  ],
+  "limits": [
+    "smoke scope: 2 of 12 probe budget used; remaining documented CLI contracts (doctor, status, sessions, release-check) rely on the invocation's unittest receipts, and release-check is expected to change state only after the version bump step",
+    "behavioral eval execution deferred to advisory CI by recorded operator decision (ship Step 6, answer B)"
+  ]
+}
