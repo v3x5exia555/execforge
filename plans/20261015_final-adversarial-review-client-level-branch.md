@@ -99,3 +99,10 @@ approval), one cosmetic count ("three below" where the table has four rows), and
 question for the owner (which stage owns the journey re-review after screens exist).
 None is a broken behavior today; all are text-consistency gaps. No code was changed
 by this pass either; only this plan file was updated.
+
+## Third pass (2026-10-15)
+
+A final bound adversarial pass ran on the frozen release content after six
+operator-approved one-line wording fixes. It confirmed all six landed, found no
+remaining contradiction between the four changed skills, and recommended MERGE.
+The release then shipped as 0.17.0 (PR #30).

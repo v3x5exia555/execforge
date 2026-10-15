@@ -9,8 +9,9 @@
 > instead of only reviewing a user's step-by-step journey. A "lens" below just means
 > a way of looking; "multi-tenant" means many customers sharing one system.
 
-**Status:** IMPLEMENTED 2026-10-14 (operator: "proceed", then "include ux-level with
-the lifecycle" — built in the same cycle as `client-level` instead of after it).
+**Status:** SHIPPED in release 0.17.0, merged to main in PR #30 on 2026-10-15.
+Earlier: IMPLEMENTED 2026-10-14 — operator said "proceed", then "include ux-level with
+the lifecycle", so it was built in the same cycle as `client-level` instead of after it.
 What shipped: the `spec` mode and seven pillars in `skills/ux-level/SKILL.md`,
 `skills/ux-level/references/spec-pillars.md`, the Stage 2 wiring in
 `skills/full-cycle/SKILL.md` (spec mode gates `design-html` when a written spec
