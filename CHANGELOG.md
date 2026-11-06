@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.18.0 — 2026-11-06
+
+- **`eng-level` hands its final decision to `client-level`** when a paying client will
+  read the outcome. The handoff runs after any final decision, not only `SHIP`, and is
+  recorded in `decision.md`. `client-level` translates the verdict and its findings into
+  the client's words; it never changes the verdict and never re-grades a finding. When no
+  client reader is named, the handoff is skipped and said so in one line. The final
+  output contract now names the handoff mode (`answer`, `deliverable`, or `proposal`) and
+  its reader, or writes `client handoff: not applicable`. `eng-level` skill version
+  0.8.2. Locked by `test_eng_level_hands_off_to_client_level`. Shipped via PR #32.
+  Plan: `plans/20261106_client-level-handoff-in-eng-level.md`.
+
 ## 0.17.0 — 2026-10-15
 
 - New tenth skill: **`client-level`**, the consulting engagement lens. Three inferred
