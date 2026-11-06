@@ -5,7 +5,7 @@ license: MIT
 compatibility: Requires a Git repository for diff review. Integrates with separately installed gstack and Superpowers skills when available.
 metadata:
   author: ExecForge contributors
-  version: "0.8.1"
+  version: "0.8.2"
 ---
 
 # Eng Level
@@ -309,6 +309,11 @@ Rules:
   installed gstack `/land-and-deploy` or `/ship` skill is present, hand the
   approved branch to it and record the handoff in `decision.md`. When it is
   not, deployment stays with the operator's own release process.
+- When a paying client will read the outcome — any final decision, not only
+  `SHIP` — run `client-level` next and record the handoff in `decision.md`.
+  `client-level` translates the verdict and its findings into the client's
+  words; it never changes the verdict and never re-grades a finding. When no
+  client reader is named, skip it and say so in one line.
 - A `SHIP` on a release-bound branch (version bump, changelog entry, or tag)
   requires release-consistency evidence: version metadata, the changelog head
   entry, and the intended tag must agree. In the ExecForge repository, run

@@ -55,3 +55,5 @@ Exact commands run and their results. Never report a command that was not run.
 > **Decision: [SHIP / SHIP WITH REQUIRED FIXES / RETURN TO IMPLEMENTATION / RETURN TO PLAN / BLOCK]**
 
 Then explain why, the supporting evidence, the required next action, the owner, and the re-entry condition.
+
+When a client will read the outcome, add one line naming the `client-level` handoff (mode `answer`, `deliverable`, or `proposal`) and its reader. When none will, write `client handoff: not applicable`.
