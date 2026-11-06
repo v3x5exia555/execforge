@@ -5,7 +5,7 @@
 > Someone who does not know this codebase should still be able to follow it.
 
 - **Started:** 2026-11-06
-- **Last updated:** 2026-11-06
+- **Last updated:** 2026-11-06 (release 0.18.0)
 - **Role(s):** c-level (router), ponytail lite fast path
 - **Branch:** lz-client-level-handoff-in-eng-level
 - **Status:** DONE
@@ -73,10 +73,13 @@ repo is locked by a test, and an unlocked rule can be lost in a later edit.
 | 2026-11-06 | Handoff rule, not a new stage | The user asked to add the skill in. A new stage would slow every run and touch state files and tests for no gain. A rule after the verdict is the smallest change that does the job. |
 | 2026-11-06 | Lock it with a test | Every other skill wiring here has one. |
 | 2026-11-06 | No changelog entry now | The repo adds changelog lines at release time in one "bump version and changelog" commit. |
+| 2026-11-06 | Cut release 0.18.0 right away | The user chose option 1: one real behaviour change in a governance skill is a release, and leaving `main` ahead of the last tag makes the changelog lie. |
 
 ## What happened
 
 - 2026-11-06 — Plan written. Work started.
+- 2026-11-06 — PR #32 merged to `main` as 35afbbd after validate, windows, and evals checks passed.
+- 2026-11-06 — Release 0.18.0 cut: both plugin manifests bumped, changelog entry added, tag `v0.18.0` and GitHub release created.
 - 2026-11-06 — Test written first and seen to fail. Then the rule was added to
   `skills/eng-level/SKILL.md` (version 0.8.1 to 0.8.2), one line to the final output
   contract, and one short section to `docs/eng-level.md`. All 109 tests pass.
