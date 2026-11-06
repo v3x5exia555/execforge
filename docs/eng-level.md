@@ -25,6 +25,10 @@ The Staff Engineer review inspects the actual Git diff and executable evidence. 
 - BLOCK
 
 
+## Client handoff
+
+When a paying client will read the outcome, `eng-level` hands its decision to `/client-level` after the verdict and records the handoff in `decision.md`. `client-level` only translates; it never changes the verdict or re-grades a finding.
+
 ## QA gate
 
 For portal/API/backend changes, a Staff Engineer review is followed by `/q-level`. If QA fixes production code, run a final delta review and affected QA retest before `SHIP`.

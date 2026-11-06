@@ -175,6 +175,14 @@ class SkillBundleTests(unittest.TestCase):
         for path in required_paths:
             self.assertTrue(path.exists(), f"Missing expected path: {path}")
 
+    # Value: protects=eng-level hands a finished verdict to client-level when a client will read it, without letting client-level change the verdict; fails_when=the handoff rule or its contract line is dropped; why_new=no other test mentions client-level inside eng-level; seam=none; no_claim=does not run a lifecycle
+    def test_eng_level_hands_off_to_client_level(self):
+        skill = (ROOT / "skills" / "eng-level" / "SKILL.md").read_text(encoding="utf-8")
+        self.assertIn("run `client-level` next", skill, "eng-level lost the client-level handoff rule")
+        self.assertIn("never changes the verdict", skill, "handoff rule no longer says the verdict is untouched")
+        contract = (ROOT / "skills" / "eng-level" / "references" / "fallback-review-contracts.md").read_text(encoding="utf-8")
+        self.assertIn("client-level", contract, "final output contract lost the client handoff line")
+
 
 if __name__ == "__main__":
     unittest.main()
