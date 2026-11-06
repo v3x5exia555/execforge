@@ -175,6 +175,21 @@ class SkillBundleTests(unittest.TestCase):
         for path in required_paths:
             self.assertTrue(path.exists(), f"Missing expected path: {path}")
 
+    # Value: protects=sec-pen is a bundled skill that gates the Strix pentest tool behind the authorization decision, never issues the security verdict, and labels its output as evidence; fails_when=sec-pen is dropped from the bundle or loses the authorization gate / no-verdict / evidence-label rules; why_new=no other test covers the pentest bridge skill; seam=none; no_claim=does not run Strix or judge finding quality (eval case does)
+    def test_sec_pen_skill_is_bundled_and_gated(self):
+        self.assertIn("sec-pen", module.BUNDLED_SKILLS, "sec-pen not registered in BUNDLED_SKILLS")
+        claude = json.loads((ROOT / ".claude-plugin" / "plugin.json").read_text())
+        self.assertIn("sec-pen", claude["skills"], "sec-pen missing from the Claude manifest")
+        skill = (ROOT / "skills" / "sec-pen" / "SKILL.md")
+        self.assertTrue(skill.exists(), "skills/sec-pen/SKILL.md is missing")
+        body = skill.read_text(encoding="utf-8")
+        self.assertIn("authorization gate", body.lower(), "sec-pen must bind to the authorization gate")
+        self.assertIn("never issues", body.lower(), "sec-pen must disclaim issuing the security verdict")
+        self.assertIn("OBSERVED", body, "sec-pen must label Strix output as OBSERVED evidence")
+        self.assertIn("AUTHORIZED", body, "sec-pen must require an AUTHORIZED decision before any run")
+        router = (ROOT / "skills" / "c-level" / "SKILL.md").read_text(encoding="utf-8")
+        self.assertIn("sec-pen", router, "c-level router does not reach sec-pen")
+
     # Value: protects=eng-level hands a finished verdict to client-level when a client will read it, without letting client-level change the verdict; fails_when=the handoff rule or its contract line is dropped; why_new=no other test mentions client-level inside eng-level; seam=none; no_claim=does not run a lifecycle
     def test_eng_level_hands_off_to_client_level(self):
         skill = (ROOT / "skills" / "eng-level" / "SKILL.md").read_text(encoding="utf-8")

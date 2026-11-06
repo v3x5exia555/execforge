@@ -66,6 +66,7 @@ Product decisions set **initiative flags** (`offensive-security`, `legally-gated
 | `eng-level` | Upstream approval, engineering plan review, implementation conformance, Staff Engineer review, and final ship decision |
 | `q-level` | Risk-based portal/API/backend QA planning, execution, retest, data-QA attachment, and `QA PASS / RETURN / BLOCK` decision |
 | `sec-level` | Application-security actor: threat model at plan stage, OWASP-mapped adversarial review of the real diff, and `SEC PASS / FIX REQUIRED / BLOCK` verdict |
+| `sec-pen` | Authorization-gated bridge to the Strix AI pentest tool: scopes a run, triages the `strix_runs` output into `OBSERVED` / `REPORTED` / `ASSUMED` evidence for `sec-level`, and never issues the security verdict itself |
 | `ux-level` | Senior PM + Lead UX Researcher journey review: friction, time-to-value, error recovery, cognitive load, severity matrix, and `UX PASS / FIX REQUIRED / REDESIGN` verdict — plus a `spec` mode that checks a written UI/UX spec for completeness before build (`SPEC PASS`) |
 | `client-level` | Consulting engagement lens: plain-words client answers with scenario and risk, deliverable readiness review (`CLIENT READY / FIX REQUIRED / REWORK`), and proposals with honest effort — never an invented number or price |
 
@@ -242,6 +243,7 @@ Parameters passed when you trigger an actor. Every parameter is optional.
 | `/eng-level` | `--mode` | `plan` \| `review` \| `full` \| `auto` \| `status` | Pass `auto` to detect the next valid stage |
 | `/q-level` | `--mode` | `plan` \| `execute` \| `full` \| `retest` \| `auto` \| `status` | Pass `auto` to detect the next valid stage |
 | `/sec-level` | `--mode` | `threat-model` \| `review` \| `auto` | Pass `auto` to pick from lifecycle evidence |
+| `/sec-pen` | *none* | Mode (`plan` \| `run` \| `triage`) is inferred from the request; inert unless Strix is installed and the target is `AUTHORIZED` | — |
 | `/ux-level` | *none* | Mode (`product` \| `technical` \| `spec`) is inferred from the request: naming a document or PRD selects `spec` | — |
 | `/client-level` | *none* | Mode (`answer` \| `deliverable` \| `proposal`) is inferred from the request | — |
 
