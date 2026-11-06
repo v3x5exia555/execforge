@@ -106,6 +106,34 @@ class SkillBundleTests(unittest.TestCase):
         self.assertIn("- Price: _to be set by the operator_", proposal)
         self.assertIn("Recommended?", proposal)
 
+    # Value: protects=client-level answer mode carries the SAY / DON'T SAY / DON'T COMMIT / ESCALATE verdict, the new-promise check, the ownership and track-record rule, and the status-update shape; fails_when=any of those is dropped from the skill or the answer template; why_new=the modes test above locks only the mode table and document verdicts; seam=none; no_claim=does not judge whether a real answer gets the right verdict (eval case does)
+    def test_client_level_answer_mode_carries_a_verdict(self):
+        skill_file = ROOT / "skills" / "client-level" / "SKILL.md"
+        body = skill_file.read_text(encoding="utf-8")
+        self.assertIn("answer-verdicts: SAY | DON'T SAY | DON'T COMMIT | ESCALATE", body)
+        for verdict_row in ["| `SAY` |", "| `DON'T SAY` |", "| `DON'T COMMIT` |", "| `ESCALATE` |"]:
+            self.assertIn(verdict_row, body, f"client-level answer verdict table lost row {verdict_row}")
+        self.assertIn("who built it, who owns it, who runs it", body, "ownership and track-record rule missing")
+        self.assertIn("creates a new promise", body, "new-promise check missing")
+        self.assertIn("A status update", body, "status-update shape missing")
+        self.assertIn("never computed", body, "status dates must be given, never computed")
+        template = (skill_file.parent / "assets" / "client-answer.template.md").read_text(encoding="utf-8")
+        self.assertIn("**Verdict:**", template, "client answer template lost the verdict line")
+
+    # Value: protects=client-level pitch mode (sales and fishing seat) exists with its honesty rules and template; fails_when=the mode row, the never-manufacture rule, the recurrence-fact rule, the two-confirmations rule, or the template link is dropped; why_new=no other test mentions pitch mode; seam=none; no_claim=does not judge a real pitch (eval case client-level-pitch does)
+    def test_client_level_pitch_mode_keeps_its_honesty_rules(self):
+        skill_file = ROOT / "skills" / "client-level" / "SKILL.md"
+        body = skill_file.read_text(encoding="utf-8")
+        self.assertIn("| `pitch` |", body, "client-level mode table lost the pitch row")
+        self.assertIn("## Mode: pitch", body)
+        self.assertIn("Never manufacture the problem.", body, "pitch mode lost the never-manufacture rule")
+        self.assertIn("labelled recurrence fact", body, "pitch mode lost the recurrence-fact rule")
+        self.assertIn("two confirmations from the operator", body, "pitch mode lost the two-confirmations rule")
+        self.assertIn("The price is always `ESCALATE`.", body)
+        links = module.markdown_links(skill_file)
+        self.assertIn("assets/pitch.template.md", links, "client-level does not link the pitch template")
+        self.assertTrue((skill_file.parent / "assets" / "pitch.template.md").exists())
+
     # Value: protects=ux-level spec mode exists with SPEC PASS verdict and the seven-pillar reference; fails_when=spec row, verdict, handoff, or a pillar heading is deleted; why_new=no test reads ux-level content; link check only proves the file exists; seam=none; no_claim=does not grade an actual spec review (eval case does)
     def test_ux_level_spec_mode_declares_seven_pillars_and_spec_pass(self):
         skill_file = ROOT / "skills" / "ux-level" / "SKILL.md"
@@ -137,6 +165,10 @@ class SkillBundleTests(unittest.TestCase):
         alias_targets = {
             "`explain to my client`": "`client-level`",
             "`review the spec`": "`ux-level` (spec mode)",
+            "`account manager`": "`client-level`",
+            "`status update`": "`client-level`",
+            "`project management`": "`eng-level`",
+            "`fishing`": "`client-level`",
         }
         for alias, target in alias_targets.items():
             rows = [line for line in body.splitlines() if alias in line]

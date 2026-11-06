@@ -8,6 +8,7 @@
 - **Last updated:** YYYY-MM-DD
 - **Role(s):** <c-level / execforge / eng-level / q-level / sec-level / design-html / full-cycle>
 - **Branch:** <git branch>
+- **Due:** <the date the operator gave, or none — never a date the agent worked out>
 - **Status:** PLANNING | IN PROGRESS | BLOCKED | DONE | DROPPED
 
 ## What was asked

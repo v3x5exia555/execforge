@@ -30,6 +30,11 @@ Stopgap already in place (2026-10-15): the CI cap was raised from 4 to 5 so addi
 `client-level.eval.md` does not push `eng-level-post-hoc-review.eval.md` out of the
 window. The spec-mode eval still does not run in CI until this item lands.
 
+Second stopgap (2026-11-07): the cap was raised from 5 to 6 so adding
+`client-level-pitch.eval.md` (sorts third) does not push `eng-level-post-hoc-review.eval.md`
+out of the window. Every later eval file sorts after the window and will not run in CI
+until this item lands.
+
 ### Join wrapped checklist lines in the eval parser
 
 **What:** Make `parse_eval_case` in `scripts/execforge.py` join a checkbox item's
