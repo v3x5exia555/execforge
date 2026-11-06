@@ -22,7 +22,7 @@ Before acting, select the smallest applicable workflow. Do not inspect code, ask
 | New product, feature, platform, automation, or unclear user need | Use `execforge` |
 | An existing or proposed user journey needs reviewing for friction, drop-off, or dead ends | Use `ux-level` |
 | A written UI/UX specification, PRD, or plan document needs reviewing for completeness before anything is built | Use `ux-level` (spec mode) |
-| Technical work must be explained, reviewed, or packaged for a paying client — an answer, a deliverable readiness check, or a proposal | Use `client-level` |
+| Technical work must be explained, reviewed, or packaged for a paying client — an answer, a deliverable readiness check, or a proposal — or a line to a client needs a say / don't-say / don't-commit call before it is written | Use `client-level` |
 | Approved product scope needs UX/interface structure or production-oriented HTML/CSS guidance | Use `design-html`; forward `--design-system=<name\|auto\|none>` when the operator set one |
 | Approved product scope needs its risks written down before engineering starts | Use `full-cycle` Stage 0b risk register (`skills/full-cycle/assets/risk-register.template.md`); nine questions per risk, carried into the approval gate |
 | Approved product/PRD needs engineering planning | Use `eng-level --mode=plan` |
@@ -93,6 +93,10 @@ Users do not type canonical skill names. Route these to the real skill without a
 | `explain to my client`, `make it simple for the client`, `client proposal`, `how do I reply to my client` | `client-level` |
 | `layman`, `layman term`, `make a proposal`, `is this good enough for presentation` | `client-level` when a client is the audience; otherwise route by the main router — an internal build or expand proposal is `execforge` territory, and only a plain explanation with no routing need (a stack trace in layman terms) is answered directly |
 | `what can we sell`, `what can we sales` | `client-level` when the ask is a client-facing offer; `execforge` when it is discovery of what to build next |
+| `account manager`, `account-manager`, `if they ask`, `what do we tell them`, `how do we answer`, `can we say`, `can we promise`, `deflect` | `client-level` (answer mode, with the `SAY / DON'T SAY / DON'T COMMIT / ESCALATE` verdict on each line) when a client is the audience |
+| `fishing`, `sales`, `upsell`, `pitch`, `how do I sell this`, `turn this into work`, `client has a blocker`, `they can't do it, can we`, `can we offer` | `client-level` (pitch mode: a one-screen strategy and the message to send; price stays with the operator) |
+| `status update`, `update my stakeholder`, `where are we with the client`, `what do I tell the client about progress` | `client-level` (answer mode, status shape: done, in progress, blocked, next date) |
+| `project management`, `project manager`, `where are we`, `what's next`, `what's left`, `what is blocked` | `eng-level` (`manager` role) when the question is about our own work; `client-level` when a client or stakeholder is the reader |
 | `exec-forge`, `excecforge`, `execforge lifecycle` | `execforge`, or `full-cycle` when the request spans build-to-ship |
 
 Misspellings and casing variants of any skill name route to that skill. When a request names

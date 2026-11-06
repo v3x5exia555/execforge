@@ -10,7 +10,7 @@ Use as a prior, not a regex. Classify intent, not tokens.
 | Role | Request signals | Change-surface signals |
 |---|---|---|
 | `architect` | cost, scale, capacity, RAM/CPU sizing, "can it handle N users", trade-off, "which platform should we target", "is X enough" | no diff; a sizing or design question with nothing yet to review |
-| `manager` | ticket, break down, tasks, roadmap, sequence, "what do I do next", "create the plan", "ensure the list is covered" | plan exists, no diff |
+| `manager` | ticket, break down, tasks, roadmap, sequence, "what do I do next", "create the plan", "ensure the list is covered", "project management", "where are we", "what's next", "what's left", "what is blocked" | plan exists, no diff; reads the `plans/` files for status and the `Due` line |
 | `staff-engineer` | review, CR, PR, diff, "check the code", "is it ready", "before merge" | **a real diff exists** |
 | `backend-engineer` | database, schema, index, query, migration, table, sync, "optimise the db", data integrity | diff touches migrations, schema, models, SQL, data-access code |
 | `platform-engineer` | deploy, VPS, SSH, domain, DNS, DKIM/SPF/DMARC, docker, proxy config, TLS, port, "why can't access", "it's in spam", cron | diff touches Dockerfile, compose, proxy config, `.env`, CI, infra directories |
