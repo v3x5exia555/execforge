@@ -21,6 +21,18 @@
 | QA (q-level) | NOT APPLICABLE — no portal, API, backend, or data change; markdown and tests only |
 | Delta after fixes | Tests rerun: 110 OK; validate passes; the fixes were text-only and re-read by the orchestrator |
 
+## Follow-on delta, same day: `pitch` mode
+
+| Stage | Evidence |
+|---|---|
+| Product decision | Single isolated review (CEO and COO lenses) recorded in the plan file, "The second review"; GO WITH CONDITIONS |
+| Implementation | Lock test first (seen to fail), then mode row, section, template, alias row, new eval case, CI cap 5 → 6, docs, decision addendum |
+| Delta review (staff-engineer + sec lens) | APPROVED WITH CONDITIONS; P2/S2 bare `sales`/`pitch` aliases qualified; P3 cost rank anchored to a labelled fact; 3 P3 noted (OBSERVED stretch on track record, test line-wrap brittleness, long description) |
+| Tests after fix | see the follow-up commit; suite 111 |
+| Verify (gstack) | NOT_READY: two generated `state.json` files unmapped; mapping added to `.gstack/pregate.json`, honored after merge |
+
+Pushed as pull request #35 (first commit a26d82a) on the operator's instruction.
+
 ## Conformance
 
 | Requirement / task | Status |

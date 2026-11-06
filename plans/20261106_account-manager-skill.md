@@ -7,7 +7,7 @@
 - **Last updated:** 2026-11-07
 - **Role(s):** c-level (router), execforge (decide whether to add the skill)
 - **Branch:** lz-account-manager-verdict (own worktree, cut from main, because another session is working on `sec-pen` in the main checkout)
-- **Status:** IN PROGRESS (first part built and reviewed; second part, the sales pitch mode, under review)
+- **Status:** DONE (both parts built, reviewed, pushed; pull request #35 open)
 
 ## What was asked
 
@@ -119,6 +119,21 @@ only if it can say a word nobody else may overrule.
 | **Cost** | Writing the rules and one eval case. Upkeep `not measured`. |
 | **What we expect after** | The eval case fails if the pitch invents frequency or promises the fix before the operator confirms room. |
 | **Does a human need training?** | `YES` — the operator must confirm "can" and "room" before sending, and set the price. |
+
+## The second review (execforge, pitch mode)
+
+One isolated reviewer carried both lenses, CEO and COO, because the change is small and
+reversible. Gatekeeper: PARTIAL. Real pain: a client blocker arrives and the operator
+wants the one message to send now; `proposal` mode is a six-section document, too heavy
+for that moment. Options weighed: a fourth `pitch` mode in `client-level` (recommended:
+one row, one section, one alias row, one eval case); fold into `proposal` (gives a
+document when a sentence was wanted); a separate sales skill (two reviews had already
+rejected a split, and the honesty rules would drift across two files). Honesty controls
+required: urgency needs a labelled recurrence fact; "we can fix it" needs the operator
+to confirm ability and room; the price is always `ESCALATE`; never manufacture the
+problem; no pitch on a softened or inflated finding; stay inside what was promised.
+Kill the mode if the operator bypasses it or a sent pitch carries a line the client
+later challenges. Final verdict: GO WITH CONDITIONS; the conditions are those rules.
 
 ## Choices made
 
@@ -270,6 +285,21 @@ one real job — the `SAY / DON'T SAY / DON'T COMMIT / ESCALATE` verdict — int
   mode row, the `## Mode: pitch` section, the pitch template, the alias row, the new
   eval case `evaluations/client-level-pitch.eval.md`, the CI cap raised to six with a
   note in `TODOS.md`, docs and README rows, and an addendum to the decision record.
+- 2026-11-07 — Operator said "push the code". Verify step run: the repo's tests pass
+  (111 OK), but the gstack checker reports NOT_READY because two generated lifecycle
+  state files have no test lane in the pregate policy, and the checker reads that
+  policy from `origin/main`. This branch maps the lifecycle folders in
+  `.gstack/pregate.json`; it takes effect after merge. Committed (a26d82a), pushed, and
+  pull request #35 opened.
+- 2026-11-07 — Delta review of pitch mode: APPROVED WITH CONDITIONS. One P2: bare
+  `sales` and `pitch` aliases would steal prompts like "sales dashboard" or "pitch
+  deck", so they now route only when a client is the audience. One P3 taken: the cost
+  rank in pitch mode must rest on a labelled fact. Follow-up commit pushed.
+  Fix risk analysis — blast radius: the router alias table only. Not fixed: a bare
+  "pitch" with no client in sight no longer routes to pitch mode; the operator says
+  "fishing" or "can we offer" instead. Detection: the lock test checks the `fishing`
+  alias still routes; nothing tests that bare `sales` stays out, so a later edit could
+  put it back unnoticed. Rollback: revert the follow-up commit.
   Checked the COO's claims: the eval window (first five files by name, cap of five)
   is real; the `sec-pen` work in this tree is real and untouched by this task.
 
@@ -284,10 +314,11 @@ one real job — the `SAY / DON'T SAY / DON'T COMMIT / ESCALATE` verdict — int
 
 ## Result
 
-Verdict MODIFY, and the recommended option is built and tested on branch
-`lz-account-manager-verdict`: the answer verdict, the three rules, and the status
+Verdict MODIFY, and the recommended option is built, tested, and pushed as pull request
+#35 on branch `lz-account-manager-verdict`: the answer verdict, the three rules, and the status
 shape in `skills/client-level/SKILL.md`; the alias rows; the extended eval case; docs;
-lock tests; the decision record. Proof: the files named in "What happened", a passing
+lock tests; the decision record; and, after the operator's clarification, the `pitch`
+mode with its template and eval case. Proof: the files named in "What happened", a passing
 validate run, 110 passing tests, and the Staff Engineer and security reviews recorded
 in the run's `decision.md`. Left out on purpose: a new skill, the version bump and
-changelog (the ship step does those), and the commit, which waits for the operator.
+changelog (the ship step does those). The merge waits for the operator.

@@ -156,7 +156,8 @@ say only what is true. Five parts, then the message. The whole thing fits on one
    under the ownership rule), is it inside or outside the current scope, and do we have
    room to do it now. Unknown capacity is `not measured`.
 4. **What it costs them to leave it** — `HIGH` / `MEDIUM` / `LOW`, in the client's
-   terms. This is the honest urgency, and the only urgency allowed.
+   terms, resting on a labelled fact; a rank built on an `ASSUMED` impact is `MEDIUM` at
+   most and says so. This is the honest urgency, and the only urgency allowed.
 5. **The verdict on the pitch** — one of `SAY` / `DON'T SAY` / `DON'T COMMIT` /
    `ESCALATE`, decided before the message is written. "We can fix it" needs
    two confirmations from the operator: we can (part 3, `OBSERVED`) and we have room.
