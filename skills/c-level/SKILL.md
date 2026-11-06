@@ -31,6 +31,7 @@ Before acting, select the smallest applicable workflow. Do not inspect code, ask
 | Existing branch needs final audit | Use `eng-level --mode=review` |
 | Web portal/API/backend behavior needs test planning or execution | Use `q-level` |
 | Change touches auth, user input, secrets, sensitive data, new dependencies, or network exposure | Attach `sec-level` (threat model at plan stage, security review at diff stage) |
+| An authorized penetration test should be run with the Strix tool, or a completed Strix run needs triaging into evidence | Use `sec-pen`; it is `offensive-security` work and runs only after an `AUTHORIZED` decision — the verdict stays with `sec-level` |
 | QA finds a code defect | Return to implementation, then retest |
 | QA finds an architecture/integration defect | Return to `eng-level --mode=plan` |
 | QA finds unclear or contradictory acceptance criteria | Return to `execforge` |
@@ -90,6 +91,7 @@ Users do not type canonical skill names. Route these to the real skill without a
 | `UX review`, `journey review`, `user journey`, `UX audit`, `usability review`, `friction points`, `drop-off` | `ux-level` |
 | `review the spec`, `review the PRD`, `is this spec complete`, `spec review` — and `review this plan` / `review the proposal` when the document is a UI/UX spec rather than code or architecture | `ux-level` (spec mode) |
 | `security review`, `threat model`, `pentest review` | `sec-level` |
+| `run strix`, `strix`, `run the pentest`, `pentest it`, `run a pen test` | `sec-pen` when the ask is to actually run the Strix tool against an authorized target or triage its output; a `pentest review` of code still routes to `sec-level` |
 | `explain to my client`, `make it simple for the client`, `client proposal`, `how do I reply to my client` | `client-level` |
 | `layman`, `layman term`, `make a proposal`, `is this good enough for presentation` | `client-level` when a client is the audience; otherwise route by the main router — an internal build or expand proposal is `execforge` territory, and only a plain explanation with no routing need (a stack trace in layman terms) is answered directly |
 | `what can we sell`, `what can we sales` | `client-level` when the ask is a client-facing offer; `execforge` when it is discovery of what to build next |
