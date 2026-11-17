@@ -11,3 +11,10 @@
 # keeps the snapshot verbatim on every platform, which is the whole point of
 # vendoring it.
 skills/ponytail/** -text
+
+# Forked upstream repos under forks/ are verbatim copies pinned by commit in
+# each PROVENANCE.md. Same reason as ponytail above: no line-ending translation,
+# so the bytes stay equal to upstream on every platform.
+forks/gstack/** -text
+forks/superpowers/** -text
+forks/awesome-design-skills/** -text
