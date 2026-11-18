@@ -68,7 +68,7 @@ Product decisions set **initiative flags** (`offensive-security`, `legally-gated
 | `sec-level` | Application-security actor: threat model at plan stage, OWASP-mapped adversarial review of the real diff, and `SEC PASS / FIX REQUIRED / BLOCK` verdict |
 | `sec-pen` | Authorization-gated bridge to the Strix AI pentest tool: scopes a run, triages the `strix_runs` output into `OBSERVED` / `REPORTED` / `ASSUMED` evidence for `sec-level`, and never issues the security verdict itself |
 | `ux-level` | Senior PM + Lead UX Researcher journey review: friction, time-to-value, error recovery, cognitive load, severity matrix, and `UX PASS / FIX REQUIRED / REDESIGN` verdict — plus a `spec` mode that checks a written UI/UX spec for completeness before build (`SPEC PASS`) |
-| `client-level` | Consulting engagement lens: plain-words client answers with scenario and risk, deliverable readiness review (`CLIENT READY / FIX REQUIRED / REWORK`), and proposals with honest effort — never an invented number or price |
+| `client-level` | Consulting engagement lens: plain-words client answers with scenario and risk and a `SAY / DON'T SAY / DON'T COMMIT / ESCALATE` verdict on each (the account manager's call), deliverable readiness review (`CLIENT READY / FIX REQUIRED / REWORK`), proposals with honest effort, and a `pitch` mode that turns a client's blocker into an honest offer with the message to send — never an invented number or price |
 
 Each skill follows the Agent Skills directory convention: a concise `SKILL.md` entry point, detailed contracts under `references/`, and reusable templates under `assets/`.
 
@@ -245,7 +245,7 @@ Parameters passed when you trigger an actor. Every parameter is optional.
 | `/sec-level` | `--mode` | `threat-model` \| `review` \| `auto` | Pass `auto` to pick from lifecycle evidence |
 | `/sec-pen` | *none* | Mode (`plan` \| `run` \| `triage`) is inferred from the request; inert unless Strix is installed and the target is `AUTHORIZED` | — |
 | `/ux-level` | *none* | Mode (`product` \| `technical` \| `spec`) is inferred from the request: naming a document or PRD selects `spec` | — |
-| `/client-level` | *none* | Mode (`answer` \| `deliverable` \| `proposal`) is inferred from the request | — |
+| `/client-level` | *none* | Mode (`answer` \| `deliverable` \| `proposal` \| `pitch`) is inferred from the request | — |
 
 Only `design-html` declares a default for an omitted parameter (`none`). `eng-level`, `q-level`, and `sec-level` document their modes but do not declare a default — pass `--mode=auto` explicitly, as the quick start does, rather than relying on inference. `ux-level` and `client-level` are the exception: they take no flag, and their mode is always inferred from the request.
 
